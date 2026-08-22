@@ -1,20 +1,56 @@
 import http from 'node:http'
-import type { IncomingMessage, ServerResponse } from 'node:http'
+import express from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import type { Config } from './config.js'
 import { newId } from './ids.js'
 import type { EventStore } from './store.js'
 import type { Bus } from './bus.js'
+import { mountA2a } from './a2a/mount.js'
 import type { WorldEvent } from '../../src/types.js'
 
 type Appendable = Omit<WorldEvent, 'id' | 'ts'> & Partial<Pick<WorldEvent, 'id' | 'ts'>>
 
 export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEvent>): Promise<{ server: http.Server }> {
-  const server = http.createServer((req, res) => {
-    handle(cfg, store, bus, req, res).catch(err => {
-      console.error(err)
-      if (!res.headersSent) send(res, 500, { error: err instanceof Error ? err.message : String(err) })
-    })
+  const app = express()
+
+  app.use((req, res, next) => {
+    res.setHeader('access-control-allow-origin', '*')
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'access-control-allow-methods': 'GET,POST',
+        'access-control-allow-headers': 'content-type',
+      })
+      res.end()
+      return
+    }
+    // The hand-rolled router never answered HEAD; keep GET routes HEAD-less.
+    if (req.method === 'HEAD') {
+      send(res, 404, { error: 'not found' })
+      return
+    }
+    next()
   })
+
+  if (cfg.enableA2a) mountA2a(app, { store, bus })
+
+  app.get('/events', (req, res) => streamEvents(store, bus, sinceOf(req), res))
+  app.get('/healthz', (_req, res) => send(res, 200, { ok: true, events: store.all().length }))
+
+  const jsonBody = express.json()
+  app.post('/chat', jsonBody, wrapped(async (req, res) => postChat(store, req.body, res)))
+  app.post('/approvals/:eventId/decision', jsonBody, wrapped(async (req, res) => postDecision(store, eventIdOf(req), req.body, res)))
+  app.post('/dev/emit', jsonBody, wrapped(async (req, res) => postDevEmit(cfg, store, req.body, res)))
+
+  app.use((_req, res) => send(res, 404, { error: 'not found' }))
+
+  app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+    console.error(err)
+    if (res.headersSent) return next()
+    if (isBodyParseFailure(err)) return send(res, 400, { error: 'malformed json body' })
+    send(res, 500, { error: err instanceof Error ? err.message : String(err) })
+  })
+
+  const server = http.createServer(app)
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
     server.listen(cfg.port, () => resolve())
@@ -22,72 +58,37 @@ export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEv
   return { server }
 }
 
-async function handle(cfg: Config, store: EventStore, bus: Bus<WorldEvent>, req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const method = req.method ?? 'GET'
-  const url = new URL(req.url ?? '/', 'http://localhost')
-  const path = url.pathname
+function sinceOf(req: Request): string | null {
+  const since = req.query.since
+  return typeof since === 'string' && since.length > 0 ? since : null
+}
 
-  if (method === 'OPTIONS') {
-    res.writeHead(204, {
-      'access-control-allow-origin': '*',
-      'access-control-allow-methods': 'GET,POST',
-      'access-control-allow-headers': 'content-type',
-    })
-    res.end()
-    return
-  }
+function eventIdOf(req: Request): string {
+  const id = req.params.eventId
+  if (typeof id !== 'string' || id.length === 0) throw new Error('missing event id')
+  return id
+}
 
-  try {
-    if (method === 'GET' && path === '/events') return streamEvents(store, bus, url.searchParams.get('since'), res)
-    if (method === 'GET' && path === '/healthz') return send(res, 200, { ok: true, events: store.all().length })
+function isBodyParseFailure(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { type?: string }).type === 'entity.parse.failed'
+}
 
-    if (method === 'POST') {
-      let body: unknown
-      try {
-        body = JSON.parse(await readBody(req))
-      } catch {
-        return send(res, 400, { error: 'malformed json body' })
-      }
-
-      if (path === '/chat') return await postChat(store, body, res)
-
-      const decision = /^\/approvals\/([^/]+)\/decision$/.exec(path)
-      if (decision) return await postDecision(store, decodeURIComponent(decision[1]), body, res)
-
-      if (path === '/dev/emit') return await postDevEmit(cfg, store, body, res)
-    }
-
-    send(res, 404, { error: 'not found' })
-  } catch (err) {
-    console.error(err)
-    if (!res.headersSent) send(res, 500, { error: err instanceof Error ? err.message : String(err) })
+function wrapped(handler: (req: Request, res: Response) => Promise<void>) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    handler(req, res).catch(next)
   }
 }
 
-function send(res: ServerResponse, status: number, body: unknown): void {
-  res.writeHead(status, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
-  res.end(JSON.stringify(body))
+function send(res: Response, status: number, body: unknown): void {
+  res.setHeader('content-type', 'application/json')
+  res.status(status).end(JSON.stringify(body))
 }
 
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let data = ''
-    req.setEncoding('utf8')
-    req.on('data', chunk => (data += chunk))
-    req.on('end', () => resolve(data))
-    req.on('error', reject)
-  })
-}
-
-function isNonEmpty(v: unknown): v is string {
-  return typeof v === 'string' && v.length > 0
-}
-
-function writeFrame(res: ServerResponse, ev: WorldEvent): void {
+function writeFrame(res: Response, ev: WorldEvent): void {
   res.write(`id: ${ev.id}\ndata: ${JSON.stringify(ev)}\n\n`)
 }
 
-function streamEvents(store: EventStore, bus: Bus<WorldEvent>, since: string | null, res: ServerResponse): void {
+function streamEvents(store: EventStore, bus: Bus<WorldEvent>, since: string | null, res: Response): void {
   res.writeHead(200, {
     'content-type': 'text/event-stream',
     'cache-control': 'no-cache',
@@ -109,9 +110,13 @@ function streamEvents(store: EventStore, bus: Bus<WorldEvent>, since: string | n
   res.on('error', cleanup)
 }
 
-async function postChat(store: EventStore, body: unknown, res: ServerResponse): Promise<void> {
+function isNonEmpty(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0
+}
+
+async function postChat(store: EventStore, body: unknown, res: Response): Promise<void> {
   const b = body as Record<string, unknown>
-  if (!isNonEmpty(b.agentId) || !isNonEmpty(b.text) || !isNonEmpty(b.personId)) {
+  if (!isNonEmpty(b?.agentId) || !isNonEmpty(b?.text) || !isNonEmpty(b?.personId)) {
     return send(res, 400, { error: 'agentId, text and personId are required non-empty strings' })
   }
   const ev = await store.append({
@@ -125,9 +130,9 @@ async function postChat(store: EventStore, body: unknown, res: ServerResponse): 
   send(res, 202, ev)
 }
 
-async function postDecision(store: EventStore, eventId: string, body: unknown, res: ServerResponse): Promise<void> {
+async function postDecision(store: EventStore, eventId: string, body: unknown, res: Response): Promise<void> {
   const b = body as Record<string, unknown>
-  if (!isNonEmpty(b.personId)) return send(res, 400, { error: 'personId is a required non-empty string' })
+  if (!isNonEmpty(b?.personId)) return send(res, 400, { error: 'personId is a required non-empty string' })
 
   const orig = store.get(eventId)
   if (!orig) return send(res, 404, { error: `event ${eventId} not found` })
@@ -160,11 +165,11 @@ async function postDecision(store: EventStore, eventId: string, body: unknown, r
   send(res, 200, ev)
 }
 
-async function postDevEmit(cfg: Config, store: EventStore, body: unknown, res: ServerResponse): Promise<void> {
+async function postDevEmit(cfg: Config, store: EventStore, body: unknown, res: Response): Promise<void> {
   if (!cfg.allowDevEmit) return send(res, 404, { error: 'not found' })
 
   const b = body as Record<string, unknown>
-  if (!b.event || typeof b.event !== 'object' || Array.isArray(b.event)) {
+  if (!b || typeof b !== 'object' || Array.isArray(b) || !b.event || typeof b.event !== 'object' || Array.isArray(b.event)) {
     return send(res, 400, { error: 'body must be { event: object }' })
   }
   const stored = await store.append({ ...(b.event as Appendable), id: newId('dev') })
