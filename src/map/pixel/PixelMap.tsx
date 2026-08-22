@@ -1,11 +1,11 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import { PANEL_WIDTH, useStore, type PresenceMark } from '../../store'
 import { BASE_AGENTS, deptById, personById } from '../../data/company'
 import { buildWorld, taskParticipants } from '../../engine/reducer'
 import { virtualAt } from '../../engine/replay'
 import type { Person, World } from '../../types'
-import { usePixelArt, type PixelArt } from './art'
+import { usePixelArt, type EmoteName, type PixelArt } from './art'
 import {
   buildingFor,
   fitK,
@@ -48,20 +48,23 @@ function hexA(hex: string, alpha: number): string {
 }
 
 /**
- * A spoken line over its speaker. Collapsed it clamps to three lines with an
+ * Everything an agent says or shows above its head. The status emote is the
+ * baseline (every working/blocked agent gets one, speaker or not); a fresh
+ * spoken line replaces it. Collapsed the bubble clamps to three lines with an
  * ellipsis; clicking pins it open into a scrollable pane, and hovering holds
  * it past the speech window so a long answer isn't lost mid-read. Rendered as
  * anchor + inner scroller + tail sibling so the tail survives scrolling.
  */
-function SpeechBubble({
-  art, text, active, fallback,
+function StatusBubble({
+  art, text, active, emote,
 }: {
   art: PixelArt
-  text: string
+  /** the agent's latest spoken line; undefined for agents who never chatted */
+  text?: string
   /** true while the line is fresh on the clock */
   active: boolean
-  /** rendered instead when the bubble is retired (the status emote) */
-  fallback: ReactNode
+  /** baseline status emote shown when no bubble is up */
+  emote: EmoteName | null
 }) {
   const [pinned, setPinned] = useState(false)
   const [hover, setHover] = useState(false)
@@ -70,8 +73,19 @@ function SpeechBubble({
   useEffect(() => {
     if (!active && !hover) setPinned(false)
   }, [active, hover])
-  const visible = active || pinned || hover
-  if (!visible) return <>{fallback}</>
+  const speaking = text != null && (active || pinned || hover)
+
+  if (!speaking) {
+    return emote ? (
+      <img
+        src={art.emotes.files[emote]}
+        alt=""
+        draggable={false}
+        className="pixelated pointer-events-none absolute select-none"
+        style={{ left: 0, top: -(CELL_PX + EMOTE_PX + 4), transform: 'translateX(-50%)', width: EMOTE_PX, height: EMOTE_PX }}
+      />
+    ) : null
+  }
   return (
     <div
       className="absolute"
@@ -423,24 +437,12 @@ function Scene({
                 }}
               />
             )}
-            {sp ? (
-              <SpeechBubble
-                art={art}
-                text={sp.text}
-                active={renderTime - sp.ts < SPEECH_MS}
-                fallback={
-                  emote ? (
-                    <img
-                      src={art.emotes.files[emote]}
-                      alt=""
-                      draggable={false}
-                      className="pixelated pointer-events-none absolute select-none"
-                      style={{ left: 0, top: -(CELL_PX + EMOTE_PX + 4), transform: 'translateX(-50%)', width: EMOTE_PX, height: EMOTE_PX }}
-                    />
-                  ) : null
-                }
-              />
-            ) : null}
+            <StatusBubble
+              art={art}
+              text={sp?.text}
+              active={sp != null && renderTime - sp.ts < SPEECH_MS}
+              emote={emote}
+            />
             <div
               onClick={(e) => {
                 e.stopPropagation()
@@ -595,7 +597,8 @@ function Scene({
       {presenceChips.map(({ mark, pt, person }) => (
         <div
           key={`${mark.personId}-${mark.where}`}
-          className="pointer-events-none absolute"
+          title={`${person.name} — viewing ${deptById.get(mark.where)?.name ?? mark.where}`}
+          className="pointer-events-auto absolute cursor-default"
           style={{ left: pt.x, top: pt.y, zIndex: Math.round(pt.y), ...dim(dimmed(mark.where)) }}
         >
           <div
