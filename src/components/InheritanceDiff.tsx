@@ -1,5 +1,6 @@
 import { useStore } from '../store'
 import { cx } from '../utils'
+import { Chip, Pill } from './ui'
 
 /**
  * Configuration inheritance for one worker — the Summit Launch Agent.
@@ -25,11 +26,11 @@ export default function InheritanceDiff() {
       </header>
 
       <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line px-3 py-2">
-        <LegendChip label="Company baseline" cls="border-linebright bg-raised text-dim" />
-        <LegendChip label="Marketing overrides" cls="border-task/45 bg-task/10 text-task" />
-        <LegendChip label="Worker local" cls="border-artifact/45 bg-artifact/10 text-artifact" />
+        <LegendChip label="Company baseline" cls={BASELINE_TINT} />
+        <LegendChip label="Marketing overrides" cls={DEPT_TINT} />
+        <LegendChip label="Worker local" cls={LOCAL_TINT} />
         <span className="text-dim">·</span>
-        <LegendChip label="denied" cls="border-escalation/45 bg-escalation/10 text-escalation" />
+        <LegendChip label="denied" cls={DENIED_TINT} />
       </div>
 
       <div className="flex-1 overflow-y-auto overscroll-contain">
@@ -164,14 +165,20 @@ const SECTIONS: Section[] = [
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
-/** chip base without a size/color, so per-use utilities never fight `.chip` */
-const PILL = 'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-medium'
+/**
+ * Layer tints for the shared Chip/Pill atoms. `!` where the tint would otherwise
+ * lose to the atom's own base utility at equal specificity.
+ */
+const BASELINE_TINT = 'border-linebright bg-raised! text-dim!'
+const DEPT_TINT = 'border-task/45 bg-task/10 text-task'
+const LOCAL_TINT = 'border-artifact/45! bg-artifact/10! text-artifact!'
+const DENIED_TINT = 'border-escalation/45! bg-escalation/10! text-escalation!'
 
 const SOURCE_LABEL: Record<Layer, string> = { baseline: 'baseline', dept: 'dept', local: 'local' }
 const SOURCE_CLS: Record<Layer, string> = {
-  baseline: 'border-linebright bg-raised text-dim',
-  dept: 'border-task/45 bg-task/10 text-task',
-  local: 'border-artifact/45 bg-artifact/10 text-artifact',
+  baseline: BASELINE_TINT,
+  dept: DEPT_TINT,
+  local: LOCAL_TINT,
 }
 const STATE_CLS: Record<RowState, string> = {
   inherited: 'text-dim',
@@ -207,9 +214,7 @@ function SettingRow({ row }: { row: DiffRow }) {
       </div>
 
       <div className="flex items-center justify-end gap-1.5">
-        <span className={cx(PILL, 'font-mono text-[9px] tracking-wider uppercase', SOURCE_CLS[row.source])}>
-          {SOURCE_LABEL[row.source]}
-        </span>
+        <Pill className={SOURCE_CLS[row.source]}>{SOURCE_LABEL[row.source]}</Pill>
         <span className={cx('text-[10px]', STATE_CLS[row.state])}>{row.state}</span>
       </div>
     </div>
@@ -217,5 +222,5 @@ function SettingRow({ row }: { row: DiffRow }) {
 }
 
 function LegendChip({ label, cls }: { label: string; cls: string }) {
-  return <span className={cx(PILL, 'text-[10px]', cls)}>{label}</span>
+  return <Chip className={cls}>{label}</Chip>
 }

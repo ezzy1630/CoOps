@@ -4,9 +4,18 @@ import { useStore } from '../store'
 import { TOOLS, deptById, personById } from '../data/company'
 import { artifactEventName } from '../data/artifactContent'
 import { cx, fmtUsd, timeAgo } from '../utils'
+import { Chip } from './ui'
 import type { AgentStatus, TaskStatus } from '../types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * This panel's chips keep the warm raised fill; the shared atom defaults to
+ * surface. `!` on any tint that would otherwise lose to the atom's own base
+ * utility at equal specificity (Tailwind orders same-property utilities by
+ * value, not by class-attribute order).
+ */
+const CHIP_FILL = 'bg-raised!'
 
 /** Re-render on a slow beat so relative timestamps stay honest. */
 function useNow(intervalMs = 20_000) {
@@ -16,34 +25,6 @@ function useNow(intervalMs = 20_000) {
     return () => clearInterval(t)
   }, [intervalMs])
   return now
-}
-
-/**
- * Chip built from utilities rather than the .chip class: .chip lives outside a
- * cascade layer, so a layered `text-task` could not repaint it.
- */
-function Chip({
-  tone, size = 'md', className, children, title,
-}: {
-  tone?: string
-  size?: 'sm' | 'md'
-  className?: string
-  children: ReactNode
-  title?: string
-}) {
-  return (
-    <span
-      title={title}
-      className={cx(
-        'inline-flex items-center gap-1 rounded-md border bg-raised px-1.5 py-0.5 font-medium',
-        size === 'sm' ? 'text-[10px]' : 'text-[11px]',
-        tone ?? 'border-line text-mut',
-        className,
-      )}
-    >
-      {children}
-    </span>
-  )
 }
 
 function StatusDot({ status, className }: { status: AgentStatus; className?: string }) {
@@ -77,8 +58,8 @@ function Avatar({ personId }: { personId: string }) {
 /** Task status tone — the same language the map overlays speak. */
 function taskTone(status: TaskStatus): string {
   switch (status) {
-    case 'done': return 'border-artifact/50 text-artifact'
-    case 'failed': return 'border-escalation/50 text-escalation'
+    case 'done': return 'border-artifact/50! text-artifact!'
+    case 'failed': return 'border-escalation/50! text-escalation!'
     case 'running': return 'border-task/50 text-task'
     case 'waiting_auth':
     case 'waiting_approval': return 'border-permission/50 text-permission'
@@ -210,7 +191,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
               <div className="flex items-center gap-2">
                 <StatusDot status={world.agentStatus.get(operator.id) ?? 'idle'} />
                 <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{operator.name}</span>
-                <Chip className="shrink-0">Department Agent</Chip>
+                <Chip className={cx(CHIP_FILL, 'shrink-0')}>Department Agent</Chip>
               </div>
               <p className="mt-1.5 text-[12px] leading-snug text-mut">{operator.purpose}</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -221,7 +202,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   Open Agent Room
                 </button>
                 <button
-                  className="rounded-lg px-2 py-1.5 text-[12px] text-mut transition-colors hover:bg-hover hover:text-ink"
+                  className="rounded-md px-2 py-1.5 text-[12px] text-mut transition-colors hover:bg-hover hover:text-ink"
                   title="Describe the job in chat — the agent interviews you, then drafts a blueprint"
                   onClick={() => useStore.getState().openPanel('agent', operator.id)}
                 >
@@ -246,14 +227,14 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   <button
                     key={w.id}
                     onClick={() => useStore.getState().openPanel('agent', w.id)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-hover"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-hover"
                   >
                     <StatusDot status={status} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
                         <span className="truncate text-[12.5px]">{w.name}</span>
                         {w.bornAt != null && (
-                          <Chip tone="border-task/50 text-task" size="sm" className="shrink-0">new</Chip>
+                          <Chip className={cx(CHIP_FILL, 'shrink-0 border-task/50 text-task')}>new</Chip>
                         )}
                       </span>
                       <span
@@ -274,7 +255,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
         </Section>
 
         {/* ── queue ── */}
-        <Section title="Queue" meta={active.length > 0 ? `${active.length} live` : 'clear'}>
+        <Section title="Queue" meta={active.length > 0 ? `${active.length} live` : 'empty'}>
           {active.length === 0 && finished.length === 0 ? (
             <Empty>Nothing in the queue.</Empty>
           ) : (
@@ -286,7 +267,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   <div
                     key={t.id}
                     className={cx(
-                      'rounded-lg px-2 py-1.5 transition-colors',
+                      'rounded-md px-2 py-1.5 transition-colors',
                       selectedTaskId === t.id ? 'bg-raised ring-1 ring-task/40' : 'hover:bg-hover',
                       over && 'opacity-70',
                     )}
@@ -296,7 +277,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                         className="flex min-w-0 flex-1 items-center gap-2 text-left"
                         onClick={() => useStore.getState().selectTask(t.id)}
                       >
-                        <Chip tone={taskTone(t.status)} size="sm" className="shrink-0">
+                        <Chip className={cx(CHIP_FILL, 'shrink-0', taskTone(t.status))}>
                           {t.status.replace('_', ' ')}
                         </Chip>
                         <span className="min-w-0 flex-1 truncate text-[12.5px]">{t.title}</span>
@@ -307,11 +288,14 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                       </button>
                       {over && (
                         <button
-                          className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] text-mut transition-colors hover:border-task/50 hover:text-task"
+                          type="button"
+                          className="inline-flex shrink-0 cursor-pointer"
                           title="Replay this task on the map"
                           onClick={() => useStore.getState().startReplay(t.id)}
                         >
-                          ↺ replay
+                          <Chip className={cx(CHIP_FILL, 'transition-colors hover:border-task/50 hover:text-task')}>
+                            ↺ replay
+                          </Chip>
                         </button>
                       )}
                     </div>
@@ -320,12 +304,15 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                         {delivered.map((ae) => (
                           <button
                             key={ae.id}
-                            className="inline-flex max-w-full cursor-pointer items-center gap-1 rounded-md border border-artifact/35 bg-artifact/8 px-1.5 py-0.5 text-[10px] font-medium text-artifact transition-colors hover:border-artifact/60 hover:bg-artifact/15"
+                            type="button"
+                            className="inline-flex max-w-full cursor-pointer"
                             title={`Open: ${artifactEventName(ae)}`}
                             onClick={() => useStore.getState().openArtifact(ae.id)}
                           >
-                            <DocGlyph />
-                            <span className="truncate">{artifactEventName(ae)}</span>
+                            <Chip className="max-w-full border-artifact/35! bg-artifact/8! text-artifact! transition-colors hover:border-artifact/60! hover:bg-artifact/15!">
+                              <DocGlyph />
+                              <span className="truncate">{artifactEventName(ae)}</span>
+                            </Chip>
                           </button>
                         ))}
                       </div>
@@ -351,9 +338,9 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   }}
                   onMouseEnter={() => useStore.getState().setHighlight(e.id)}
                   onMouseLeave={() => useStore.getState().setHighlight(null)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-hover"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-hover"
                 >
-                  <Chip tone="border-task/40 text-task" size="sm" className="shrink-0">
+                  <Chip className={cx(CHIP_FILL, 'shrink-0 border-task/40 text-task')}>
                     {deptById.get(e.deptFrom ?? '')?.name ?? e.deptFrom}
                   </Chip>
                   <span className="shrink-0 text-dim">→</span>
@@ -377,8 +364,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                 return (
                   <Chip
                     key={t.id}
-                    tone={needsAuth ? 'border-permission/40 text-permission' : undefined}
-                    className="gap-1.5"
+                    className={cx(CHIP_FILL, 'gap-1.5', needsAuth && 'border-permission/40 text-permission')}
                     title={
                       needsAuth
                         ? 'Owner must connect this account'

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { DEPARTMENTS, deptById } from '../data/company'
 import { cx, fmtClock, fmtDay, fmtDuration, fmtUsd } from '../utils'
+import { Chip, Pill, typeLabel } from './ui'
 import type { EventType, WorldEvent } from '../types'
 
 /** Live + historical run feed for the whole company. */
@@ -111,21 +112,25 @@ const TYPE_FILTERS: TypeFilter[] = [
   { key: 'tools', label: 'Tools', types: ['ToolCall'] },
 ]
 
-/** chip base without a size/color, so per-use utilities never fight `.chip` */
-const PILL = 'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5'
+/**
+ * Row metrics are data, not shouted labels, so they opt out of Pill's uppercase.
+ * `!` because a bare utility loses to the atom's own class at equal specificity.
+ */
+const META = 'shrink-0 normal-case!'
 
 function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button
-      className={cx(
-        PILL, 'cursor-pointer text-[11px] font-medium transition-colors',
-        active
-          ? 'border-task/55 bg-task/10 text-task'
-          : 'border-line bg-raised text-mut hover:border-linebright hover:text-ink',
-      )}
-      onClick={onClick}
-    >
-      {label}
+    <button type="button" className="inline-flex cursor-pointer" onClick={onClick}>
+      <Chip
+        className={cx(
+          'transition-colors',
+          active
+            ? 'border-task/55 bg-task/10 text-task'
+            : 'bg-raised! hover:border-linebright hover:text-ink',
+        )}
+      >
+        {label}
+      </Chip>
     </button>
   )
 }
@@ -166,16 +171,16 @@ function typeColor(t: EventType): string {
 function TypeChip({ type }: { type: EventType }) {
   const c = typeColor(type)
   return (
-    <span
-      className="shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[9px]"
+    <Pill
+      className="shrink-0 whitespace-nowrap"
       style={{
         color: c,
         borderColor: `color-mix(in srgb, ${c} 40%, transparent)`,
         background: `color-mix(in srgb, ${c} 10%, transparent)`,
       }}
     >
-      {type}
-    </span>
+      {typeLabel(type)}
+    </Pill>
   )
 }
 
@@ -224,33 +229,32 @@ function Row({ event: e, highlighted, onTrace }: { event: WorldEvent; highlighte
       </span>
       {route && <span className="shrink-0 text-[10px] text-dim">{route}</span>}
       {isArtifact && (
-        <span
-          className={cx(PILL, 'shrink-0 border-artifact/45 bg-artifact/8 font-mono text-[9px] text-artifact')}
+        <Pill
+          className={cx(META, 'gap-1 border-artifact/45! bg-artifact/8! text-artifact')}
           title="Open the delivered document"
         >
           <DocGlyph /> open
-        </span>
+        </Pill>
       )}
       {e.payload?.costUsd != null && (
-        <span className={cx(PILL, 'shrink-0 border-line bg-raised font-mono text-[9px] text-mut')}>
-          {fmtUsd(e.payload.costUsd)}
-        </span>
+        <Pill className={cx(META, 'text-mut')}>{fmtUsd(e.payload.costUsd)}</Pill>
       )}
       {e.payload?.latencyMs != null && (
-        <span className={cx(PILL, 'shrink-0 border-line bg-raised font-mono text-[9px] text-mut')}>
-          {fmtDuration(e.payload.latencyMs)}
-        </span>
+        <Pill className={cx(META, 'text-mut')}>{fmtDuration(e.payload.latencyMs)}</Pill>
       )}
       {e.taskId && (
         <button
-          className={cx(PILL, 'shrink-0 cursor-pointer border-line bg-raised font-mono text-[9px] text-mut hover:border-task/50 hover:text-task')}
+          type="button"
+          className="inline-flex shrink-0 cursor-pointer"
           title="Open the trace waterfall for this task"
           onClick={(ev) => {
             ev.stopPropagation()
             onTrace()
           }}
         >
-          trace
+          <Pill className={cx(META, 'text-mut transition-colors hover:border-task/50 hover:text-task')}>
+            trace
+          </Pill>
         </button>
       )}
     </div>
@@ -294,7 +298,7 @@ function TraceModal({ taskId, onClose }: { taskId: string; onClose: () => void }
         <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
           <span className="font-mono text-[10px] uppercase tracking-wider text-dim">Trace</span>
           <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{task?.title ?? taskId}</span>
-          <span className={cx(PILL, 'shrink-0 border-line bg-raised font-mono text-[9px] text-mut')}>{fmtDuration(range)}</span>
+          <Pill className={cx(META, 'text-mut')}>{fmtDuration(range)}</Pill>
           <button
             className="rounded px-1.5 py-0.5 text-[13px] text-dim hover:bg-hover hover:text-ink"
             title="Close"
@@ -309,8 +313,11 @@ function TraceModal({ taskId, onClose }: { taskId: string; onClose: () => void }
             const c = typeColor(e.type)
             return (
               <div key={e.id} className="flex items-center gap-2 py-[3px]">
-                <span className="w-[188px] shrink-0 truncate font-mono text-[9px] text-mut" title={`${e.type} · ${e.title}`}>
-                  <span style={{ color: c }}>{e.type}</span> · {e.title}
+                <span
+                  className="w-[188px] shrink-0 truncate font-mono text-[9px] text-mut"
+                  title={`${typeLabel(e.type)} · ${e.title}`}
+                >
+                  <span style={{ color: c }}>{typeLabel(e.type)}</span> · {e.title}
                 </span>
                 <span className="relative h-3 min-w-0 flex-1 rounded bg-ink/20">
                   <span

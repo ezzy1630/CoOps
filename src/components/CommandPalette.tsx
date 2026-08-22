@@ -269,7 +269,7 @@ export default function CommandPalette() {
                   onClick={() => run(e)}
                   onMouseMove={() => setIndex(i)}
                   className={cx(
-                    'flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors',
+                    'flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors',
                     i === index ? 'bg-hover ring-1 ring-linebright' : 'hover:bg-hover/50',
                   )}
                 >
