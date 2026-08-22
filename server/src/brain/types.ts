@@ -10,5 +10,5 @@ export interface BrainCtx {
 }
 
 export interface BrainAdapter {
-  handle(ctx: BrainCtx, agentId: string, deptId: string, text: string, personId: string): void
+  handle(ctx: BrainCtx, agentId: string, deptId: string, text: string, personId: string): Promise<void>
 }
