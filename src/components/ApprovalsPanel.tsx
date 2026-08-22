@@ -32,48 +32,74 @@ export default function ApprovalsPanel() {
     .slice(0, 8)
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
-        <h2 className="text-[13px] font-semibold">Work &amp; Approvals</h2>
-        <Chip className={approvals.length > 0 ? HUMAN_TINT : 'bg-raised!'}>{approvals.length}</Chip>
-        <div className="flex-1" />
-        <button
-          className="rounded px-1.5 py-0.5 text-[13px] text-dim hover:bg-hover hover:text-ink"
-          title="Close"
-          onClick={() => useStore.getState().closePanel()}
-        >
-          ✕
-        </button>
-      </header>
-
-      <div className="flex-1 overflow-y-auto overscroll-contain">
-        {approvals.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="flex flex-col gap-2.5 p-3">
-            {approvals.map((a) => (
-              <ApprovalCard
-                key={a.eventId}
-                approval={a}
-                isMine={persona?.id === a.personId}
-                viewer={presence.find((p) => p.where === `approval:${a.eventId}`)?.personId ?? null}
-                requester={refLabel(a.requestedBy, world.agents)}
-                onConnect={() => setOauthId(a.eventId)}
-              />
-            ))}
-          </div>
-        )}
-
-        {resolved.length > 0 && (
-          <section className="border-t border-line px-3 py-3">
-            <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-dim">Recently resolved</div>
-            <div className="flex flex-col">
-              {resolved.map((e) => (
-                <ResolvedRow key={e.id} event={e} />
-              ))}
+    <div className="flex h-full min-w-0 flex-col overflow-y-auto overscroll-contain bg-surface">
+      <div className="mx-auto flex w-full max-w-[1600px] min-w-0 flex-1 flex-col px-5 py-6 lg:px-8 lg:py-7">
+        <header className="flex shrink-0 items-end justify-between gap-4 border-b border-line pb-5">
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-dim">Human queue</div>
+            <div className="mt-1.5 flex items-center gap-2.5">
+              <h2 className="text-[21px] font-semibold tracking-[-0.02em]">Work &amp; approvals</h2>
+              <Chip className={approvals.length > 0 ? HUMAN_TINT : 'bg-raised!'}>{approvals.length}</Chip>
             </div>
-          </section>
-        )}
+            <p className="mt-1.5 text-[12px] text-dim">Requests waiting for a named person to unblock them.</p>
+          </div>
+          <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-wider text-dim sm:block">
+            {approvals.length === 0 ? 'Queue clear' : `${approvals.length} open request${approvals.length === 1 ? '' : 's'}`}
+          </span>
+        </header>
+
+        <div className="mt-5 min-w-0 flex-1">
+          {approvals.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <div className="overflow-x-auto border-y border-line">
+              <table className="w-full min-w-[900px] table-fixed border-collapse text-left">
+                <colgroup>
+                  <col className="w-[15%]" />
+                  <col className="w-[31%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[24%]" />
+                </colgroup>
+                <thead className="bg-raised/55">
+                  <tr className="border-b border-line">
+                    <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Type</th>
+                    <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Request</th>
+                    <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Routed to</th>
+                    <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Age</th>
+                    <th className="px-3 py-2.5 text-right font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {approvals.map((a) => (
+                    <ApprovalRow
+                      key={a.eventId}
+                      approval={a}
+                      isMine={persona?.id === a.personId}
+                      viewer={presence.find((p) => p.where === `approval:${a.eventId}`)?.personId ?? null}
+                      requester={refLabel(a.requestedBy, world.agents)}
+                      onConnect={() => setOauthId(a.eventId)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {resolved.length > 0 && (
+            <section className="mt-8">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-dim">Recently resolved</span>
+                <span className="h-px flex-1 bg-line" />
+              </div>
+              <div className="border-y border-line">
+                {resolved.map((e) => (
+                  <ResolvedRow key={e.id} event={e} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
       </div>
 
       {oauthApproval && <OAuthModal approval={oauthApproval} onClose={() => setOauthId(null)} />}
@@ -105,9 +131,9 @@ function refLabel(r: Ref | undefined, agents: { id: string; name: string }[]): s
   return 'Policy gateway'
 }
 
-// ─── Card ────────────────────────────────────────────────────────────────────
+// ─── Queue row ───────────────────────────────────────────────────────────────
 
-function ApprovalCard({
+function ApprovalRow({
   approval, isMine, viewer, requester, onConnect,
 }: {
   approval: PendingApproval
@@ -123,92 +149,99 @@ function ApprovalCard({
   const bp = approval.blueprint
 
   return (
-    <article className="anim-fadeup rounded-xl border border-line bg-raised/60 p-3">
-      <div className="flex items-center gap-2">
-        <Pill className={chip.cls}>{chip.label}</Pill>
-        {dept && <span className="text-[11px] text-mut">{dept.name}</span>}
-        <div className="flex-1" />
-        <span className="font-mono text-[10px] text-dim">{timeAgo(approval.ts)}</span>
-      </div>
-
-      <p className="mt-2 text-[13px] leading-snug font-medium text-ink">{approval.what}</p>
-      {requester && (
-        <p className="mt-1 text-[11px] text-dim">
-          Requested by <span className="text-mut">{requester}</span>
-        </p>
-      )}
-
-      {bp && (
-        <div className="mt-2.5 rounded-lg border border-line bg-raised/60 p-2.5">
-          <Field label="Purpose" value={bp.purpose} />
-          <Field label="Trigger" value={bp.trigger} />
-          <div className="mt-1.5 font-mono text-[10px] uppercase tracking-wider text-dim">Limits</div>
-          <ul className="mt-0.5 flex flex-col gap-0.5">
-            {bp.limits.slice(0, 3).map((l) => (
-              <li key={l} className="flex items-start gap-1.5 text-[11px] text-mut">
-                <span className="mt-[3px] size-1 shrink-0 rounded-full bg-artifact/80" />
-                {l}
-              </li>
-            ))}
-          </ul>
-          <button
-            className="btn mt-2.5 h-7 px-2 text-[11px]"
-            onClick={() => useStore.getState().openPanel('diff')}
-          >
-            View inheritance
-          </button>
-        </div>
-      )}
-
-      {/* the named human this is routed to */}
-      <div className="mt-2.5 flex items-center gap-2.5 rounded-lg border border-line bg-raised/60 px-2.5 py-2">
-        <span
-          className={cx('flex size-8 shrink-0 items-center justify-center rounded-full border border-linebright text-[10px] font-bold', person && 'text-abyss')}
-          style={{ background: person ? `hsl(${person.hue} 52% 87%)` : 'var(--color-raised)' }}
-        >
-          {person?.initials}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate text-[13px] font-medium">{person?.name ?? approval.personId}</span>
-            {isMine && <Chip className={cx('shrink-0 text-[10px]', TASK_TINT)}>assigned to you</Chip>}
+    <>
+      <tr className="anim-fadeup border-b border-line align-top transition-colors hover:bg-hover/35">
+        <td className="px-3 py-3">
+          <Pill className={cx(chip.cls, 'text-[9px]')}>{chip.label}</Pill>
+          {dept && <div className="mt-1.5 text-[11px] text-dim">{dept.name}</div>}
+        </td>
+        <td className="px-3 py-3">
+          <div className="max-w-[34rem] text-[13px] leading-snug font-medium text-ink">{approval.what}</div>
+          {requester && (
+            <div className="mt-1 text-[11px] text-dim">
+              Requested by <span className="text-mut">{requester}</span>
+            </div>
+          )}
+          {bp && <div className="mt-1 font-mono text-[10px] text-task">Blueprint review · inheritance limits</div>}
+        </td>
+        <td className="px-3 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className={cx('flex size-7 shrink-0 items-center justify-center rounded-full border border-linebright text-[9px] font-bold', person && 'text-abyss')}
+              style={{ background: person ? `hsl(${person.hue} 52% 87%)` : 'var(--color-raised)' }}
+            >
+              {person?.initials}
+            </span>
+            <div className="min-w-0">
+              <div className="truncate text-[12px] font-medium">{person?.name ?? approval.personId}</div>
+              <div className="truncate text-[10px] text-dim">{person?.role}</div>
+            </div>
           </div>
-          <span className="block truncate text-[11px] text-dim">{person?.role}</span>
-        </div>
-        {viewerPerson && (
-          <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-artifact">
-            <span className="size-1.5 animate-pulse rounded-full bg-artifact" />
-            {viewerPerson.name.split(' ')[0]} is viewing
-          </span>
-        )}
-      </div>
-
-      <div className="mt-2.5 flex items-center gap-2">
-        {approval.kind === 'auth' ? (
-          <button className="btn btn-primary h-8 text-[12px]" onClick={onConnect}>
-            Connect account…
-          </button>
-        ) : (
-          <button
-            className={cx('btn h-8 text-[12px]', approval.kind === 'blueprint' ? 'btn-primary' : 'btn-human')}
-            onClick={() => useStore.getState().approve(approval)}
-          >
-            Approve
-          </button>
-        )}
-        {approval.taskId && (
-          <button
-            className="btn h-8 text-[12px] text-mut"
-            onClick={() => useStore.getState().selectTask(approval.taskId ?? null)}
-          >
-            Focus on map
-          </button>
-        )}
-      </div>
-      {!isMine && person && (
-        <p className="mt-1.5 text-[10px] text-dim">acting for {person.name} (demo)</p>
+          {isMine && <Chip className={cx('mt-1.5 text-[10px]', TASK_TINT)}>assigned to you</Chip>}
+          {viewerPerson && (
+            <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-artifact">
+              <span className="size-1.5 animate-pulse rounded-full bg-artifact" />
+              {viewerPerson.name.split(' ')[0]} is viewing
+            </div>
+          )}
+        </td>
+        <td className="px-3 py-3 font-mono text-[11px] text-dim tabular-nums">{timeAgo(approval.ts)}</td>
+        <td className="px-3 py-3 text-right">
+          <div className="flex flex-wrap justify-end gap-1.5">
+            {approval.kind === 'auth' ? (
+              <button className="btn btn-primary h-7 px-2.5 text-[11px]" onClick={onConnect}>
+                Connect account…
+              </button>
+            ) : (
+              <button
+                className={cx('btn h-7 px-2.5 text-[11px]', approval.kind === 'blueprint' ? 'btn-primary' : 'btn-human')}
+                onClick={() => useStore.getState().approve(approval)}
+              >
+                Approve
+              </button>
+            )}
+            {approval.taskId && (
+              <button
+                className="btn h-7 px-2.5 text-[11px] text-mut"
+                onClick={() => useStore.getState().selectTask(approval.taskId ?? null)}
+              >
+                Focus on map
+              </button>
+            )}
+          </div>
+          {bp && (
+            <button
+              className="mt-2 text-[10px] text-dim underline decoration-linebright underline-offset-2 hover:text-ink"
+              onClick={() => useStore.getState().openPanel('diff')}
+            >
+              View inheritance
+            </button>
+          )}
+          {!isMine && person && <div className="mt-1.5 text-[10px] text-dim">acting for {person.name} (demo)</div>}
+        </td>
+      </tr>
+      {bp && (
+        <tr className="border-b border-line bg-raised/25">
+          <td colSpan={5} className="px-3 py-3">
+            <div className="grid gap-3 pl-1 text-[11px] text-mut md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)]">
+              <Field label="Purpose" value={bp.purpose} />
+              <Field label="Trigger" value={bp.trigger} />
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-dim">Limits</div>
+                <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                  {bp.limits.slice(0, 3).map((l) => (
+                    <li key={l} className="flex items-start gap-1.5">
+                      <span className="mt-[4px] size-1 shrink-0 rounded-full bg-artifact/80" />
+                      {l}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </td>
+        </tr>
       )}
-    </article>
+    </>
   )
 }
 

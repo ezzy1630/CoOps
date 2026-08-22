@@ -1,5 +1,9 @@
 import ApprovalsPanel from '../components/ApprovalsPanel'
 
 export default function ApprovalsPage() {
-  return <ApprovalsPanel />
+  return (
+    <div className="h-full min-w-0">
+      <ApprovalsPanel />
+    </div>
+  )
 }
