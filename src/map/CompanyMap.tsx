@@ -4,14 +4,72 @@ import { PANEL_WIDTH, useStore } from '../store'
 import { BASE_AGENTS, DEPARTMENTS, personById } from '../data/company'
 import { buildWorld, taskParticipants } from '../engine/reducer'
 import { virtualAt } from '../engine/replay'
-import type { EdgeKind, WorldEvent } from '../types'
+import type { AgentStatus, EdgeKind, EventType, WorldEvent } from '../types'
 import {
-  backOut, crossPath, districtLabelArc, easeInOut, easeOut, EDGE_COLOR, fitScale,
-  GATEWAY_TICKS, layout, polar, progressArc, qLength, qPoint,
+  backOut, crossPath, districtLabelArc, districtSubArc, easeInOut, easeOut, EDGE_COLOR, fitScale,
+  GATEWAY_ARC_BOTTOM, GATEWAY_ARC_TOP, GATEWAY_TICKS, layout, polar, progressArc, qLength, qPoint,
   R_GATEWAY, zonesBBox, ZOOM_DETAIL, ZOOM_MID, type Pt, type Zone,
 } from './geometry'
 
 const trunc = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
+
+/**
+ * Avatar chips are light pastels in both themes, so their initials need ink
+ * that stays dark when the rest of the page inverts. Deliberately a literal.
+ */
+const CHIP_INK = '#1d1c17'
+
+/**
+ * Worker names at fit zoom: drop the redundant “Agent” suffix, cap the length.
+ * Cached because it runs for every worker on every frame.
+ */
+const shortNames = new Map<string, string>()
+const shortName = (name: string): string => {
+  let s = shortNames.get(name)
+  if (s == null) {
+    s = name.replace(/\s+agents?$/i, '')
+    if (s.length > 16) s = s.slice(0, 15).trimEnd() + '…'
+    shortNames.set(name, s)
+  }
+  return s
+}
+
+/**
+ * One-word status for a node. The task *title* lives on the travelling
+ * envelope; repeating it under both endpoints put three copies of the same
+ * string on screen, so nodes say what they are doing instead.
+ */
+const ACTING_WORD: Partial<Record<EventType, string>> = {
+  TaskRequest: 'requesting',
+  TaskAccepted: 'accepted',
+  DelegatedTo: 'delegating',
+  StatusUpdate: 'working',
+  ToolCall: 'using tools',
+  ArtifactDelivered: 'delivering',
+  PermissionRequest: 'awaiting access',
+  AuthRequired: 'awaiting access',
+  Escalation: 'escalated',
+  GuardrailBlock: 'blocked',
+  BlueprintProposed: 'drafting spec',
+  Chat: 'replying',
+}
+const RECEIVING_WORD: Partial<Record<EventType, string>> = {
+  TaskRequest: 'starting',
+  TaskAccepted: 'waiting',
+  DelegatedTo: 'assigned',
+  StatusUpdate: 'reviewing',
+  ArtifactDelivered: 'reviewing',
+  Escalation: 'reviewing',
+  Chat: 'reading',
+}
+const statusWord = (
+  status: AgentStatus,
+  last: { type: EventType; acting: boolean } | undefined,
+): string => {
+  if (status === 'blocked') return 'blocked'
+  if (!last) return 'working'
+  return (last.acting ? ACTING_WORD[last.type] : RECEIVING_WORD[last.type]) ?? 'working'
+}
 
 interface Camera {
   cx: number
@@ -35,6 +93,9 @@ export default function CompanyMap() {
   const persona = useStore((s) => s.persona)
   const cameraRequest = useStore((s) => s.cameraRequest)
   const panel = useStore((s) => s.panel)
+  // pre-entry the map is a live backdrop under the persona gate: shapes and
+  // motion only — every glyph would collide with the gate's own copy.
+  const entered = useStore((s) => s.entered)
 
   // a side panel covers part of the viewport; center the map in what remains
   const panelW = panel ? PANEL_WIDTH[panel.kind] : 0
@@ -42,10 +103,22 @@ export default function CompanyMap() {
   panelWRef.current = panelW
 
   // ── measure ──
+  // The stage loses height when the overlays mount after entry. While the
+  // camera is still the framing we chose (nobody has panned or zoomed), re-fit
+  // to the box we actually have, or the entry crop drifts off-composition.
+  const autoFitRef = useRef(true)
   useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
-    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }))
+    const ro = new ResizeObserver(() => {
+      setSize({ w: el.clientWidth, h: el.clientHeight })
+      if (autoFitRef.current) {
+        // an in-flight fit was aimed at the old box; this one is aimed at the real one
+        animRef.current?.stop()
+        animatingRef.current = false
+        setCamera({ cx: 0, cy: 0, k: fitScale(el.clientWidth - panelWRef.current, el.clientHeight) })
+      }
+    })
     ro.observe(el)
     setSize({ w: el.clientWidth, h: el.clientHeight })
     setCamera({ cx: 0, cy: 0, k: fitScale(el.clientWidth, el.clientHeight) })
@@ -55,6 +128,11 @@ export default function CompanyMap() {
   // ── clock: render loop (throttled when nothing moves) ──
   const lastSetRef = useRef(0)
   const lastFrameRef = useRef(0)
+  const sizeRef = useRef(size)
+  sizeRef.current = size
+  // world point the replay camera should keep on stage (the live envelope)
+  const driftRef = useRef<Pt | null>(null)
+  const animatingRef = useRef(false)
   useEffect(() => {
     let raf = 0
     const loop = (t: number) => {
@@ -69,6 +147,22 @@ export default function CompanyMap() {
           st.toggleReplayPlay()
         } else {
           st.setReplayWall(next)
+        }
+      }
+      // gentle replay drift: hold the live envelope inside the middle of the
+      // frame. Position only, heavily damped, and it yields to the user for 4s
+      // after any wheel or drag.
+      const dp = driftRef.current
+      if (r?.playing && dp && !animatingRef.current && Date.now() - lastUserCamRef.current > 4000) {
+        const dtMs = lastFrameRef.current ? Math.min(64, t - lastFrameRef.current) : 16
+        const c = cameraRef.current
+        const halfW = (((sizeRef.current.w - panelWRef.current) / 2) * 0.42) / c.k
+        const halfH = ((sizeRef.current.h / 2) * 0.42) / c.k
+        const tx = dp.x > c.cx + halfW ? dp.x - halfW : dp.x < c.cx - halfW ? dp.x + halfW : c.cx
+        const ty = dp.y > c.cy + halfH ? dp.y - halfH : dp.y < c.cy - halfH ? dp.y + halfH : c.cy
+        if (Math.abs(tx - c.cx) * c.k > 0.6 || Math.abs(ty - c.cy) * c.k > 0.6) {
+          const a = 1 - Math.exp(-dtMs / 900)
+          setCamera({ cx: c.cx + (tx - c.cx) * a, cy: c.cy + (ty - c.cy) * a, k: c.k })
         }
       }
       lastFrameRef.current = t
@@ -109,6 +203,7 @@ export default function CompanyMap() {
   const progress = useMemo(() => {
     const byTask = new Map<string, { p: number; kind: EdgeKind; endedAt?: number }>()
     const lastTaskOf = new Map<string, string>()
+    const lastActOf = new Map<string, { type: EventType; acting: boolean }>()
     for (const e of renderWorld.events) {
       if (!e.taskId || e.type === 'Chat') continue
       let t = byTask.get(e.taskId)
@@ -125,18 +220,27 @@ export default function CompanyMap() {
         default: break
       }
       if (e.edge) t.kind = e.edge
-      for (const ref of [e.from, e.to]) if (ref?.kind === 'agent') lastTaskOf.set(ref.id, e.taskId)
+      if (e.from?.kind === 'agent') {
+        lastTaskOf.set(e.from.id, e.taskId)
+        lastActOf.set(e.from.id, { type: e.type, acting: true })
+      }
+      if (e.to?.kind === 'agent') {
+        lastTaskOf.set(e.to.id, e.taskId)
+        lastActOf.set(e.to.id, { type: e.type, acting: false })
+      }
     }
-    return { byTask, lastTaskOf }
+    return { byTask, lastTaskOf, lastActOf }
   }, [renderWorld])
 
-  // curved district-name arcs (textPath geometry; bottom-half arcs run reversed)
+  // curved district-name arcs + the workload line docked under them
+  // (textPath geometry; bottom-half arcs run reversed)
   const labelArcs = useMemo(
     () =>
       new Map(
         DEPARTMENTS.map((d) => {
           const z = lay.zones.get(d.id)!
-          return [d.id, districtLabelArc(z, Math.sin(z.angle) > 0.001)] as const
+          const flip = Math.sin(z.angle) > 0.001
+          return [d.id, { name: districtLabelArc(z, flip), sub: districtSubArc(z, flip) }] as const
         }),
       ),
     [lay],
@@ -163,6 +267,7 @@ export default function CompanyMap() {
     if (gentle && Date.now() - lastUserCamRef.current < 4000) return
     const t = cameraRequest.target
     let target: Camera
+    autoFitRef.current = t.type === 'fit'
     const effW = size.w - panelWRef.current
     if (t.type === 'fit') target = { cx: 0, cy: 0, k: fitScale(effW, size.h) }
     else if (t.type === 'zoomBy') {
@@ -187,6 +292,7 @@ export default function CompanyMap() {
     }
     animRef.current?.stop()
     const from = { ...cameraRef.current }
+    animatingRef.current = true
     animRef.current = animate(0, 1, {
       duration: gentle ? 1.15 : 0.85,
       ease: gentle ? [0.45, 0.05, 0.15, 1] : [0.32, 0.72, 0.12, 1],
@@ -196,6 +302,9 @@ export default function CompanyMap() {
           cy: from.cy + (target.cy - from.cy) * v,
           k: from.k + (target.k - from.k) * v,
         }),
+      onComplete: () => {
+        animatingRef.current = false
+      },
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraRequest.seq])
@@ -211,6 +320,8 @@ export default function CompanyMap() {
       e.preventDefault()
       lastUserCamRef.current = Date.now()
       animRef.current?.stop()
+      animatingRef.current = false
+      autoFitRef.current = false
       const { cx, cy, k } = cameraRef.current
       const rect = el.getBoundingClientRect()
       const px = e.clientX - rect.left - (rect.width - panelWRef.current) / 2
@@ -238,6 +349,8 @@ export default function CompanyMap() {
     if (d.moved > 3) {
       lastUserCamRef.current = Date.now()
       animRef.current?.stop()
+      animatingRef.current = false
+      autoFitRef.current = false
       setCamera((c) => ({ ...c, cx: c.cx - dx / c.k, cy: c.cy - dy / c.k }))
     }
     d.x = e.clientX
@@ -260,6 +373,11 @@ export default function CompanyMap() {
   const inv = 1 / k // constant-screen-size factor
   // district names sit on the map like engravings: full strength at fit, receding as you zoom into detail
   const districtLabelFade = 0.25 + 0.75 * Math.max(0, Math.min(1, 1 - (k - ZOOM_DETAIL) / 0.6))
+  // the workload line under each name belongs to the wide read; it retires once
+  // the district itself is legible in detail
+  const countFade = Math.max(0, Math.min(1, (ZOOM_DETAIL + 0.1 - k) / 0.2))
+  // all map lettering waits for entry — the gate has copy of its own
+  const showText = entered
 
   // ── visible cross-department traffic ──
   const crossEvents = useMemo(() => {
@@ -306,6 +424,21 @@ export default function CompanyMap() {
   const centerX = (w - panelW) / 2
   const screenOf = (p: Pt): Pt => ({ x: (p.x - cx) * k + centerX, y: (p.y - cy) * k + h / 2 })
 
+  // where the live replay envelope is right now — the render loop drifts toward it
+  driftRef.current = null
+  if (replay?.playing) {
+    for (let i = crossEvents.length - 1; i >= 0; i--) {
+      const { e, age, travel } = crossEvents[i]
+      const drawMs = travel * 0.18
+      if (age < drawMs || age >= travel) continue
+      const p0 = endpointFor(e, 'from')
+      const p1 = endpointFor(e, 'to')
+      const { ctrl } = crossPath(p0, p1, 0)
+      driftRef.current = qPoint(p0, ctrl, p1, easeInOut((age - drawMs) / Math.max(1, travel - drawMs)))
+      break
+    }
+  }
+
   // approvals → named humans on the map
   const humanBadges = useMemo(() => {
     const perDept = new Map<string, number>()
@@ -321,17 +454,20 @@ export default function CompanyMap() {
     })
   }, [renderWorld.approvals, lay])
 
-  const deptSummary = (deptId: string) => {
-    let working = 0
-    let blocked = 0
+  // per-district workload, counted once per world rather than once per district
+  const deptSummary = useMemo(() => {
+    const m = new Map<string, { working: number; blocked: number; total: number }>()
+    for (const d of DEPARTMENTS) m.set(d.id, { working: 0, blocked: 0, total: 0 })
     for (const ag of renderWorld.agents) {
-      if (ag.deptId !== deptId) continue
-      const s = renderWorld.agentStatus.get(ag.id)
-      if (s === 'working') working++
-      if (s === 'blocked') blocked++
+      const s = m.get(ag.deptId)
+      if (!s) continue
+      s.total++
+      const st = renderWorld.agentStatus.get(ag.id)
+      if (st === 'working') s.working++
+      else if (st === 'blocked') s.blocked++
     }
-    return { working, blocked }
-  }
+    return m
+  }, [renderWorld])
 
   return (
     <div
@@ -341,7 +477,9 @@ export default function CompanyMap() {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       style={{
-        backgroundImage: 'radial-gradient(circle at 1px 1px, rgb(29 28 23 / 0.08) 1px, transparent 0)',
+        // paper texture must follow the ink token, or dark mode loses the grid
+        backgroundImage:
+          'radial-gradient(circle at 1px 1px, var(--dotgrid, color-mix(in srgb, var(--color-ink) 9%, transparent)) 1px, transparent 0)',
         backgroundSize: '30px 30px',
       }}
     >
@@ -349,8 +487,13 @@ export default function CompanyMap() {
         <g transform={`translate(${centerX},${h / 2}) scale(${k}) translate(${-cx},${-cy})`} style={{ transition: 'none' }}>
           <defs>
             {DEPARTMENTS.map((d) => (
-              <path key={d.id} id={`dl-${d.id}`} d={labelArcs.get(d.id)} fill="none" />
+              <g key={d.id}>
+                <path id={`dl-${d.id}`} d={labelArcs.get(d.id)!.name} fill="none" />
+                <path id={`ds-${d.id}`} d={labelArcs.get(d.id)!.sub} fill="none" />
+              </g>
             ))}
+            <path id="gw-top" d={GATEWAY_ARC_TOP} fill="none" />
+            <path id="gw-bottom" d={GATEWAY_ARC_BOTTOM} fill="none" />
           </defs>
 
           {/* quiet instrument details: faint contours + compass ticks on the gateway */}
@@ -363,27 +506,53 @@ export default function CompanyMap() {
 
           {/* gateway ring + hollow center */}
           <circle r={R_GATEWAY} fill="none" stroke="var(--color-line)" strokeWidth={1.4 * inv} strokeDasharray={`${3 * inv} ${7 * inv}`} />
-          {showAgents && (
-            <>
-              <text y={-R_GATEWAY - 10 * inv} textAnchor="middle" fill="var(--color-dim)" fontSize={10.5 * inv} fontFamily="var(--font-mono)" letterSpacing="0.14em">
-                AGENT GATEWAY
+          {/* the hollow middle is the thesis, so it is engraved like one: a seal
+              around the ring, an inscription at dead centre — not a status */}
+          {showAgents && showText && (
+            <g className="pointer-events-none" fontFamily="var(--font-mono)">
+              <text fill="var(--color-mut)" opacity={0.85} fontSize={Math.min(16, 10.5 * inv)} letterSpacing="0.16em">
+                <textPath href="#gw-top" startOffset="50%" textAnchor="middle">
+                  AGENT GATEWAY
+                </textPath>
               </text>
-              <text y={4 * inv} textAnchor="middle" fill="var(--color-dim)" opacity={0.55} fontSize={10.5 * inv} fontFamily="var(--font-mono)" letterSpacing="0.22em">
-                NO ROOT OPERATOR
+              <text
+                y={-1 * inv}
+                dx={1.7 * inv}
+                textAnchor="middle"
+                fill="var(--color-ink)"
+                opacity={0.5}
+                fontSize={Math.min(16, 11 * inv)}
+                letterSpacing="0.3em"
+              >
+                NO ROOT AGENT
               </text>
-            </>
+              <line
+                x1={-26 * inv} x2={26 * inv} y1={9 * inv} y2={9 * inv}
+                stroke="var(--color-linebright)" strokeWidth={1 * inv} opacity={0.8}
+              />
+              <text fill="var(--color-dim)" fontSize={Math.min(14, 9.5 * inv)} letterSpacing="0.18em">
+                <textPath href="#gw-bottom" startOffset="50%" textAnchor="middle">
+                  DEPARTMENTS NEGOTIATE AS PEERS
+                </textPath>
+              </text>
+            </g>
           )}
 
           {/* department districts */}
           {DEPARTMENTS.map((d) => {
             const z = lay.zones.get(d.id)!
-            const sum = deptSummary(d.id)
+            const sum = deptSummary.get(d.id)!
             const isHome = persona?.deptId === d.id
             return (
               <g key={d.id} opacity={dimmed(d.id) ? 0.14 : 1} style={{ transition: 'opacity 0.35s' }}>
                 <path
                   d={z.path}
-                  fill={isHome ? 'rgb(29 28 23 / 0.05)' : 'rgb(29 28 23 / 0.025)'}
+                  // ink-through-transparent, so the district still reads when the ink turns cream
+                  fill={
+                    isHome
+                      ? 'color-mix(in srgb, var(--color-ink) 6%, transparent)'
+                      : 'color-mix(in srgb, var(--color-ink) 3.2%, transparent)'
+                  }
                   stroke="var(--color-line)"
                   strokeWidth={1.2 * inv}
                   className="cursor-pointer"
@@ -394,28 +563,46 @@ export default function CompanyMap() {
                     st.openPanel('dept', d.id)
                   }}
                 />
-                <text
-                  fill="var(--color-ink)"
-                  opacity={0.52 * districtLabelFade}
-                  fontSize={Math.min(30, 14 * inv)}
-                  fontWeight={600}
-                  letterSpacing="0.26em"
-                  className="pointer-events-none"
-                >
-                  <textPath href={`#dl-${d.id}`} startOffset="50%" textAnchor="middle">
-                    {d.name.toUpperCase()}
-                  </textPath>
-                </text>
-                {!showAgents && (sum.working > 0 || sum.blocked > 0) && (
-                  <text x={z.labelPos.x} y={z.labelPos.y + 4 * inv} textAnchor="middle" fontSize={11 * inv} className="pointer-events-none">
-                    {sum.working > 0 && (
-                      <tspan fill="var(--color-task)">{sum.working} active</tspan>
-                    )}
-                    {sum.blocked > 0 && (
-                      <tspan fill="var(--color-permission)" dx={sum.working > 0 ? 8 * inv : 0}>
-                        {sum.blocked} blocked
-                      </tspan>
-                    )}
+                {showText && (
+                  <text
+                    fill="var(--color-ink)"
+                    opacity={0.52 * districtLabelFade}
+                    fontSize={Math.min(30, 14 * inv)}
+                    fontWeight={600}
+                    letterSpacing="0.26em"
+                    className="pointer-events-none"
+                  >
+                    <textPath href={`#dl-${d.id}`} startOffset="50%" textAnchor="middle">
+                      {d.name.toUpperCase()}
+                    </textPath>
+                  </text>
+                )}
+                {/* workload, docked under the name arc — the wide read of the district */}
+                {showText && countFade > 0.02 && (
+                  <text
+                    fontSize={Math.min(16, 10 * inv)}
+                    fontFamily="var(--font-mono)"
+                    letterSpacing="0.14em"
+                    opacity={countFade}
+                    className="pointer-events-none"
+                  >
+                    <textPath href={`#ds-${d.id}`} startOffset="50%" textAnchor="middle">
+                      {sum.working === 0 && sum.blocked === 0 ? (
+                        <tspan fill="var(--color-dim)">{sum.total} AGENTS · IDLE</tspan>
+                      ) : (
+                        <>
+                          {sum.working > 0 && (
+                            <tspan fill="var(--color-task)" opacity={0.75}>{sum.working} ACTIVE</tspan>
+                          )}
+                          {sum.working > 0 && sum.blocked > 0 && (
+                            <tspan fill="var(--color-dim)"> · </tspan>
+                          )}
+                          {sum.blocked > 0 && (
+                            <tspan fill="var(--color-permission)" opacity={0.85}>{sum.blocked} BLOCKED</tspan>
+                          )}
+                        </>
+                      )}
+                    </textPath>
                   </text>
                 )}
               </g>
@@ -515,9 +702,10 @@ export default function CompanyMap() {
                   >
                     <rect x={-9} y={-6.5} width={18} height={13} rx={2.5} fill="var(--color-surface)" stroke={color} strokeWidth={1.4} />
                     <path d="M -9 -6.5 L 0 1 L 9 -6.5" fill="none" stroke={color} strokeWidth={1.1} />
-                    {showDetail && (
+                    {/* the only place the task title is spelled out on the map */}
+                    {showDetail && showText && (
                       <text y={-12} textAnchor="middle" fill={color} fontSize={10 * inv} fontWeight={500}>
-                        {trunc(e.title, 34)}
+                        {trunc(e.title, 44)}
                       </text>
                     )}
                   </g>
@@ -547,9 +735,11 @@ export default function CompanyMap() {
             return (
               <g key={e.id} transform={`translate(${p.x},${p.y})`} className="pointer-events-none">
                 <circle r={16} fill="none" stroke="var(--color-guard)" strokeWidth={2} style={{ animation: 'gatewayflash 2.6s ease-out both' }} />
-                <text textAnchor="middle" y={4} fontSize={12} fill="var(--color-guard)">
-                  ⛨
-                </text>
+                {showText && (
+                  <text textAnchor="middle" y={4} fontSize={12} fill="var(--color-guard)">
+                    ⛨
+                  </text>
+                )}
               </g>
             )
           })}
@@ -574,14 +764,16 @@ export default function CompanyMap() {
                   />
                 )}
                 <circle cx={anchor.x} cy={anchor.y} r={14 * inv} fill={`hsl(${person?.hue ?? 40} 52% 87%)`} stroke="var(--color-human)" strokeWidth={1.5 * inv} />
-                <text x={anchor.x} y={anchor.y + 3.5 * inv} textAnchor="middle" fontSize={9.5 * inv} fontWeight={700} fill="var(--color-ink)">
-                  {person?.initials}
-                </text>
+                {showText && (
+                  <text x={anchor.x} y={anchor.y + 3.5 * inv} textAnchor="middle" fontSize={9.5 * inv} fontWeight={700} fill={CHIP_INK}>
+                    {person?.initials}
+                  </text>
+                )}
                 <g transform={`translate(${anchor.x + 11 * inv},${anchor.y - 11 * inv}) scale(${inv})`}>
                   <circle r={7} fill="var(--color-abyss)" stroke="var(--color-human)" strokeWidth={1.2} />
                   <path d="M -2.5 -0.5 h5 v3.5 h-5 z M -1.5 -0.5 v-1.4 a1.5 1.5 0 0 1 3 0 v1.4" fill="none" stroke="var(--color-human)" strokeWidth={1.1} />
                 </g>
-                {showAgents && (
+                {showAgents && showText && (
                   <text x={anchor.x} y={anchor.y + 26 * inv} textAnchor="middle" fontSize={10 * inv} fill="var(--color-human)" fontWeight={600}>
                     {person?.name}
                   </text>
@@ -617,13 +809,21 @@ export default function CompanyMap() {
               }
               const task = taskId ? renderWorld.tasks.get(taskId) : undefined
               const arc = isOp && taskId ? progress.byTask.get(taskId) : undefined
-              const fs = (isOp ? 12 : 10) * inv
+              const fs = isOp ? 12 * inv : 9 * inv
+              // Workers are named at every zoom now, so their labels have to be
+              // collision-proof: the short form until detail, and staggered above
+              // and below the node by index so neighbours never share a line.
+              const label = isOp || showDetail || inCeremony ? ag.name : shortName(ag.name)
+              const above = !isOp && (lay.workerIdx.get(ag.id) ?? 0) % 2 === 0
+              const ly = isOp ? r + 14 * inv : above ? -(r + 7 * inv) : r + 13 * inv
               const typedN =
                 !inCeremony || birthAge >= 1420
-                  ? ag.name.length
+                  ? label.length
                   : birthAge < 420
                     ? 0
-                    : Math.min(ag.name.length, Math.ceil(ag.name.length * ((birthAge - 420) / 1000)))
+                    : Math.min(label.length, Math.ceil(label.length * ((birthAge - 420) / 1000)))
+              // while the name types on, pin the left edge so it grows rightward
+              const typing = typedN < label.length
               return (
                 <g
                   key={ag.id}
@@ -676,22 +876,33 @@ export default function CompanyMap() {
                       <path d="M -2.8 -0.6 h5.6 v4 h-5.6 z M -1.7 -0.6 v-1.6 a1.7 1.7 0 0 1 3.4 0 v1.6" fill="none" stroke="var(--color-permission)" strokeWidth={1.2} />
                     </g>
                   )}
-                  {(isOp || showDetail || status !== 'idle' || inCeremony) && typedN > 0 && (
+                  {showText && typedN > 0 && (
                     <text
-                      y={r + 14 * inv}
-                      textAnchor={typedN < ag.name.length ? 'start' : 'middle'}
-                      x={typedN < ag.name.length ? -ag.name.length * fs * 0.3 : 0}
+                      x={typing ? -label.length * fs * 0.28 : 0}
+                      y={ly}
+                      textAnchor={typing ? 'start' : 'middle'}
                       fontSize={fs}
                       fontWeight={isOp ? 600 : 500}
                       fill={isOp ? 'var(--color-ink)' : 'var(--color-mut)'}
+                      opacity={isOp ? 1 : status === 'idle' ? 0.72 : 0.95}
                     >
-                      {ag.name.slice(0, typedN)}
-                      {typedN < ag.name.length && <tspan opacity={0.55}>▏</tspan>}
+                      {label.slice(0, typedN)}
+                      {typing && <tspan opacity={0.55}>▏</tspan>}
                     </text>
                   )}
-                  {showDetail && task && status !== 'idle' && (
-                    <text y={r + 26 * inv} textAnchor="middle" fontSize={9 * inv} fill={statusColor} opacity={0.9}>
-                      {trunc(task.title, 30)}
+                  {/* what it is doing, not what the task is called — the title
+                      belongs to the envelope, once */}
+                  {showDetail && showText && task && status !== 'idle' && (
+                    <text
+                      y={ly + (above ? -10.5 : isOp ? 13 : 11) * inv}
+                      textAnchor="middle"
+                      fontSize={8.5 * inv}
+                      fontFamily="var(--font-mono)"
+                      letterSpacing="0.06em"
+                      fill={statusColor}
+                      opacity={0.9}
+                    >
+                      {statusWord(status, progress.lastActOf.get(ag.id))}
                     </text>
                   )}
                 </g>
@@ -712,9 +923,11 @@ export default function CompanyMap() {
                 return (
                   <g key={`${m.personId}-${m.where}`} transform={`translate(${pos.x},${pos.y})`} opacity={dimmed(m.where) ? 0.1 : 0.95} className="pointer-events-none">
                     <circle r={9 * inv} fill={`hsl(${person.hue} 52% 87%)`} stroke="var(--color-linebright)" strokeWidth={1 * inv} />
-                    <text y={3 * inv} textAnchor="middle" fontSize={7 * inv} fontWeight={700} fill="var(--color-ink)">
-                      {person.initials}
-                    </text>
+                    {showText && (
+                      <text y={3 * inv} textAnchor="middle" fontSize={7 * inv} fontWeight={700} fill={CHIP_INK}>
+                        {person.initials}
+                      </text>
+                    )}
                   </g>
                 )
               })}

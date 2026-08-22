@@ -56,6 +56,8 @@ export interface MapLayout {
   zones: Map<string, Zone>
   agentPos: Map<string, Pt>
   operatorOf: Map<string, string> // deptId → operator agentId
+  /** worker's index inside its department — drives label side alternation */
+  workerIdx: Map<string, number>
 }
 
 export function layout(depts: Department[], agents: AgentDef[]): MapLayout {
@@ -65,6 +67,7 @@ export function layout(depts: Department[], agents: AgentDef[]): MapLayout {
   const zones = new Map<string, Zone>()
   const agentPos = new Map<string, Pt>()
   const operatorOf = new Map<string, string>()
+  const workerIdx = new Map<string, number>()
 
   depts.forEach((d, i) => {
     const angle = -Math.PI / 2 + i * sector
@@ -94,6 +97,7 @@ export function layout(depts: Department[], agents: AgentDef[]): MapLayout {
     const spread = (z.a1 - z.a0) * 0.78
     const ring1 = workers.slice(0, 4)
     const ring2 = workers.slice(4)
+    workers.forEach((w, j) => workerIdx.set(w.id, j))
     ring1.forEach((w, j) => {
       const a = z.angle + ((j + 0.5) / ring1.length - 0.5) * spread
       agentPos.set(w.id, polar(R_WORKER_1, a))
@@ -104,7 +108,7 @@ export function layout(depts: Department[], agents: AgentDef[]): MapLayout {
     })
   }
 
-  return { zones, agentPos, operatorOf }
+  return { zones, agentPos, operatorOf, workerIdx }
 }
 
 /** Quadratic bezier pulled toward the center — cross-department edges transit the gateway. */
@@ -153,19 +157,37 @@ export const backOut = (t: number) => {
 }
 
 /**
- * Arc path for a district name set on a textPath, at a radius just inside the
- * district's outer edge. For bottom-half districts the direction is reversed
- * (and the radius bumped by roughly a cap height) so the text is never upside
- * down — classic seal lettering.
+ * Baseline arc for lettering set on a ring: centred on `mid`, spanning ±`half`.
+ * `flip` reverses the sweep for bottom-half arcs (so glyphs are never upside
+ * down) and pushes the baseline out by `cap` — roughly one cap height — so the
+ * lettering lands in the same visual band either way.
  */
-export const R_DISTRICT_LABEL = R_ZONE_OUT - 34
-export function districtLabelArc(z: Zone, flip: boolean): string {
-  const pad = 0.03
-  const r = flip ? R_DISTRICT_LABEL + 15 : R_DISTRICT_LABEL
-  const s = polar(r, flip ? z.a1 - pad : z.a0 + pad)
-  const e = polar(r, flip ? z.a0 + pad : z.a1 - pad)
-  return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 0 ${flip ? 0 : 1} ${e.x.toFixed(2)} ${e.y.toFixed(2)}`
+export function ringArc(r: number, mid: number, half: number, flip: boolean, cap = 0): string {
+  const rr = flip ? r + cap : r
+  const s = polar(rr, flip ? mid + half : mid - half)
+  const e = polar(rr, flip ? mid - half : mid + half)
+  return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${rr} ${rr} 0 0 ${flip ? 0 : 1} ${e.x.toFixed(2)} ${e.y.toFixed(2)}`
 }
+
+/**
+ * District lettering sits inside the outer arc by more than a cap height: the
+ * entry framing deliberately crops the rim, and a name that crops with it reads
+ * as a bug rather than as a map that continues past the frame.
+ */
+export const R_DISTRICT_LABEL = R_ZONE_OUT - 62
+export function districtLabelArc(z: Zone, flip: boolean): string {
+  return ringArc(R_DISTRICT_LABEL, z.angle, (z.a1 - z.a0) / 2 - 0.03, flip, 15)
+}
+
+/** Second, smaller line docked just inside the district name — workload counts. */
+export const R_DISTRICT_SUB = R_DISTRICT_LABEL - 26
+export function districtSubArc(z: Zone, flip: boolean): string {
+  return ringArc(R_DISTRICT_SUB, z.angle, (z.a1 - z.a0) / 2 - 0.03, flip, 11)
+}
+
+/** Gateway inscription: an engraved seal, not a status readout. */
+export const GATEWAY_ARC_TOP = ringArc(R_GATEWAY + 12, -Math.PI / 2, 0.66, false)
+export const GATEWAY_ARC_BOTTOM = ringArc(R_GATEWAY + 22, Math.PI / 2, 0.98, true, 13)
 
 /** Compass-rose ticks on the gateway ring: every 6°, slightly longer every 30°. */
 export const GATEWAY_TICKS: string = (() => {
@@ -218,8 +240,15 @@ export function zonesBBox(zones: Zone[]): { x: number; y: number; w: number; h: 
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
 }
 
+/**
+ * Entry framing. We fit to just *inside* the district ring rather than around
+ * the whole person ring, so the outermost arcs crop a little at top and bottom:
+ * a cropped edge implies a world that keeps going. ~30% deeper than a full fit,
+ * which also lands the default camera in the mid-zoom band where operators,
+ * workers and their names all read.
+ */
 export function fitScale(w: number, h: number): number {
-  return Math.min(w, h) / (2 * (R_PERSON + 110))
+  return Math.min(w, h) / (2 * (R_ZONE_OUT - 20))
 }
 
 export const EDGE_COLOR: Record<string, string> = {
