@@ -514,7 +514,14 @@ export default function CompanyMap() {
           </g>
 
           {/* gateway ring + hollow center */}
-          <circle r={R_GATEWAY} fill="none" stroke="var(--color-map-ring)" strokeWidth={1.4 * inv} strokeDasharray={`${3 * inv} ${7 * inv}`} />
+          <circle
+            r={R_GATEWAY}
+            fill="none"
+            stroke="var(--color-map-ring)"
+            strokeWidth={1.4 * inv}
+            strokeDasharray={`${3 * inv} ${7 * inv}`}
+            className="map-gateway-ring pointer-events-none"
+          />
           {/* the hollow middle is the thesis, so it is engraved like one: a seal
               around the ring, an inscription at dead centre — not a status */}
           {showAgents && showText && (
@@ -838,6 +845,7 @@ export default function CompanyMap() {
                     : Math.min(label.length, Math.ceil(label.length * ((birthAge - 420) / 1000)))
               // while the name types on, pin the left edge so it grows rightward
               const typing = typedN < label.length
+              const workEventKey = status === 'working' && taskId ? `${ag.id}:${status}:${taskId}` : null
               return (
                 <g
                   key={ag.id}
@@ -873,6 +881,16 @@ export default function CompanyMap() {
                     )}
                     <circle r={isOp ? 4.5 : 2.8} fill={status === 'idle' ? 'var(--color-map-node-muted)' : statusColor} />
                   </g>
+                  {workEventKey && (
+                    <circle
+                      key={`work-ring-${workEventKey}`}
+                      r={r + 5}
+                      fill="none"
+                      stroke={statusColor}
+                      strokeWidth={1.4 * inv}
+                      className="map-event-ring pointer-events-none"
+                    />
+                  )}
                   {inCeremony && birthAge >= 250 && birthAge < 850 && (
                     <circle
                       r={r + 4 + 30 * easeOut((birthAge - 250) / 600)}

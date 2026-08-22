@@ -72,26 +72,26 @@ html.dark {
   --color-human: #d19a3f;
   --color-ok: #63bd82;
 
-  /* Cool charcoal on the map gives the warm product chrome a clear boundary,
-     with a slightly darker central void and lighter district wedges. */
-  --color-map-canvas: #202426;
-  --color-map-void: #181c1e;
-  --color-map-wedge: #252a2d;
-  --color-map-wedge-home: #2b3033;
-  --color-map-line: #555d60;
-  --color-map-ring: #646d70;
-  --color-map-instrument: #747d7f;
-  --color-map-node: #2b3032;
-  --color-map-node-ring: #737b7e;
-  --color-map-node-muted: #536064;
-  --color-map-label: #b9c0c0;
-  --color-map-grid: rgb(234 238 236 / 0.045);
-  --color-map-task: #85a0df;
-  --color-map-artifact: #71ab82;
-  --color-map-permission: #c49650;
-  --color-map-escalation: #d16b5d;
-  --color-map-guard: #9b87d0;
-  --color-map-human: #c18f4c;
+  /* Neutral charcoal on the map gives the warm product chrome a clear
+     boundary, with a darker void and a legible drafting wedge structure. */
+  --color-map-canvas: #20211f;
+  --color-map-void: #181a18;
+  --color-map-wedge: #2b2c28;
+  --color-map-wedge-home: #32322d;
+  --color-map-line: #686861;
+  --color-map-ring: #4e514a;
+  --color-map-instrument: #797b73;
+  --color-map-node: #30312d;
+  --color-map-node-ring: #777972;
+  --color-map-node-muted: #61645c;
+  --color-map-label: #c0c1b8;
+  --color-map-grid: rgb(232 232 225 / 0.045);
+  --color-map-task: #8397c3;
+  --color-map-artifact: #77a17d;
+  --color-map-permission: #be9858;
+  --color-map-escalation: #c87565;
+  --color-map-guard: #9a8ab8;
+  --color-map-human: #bf955c;
 }
 
 :root {
@@ -156,6 +156,11 @@ body {
   18% { opacity: 1; transform: scale(1.15); }
   100% { opacity: 0; transform: scale(1.9); }
 }
+@keyframes map-event-ring {
+  0% { opacity: 0.4; transform: scale(0.84); }
+  35% { opacity: 0.24; transform: scale(1.08); }
+  100% { opacity: 0; transform: scale(1.42); }
+}
 @keyframes dashflow {
   to { stroke-dashoffset: -22; }
 }
@@ -179,8 +184,25 @@ body {
 .coops-map .map-agent-node {
   transition: fill 160ms ease, stroke 160ms ease;
 }
+.coops-map .map-event-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: map-event-ring 1.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.coops-map .map-gateway-ring {
+  stroke-opacity: 0.78;
+}
 html.dark .coops-map .map-instrument {
-  opacity: 0.56;
+  opacity: 0.28;
+}
+html.dark .coops-map .map-gateway-ring {
+  stroke-opacity: 0.4;
+}
+@media (prefers-reduced-motion: reduce) {
+  .coops-map .map-event-ring {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 svg text {
