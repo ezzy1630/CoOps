@@ -30,6 +30,35 @@ const cameraCue = (api: EngineApi, atMs: number, target: CameraTarget) => {
   window.setTimeout(() => api.requestCamera?.(target), Math.max(0, atMs))
 }
 
+// ─── Hero membership ─────────────────────────────────────────────────────────
+
+/** Title prefix every hero task carries. Safe for panels to match on. */
+export const HERO_TASK_PREFIX = 'Summit Series launch'
+
+/**
+ * The scripted demo claims its task id and every event it builds, so the rest of
+ * the app can tell a story beat from ambient company life without string-matching.
+ */
+const heroTaskIds = new Set<string>()
+const heroEventIds = new Set<string>()
+
+const claimTask = (taskId: string) => {
+  heroTaskIds.add(taskId)
+  return taskId
+}
+const claimSteps = (steps: Step[]) => {
+  for (const s of steps) heroEventIds.add(s.e.id)
+}
+
+/** Task ids created by the scripted launch demo. */
+export const isHeroTaskId = (taskId?: string | null): boolean => !!taskId && heroTaskIds.has(taskId)
+
+/** Does this event belong to the scripted launch demo (vs. ambient company life)? */
+export const isHeroEvent = (e: { id?: string; taskId?: string; title?: string }): boolean =>
+  (!!e.id && heroEventIds.has(e.id)) ||
+  isHeroTaskId(e.taskId) ||
+  (!!e.title && e.title.startsWith(HERO_TASK_PREFIX))
+
 export const LAUNCH_BLUEPRINT: AgentBlueprint = {
   name: 'Summit Launch Agent',
   deptId: 'marketing',
@@ -89,6 +118,7 @@ export function heroInterviewAuto(api: EngineApi, personId: string) {
   s.then(2000, chat(op, 'agent', personId, 'That’s everything I need. Here’s the blueprint — review the inherited config and approve when ready.'))
   const bp = blueprintEvent(personId)
   s.then(900, bp)
+  claimSteps(s.steps)
   api.schedule(s.steps)
   api.onResolve(bp.id, () => heroActB(api, personId))
   api.autoResolve(bp.id, s.length + 14_000, personId)
@@ -97,7 +127,7 @@ export function heroInterviewAuto(api: EngineApi, personId: string) {
 
 /** Act A, interactive version: called by the mock brain as the judge answers. */
 export function blueprintEvent(personId: string) {
-  return ev({
+  const e = ev({
     type: 'BlueprintProposed',
     from: agentRef('op-marketing'),
     to: personRef(personId),
@@ -106,11 +136,13 @@ export function blueprintEvent(personId: string) {
     detail: 'Inherits the company baseline and Marketing defaults; two local overrides.',
     payload: { blueprint: LAUNCH_BLUEPRINT },
   })
+  heroEventIds.add(e.id)
+  return e
 }
 
 /** Act B: spawn, brief, fan out. Finance blocks on QuickBooks. */
 export function heroActB(api: EngineApi, personId: string) {
-  const taskId = nextTaskId()
+  const taskId = claimTask(nextTaskId())
   const s = new Script()
   const w = LAUNCH_AGENT_ID
 
@@ -236,6 +268,7 @@ export function heroActB(api: EngineApi, personId: string) {
     payload: { artifact: { name: 'Summit Series FAQ draft', type: 'Article' }, costUsd: 0.07 },
   }))
 
+  claimSteps(s.steps)
   api.schedule(s.steps)
   api.onResolve(auth.id, () => heroActC(api, personId, taskId))
   // Dana notices ~the right beat after the block lands, then connects the account
@@ -247,6 +280,7 @@ export function heroActB(api: EngineApi, personId: string) {
 /** Act C: the checkpoint resume — budget lands, side effects fire, task completes. */
 export function heroActC(api: EngineApi, personId: string, taskId: string) {
   const w = LAUNCH_AGENT_ID
+  claimTask(taskId)
   const s = new Script()
   // resuming from the checkpoint: frame the two districts still in play
   cameraCue(api, 500, { type: 'frame', deptIds: ['finance', 'marketing'] })
@@ -295,6 +329,7 @@ export function heroActC(api: EngineApi, personId: string, taskId: string) {
   cameraCue(api, s.length + 1100, { type: 'fit' })
   s.then(1000, chat('op-marketing', 'agent', personId,
     'Launch prep is done. Budget confirmed by Finance, claims cleared by Legal (one wording fix), FAQs drafted by Support. Everything’s in the Summit Series Launch folder — replay the task to see the whole path.'))
+  claimSteps(s.steps)
   api.schedule(s.steps)
   api.toast('Checkpoint resumed', 'Dana connected QuickBooks — Finance is finishing the budget confirmation.')
 }

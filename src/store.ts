@@ -5,9 +5,12 @@ import type {
 import { BASE_AGENTS, personById } from './data/company'
 import { buildWorld } from './engine/reducer'
 import { agentRef, personRef, type Step } from './engine/build'
-import { ambientRng, buildHistory, nextAmbient } from './data/scenarios'
+import {
+  ambientRng, buildHistory, nextAmbient, standingApprovalFollowUp,
+  SEED_APPROVAL_EVENT_ID, SEED_APPROVAL_TASK_ID,
+} from './data/scenarios'
 import { between, pick } from './engine/rng'
-import { heroInterviewAuto, type EngineApi } from './data/hero'
+import { heroInterviewAuto, isHeroEvent, type EngineApi } from './data/hero'
 import { handleChat, type BrainCtx } from './engine/mockBrain'
 import { buildReplayMapping, replayDuration, type ReplayKnot } from './engine/replay'
 
@@ -20,6 +23,9 @@ const rng = ambientRng()
 let ambientAt = 0
 let presenceAt = 0
 let engineStarted = false
+let engineStartedAt = 0
+/** For the first minute the company runs hot: judges arrive to a moving map. */
+const WARMUP_MS = 60_000
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -176,7 +182,14 @@ export const useStore = create<Store>()((set, get) => {
         get().toast('Launch prep complete', 'Budget confirmed, claims cleared, FAQs drafted. Hit “Replay the launch” to watch the whole path again.')
       }
       if (s.entered) {
+        // While the scripted demo holds the stage, the toast lane belongs to the
+        // story. Ambient events still commit and still animate on the map — they
+        // just stop narrating over the beat (an ambient "Model Armor blocked
+        // content" landing next to the demo's own guardrail beat read as a bug).
+        const stage = get().heroStage
+        const scripted = stage === 'interview' || stage === 'blueprint' || stage === 'running'
         for (const e of due) {
+          if (scripted && !isHeroEvent(e)) continue
           if (e.type === 'AuthRequired' && e.blockedOn) {
             const p = personById.get(e.blockedOn.personId)
             get().toast(`Blocked: ${e.blockedOn.what}`, `Only ${p?.name ?? 'its owner'} can unblock this. The map shows the dotted line.`, 'human')
@@ -211,15 +224,26 @@ export const useStore = create<Store>()((set, get) => {
       return true
     })
 
-    // 3. ambient life
-    if (now >= ambientAt) {
-      const activeCount = [...world.tasks.values()].filter((t) => t.status !== 'done' && t.status !== 'failed').length
-      if (activeCount < 4) {
+    // 3. ambient life — hot for the first minute (arrivals must see a moving
+    //    map), then it settles; and held entirely during the demo's quiet beats
+    const heroStage = get().heroStage
+    if (heroStage === 'interview' || heroStage === 'blueprint') {
+      // the interview and the blueprint are conversations: no new work starts
+      ambientAt = Math.max(ambientAt, now + 1500)
+    } else if (now >= ambientAt) {
+      const warm = now - engineStartedAt < WARMUP_MS
+      // the standing approval never resolves on its own — it must not eat a slot
+      const activeCount = [...world.tasks.values()].filter(
+        (t) => t.id !== SEED_APPROVAL_TASK_ID && t.status !== 'done' && t.status !== 'failed',
+      ).length
+      if (activeCount < (warm ? 6 : 4)) {
         const { steps, lengthMs } = nextAmbient(rng)
         get().schedule(steps, 800)
-        ambientAt = now + lengthMs + between(rng, 16_000, 34_000)
+        // warm: pace off the *start* of this exchange, so two or three envelopes
+        // overlap in flight. settled: wait for it to finish, then a long beat.
+        ambientAt = now + (warm ? between(rng, 3000, 9000) : lengthMs + between(rng, 16_000, 34_000))
       } else {
-        ambientAt = now + 12_000
+        ambientAt = now + (warm ? 4000 : 12_000)
       }
     }
 
@@ -267,10 +291,21 @@ export const useStore = create<Store>()((set, get) => {
     startEngine() {
       if (engineStarted) return
       engineStarted = true
-      const log = buildHistory(Date.now()).sort(sortByTs)
+      const t0 = Date.now()
+      engineStartedAt = t0
+      const log = buildHistory(t0).sort(sortByTs)
       set({ log, world: rebuild(log) })
-      ambientAt = Date.now() + 4000
-      presenceAt = Date.now() + 1500
+      // two exchanges are already in flight while the gate is still up — the
+      // first thing anyone sees is a company at work, not a still diagram
+      for (const delay of [1000, 5000]) {
+        const { steps } = nextAmbient(rng)
+        get().schedule(steps, delay)
+      }
+      // the standing approval is the one thing already waiting on a human; when
+      // it is granted, Finance finishes the renewal instead of hanging open
+      continuations.set(SEED_APPROVAL_EVENT_ID, () => get().schedule(standingApprovalFollowUp()))
+      ambientAt = t0 + 9000
+      presenceAt = t0 + 900
       setInterval(tick, 300)
     },
 
@@ -412,6 +447,9 @@ export const useStore = create<Store>()((set, get) => {
         replay: { taskId, knots, durationMs: replayDuration(knots), wallMs: 0, playing: true },
         selectedTaskId: taskId,
       })
+      // a replay used to run wherever the camera happened to be pointing, so
+      // cross-department legs could play off-screen. Frame what the task crossed.
+      get().requestCamera({ type: 'frame', deptIds: t.path }, { gentle: true })
     },
     setReplayWall(wallMs) {
       const r = get().replay

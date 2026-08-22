@@ -1,5 +1,5 @@
 import type { WorldEvent } from '../types'
-import { agentRef, ev, personRef, systemRef, Script } from '../engine/build'
+import { agentRef, ev, personRef, systemRef, Script, type Step } from '../engine/build'
 import { between, mulberry32, pick, type Rng } from '../engine/rng'
 
 let taskNum = 990
@@ -204,6 +204,67 @@ const TEMPLATES: ((rng: Rng) => ExchangeSpec)[] = [
   }),
 ]
 
+// ─── The one thing already waiting on a human at boot ────────────────────────
+
+/** Task id of the standing scope-renewal request. Never auto-resolves. */
+export const SEED_APPROVAL_TASK_ID = 'T-scope-renewal'
+/** Event id of the standing request itself (the approvals-queue card). */
+export const SEED_APPROVAL_EVENT_ID = 'seed_scope_renewal'
+
+/**
+ * Dana's persona promises that blocked work finds her — so her queue is never
+ * empty, even before the launch demo runs. One low-stakes, routine item sits
+ * there from boot: a read-only capability the Invoice Triage Agent needs
+ * renewed. Deliberately *not* QuickBooks and on its own task, so it can't blur
+ * the demo's QuickBooks connection beat, and deliberately never auto-resolved,
+ * so it is reliably there whenever a judge opens the panel.
+ */
+export function standingApproval(now: number): WorldEvent[] {
+  const taskId = SEED_APPROVAL_TASK_ID
+  return [
+    {
+      id: 'seed_scope_task', ts: now - 66 * 60_000, type: 'TaskRequest', taskId,
+      from: agentRef('op-finance'), to: agentRef('w-invoice'),
+      deptFrom: 'finance', deptTo: 'finance',
+      title: 'Quarterly tool-scope review — Finance',
+      detail: 'Re-check every capability the Finance agents hold and renew the ones still in use.',
+      payload: {
+        objective: 'Renew the read-only capabilities Finance agents still need; let the rest lapse.',
+        expected: 'Renewed scopes', deadline: 'this week', visibility: 'finance',
+      },
+    },
+    {
+      id: SEED_APPROVAL_EVENT_ID, ts: now - 60 * 60_000, type: 'AuthRequired', taskId,
+      edge: 'permission', travelMs: 2400,
+      from: agentRef('w-invoice'), to: personRef('dana'),
+      deptFrom: 'finance', deptTo: 'finance',
+      title: 'Quarterly scope renewal — read-only',
+      detail: 'The Invoice Triage Agent’s Bill.com capability lapses Friday. Renewing keeps invoice matching running; the scope stays read-only, and the credential stays in the vault.',
+      blockedOn: { what: 'Renew Bill.com read-only scope', personId: 'dana', kind: 'auth' },
+    },
+  ]
+}
+
+/** What Finance does once the scope is renewed — so approving it resolves into visible work. */
+export function standingApprovalFollowUp(): Step[] {
+  const taskId = SEED_APPROVAL_TASK_ID
+  const s = new Script()
+  s.then(1400, ev({
+    type: 'ToolCall', taskId,
+    from: agentRef('w-invoice'), deptFrom: 'finance', deptTo: 'finance',
+    title: 'Bill.com: capability renewed',
+    detail: 'Read-only scope re-issued for 90 days — invoice matching resumes.',
+    payload: { tool: 'Bill.com', action: 'scope.renew', costUsd: 0.01, latencyMs: 420 },
+  }))
+  s.then(2600, ev({
+    type: 'TaskCompleted', taskId,
+    from: agentRef('w-invoice'), deptFrom: 'finance', deptTo: 'finance',
+    title: 'Quarterly tool-scope review — complete',
+    detail: 'One capability renewed; two unused ones left to lapse.',
+  }))
+  return s.steps
+}
+
 // ─── History backfill: two weeks of finished work ────────────────────────────
 
 export function buildHistory(now: number): WorldEvent[] {
@@ -220,6 +281,7 @@ export function buildHistory(now: number): WorldEvent[] {
     const { script } = exchange(spec, pace)
     for (const step of script.steps) out.push({ ...step.e, ts: start + step.at })
   }
+  out.push(...standingApproval(now))
   return out.sort((a, b) => a.ts - b.ts)
 }
 

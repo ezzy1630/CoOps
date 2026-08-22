@@ -76,6 +76,7 @@ export const PEOPLE: Person[] = [
 
 export const TOOLS: Tool[] = [
   { id: 'quickbooks', name: 'QuickBooks', kind: 'Accounting', ownerId: 'dana', deptId: 'finance', requiresAuth: true },
+  { id: 'billcom', name: 'Bill.com', kind: 'Payables', ownerId: 'dana', deptId: 'finance', requiresAuth: true },
   { id: 'gdrive', name: 'Google Drive', kind: 'Files', ownerId: 'maya', deptId: 'marketing', connected: true },
   { id: 'gsheets', name: 'Google Sheets', kind: 'Spreadsheets', ownerId: 'maya', deptId: 'marketing', connected: true },
   { id: 'zendesk', name: 'Zendesk', kind: 'Support desk', ownerId: 'nina', deptId: 'support', connected: true },
