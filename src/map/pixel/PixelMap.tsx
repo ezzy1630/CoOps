@@ -16,13 +16,15 @@ import {
   variantFor,
   type StandSpot,
 } from './layout'
-import { deriveWalkers, emoteFor, lastActs } from './choreography'
+import { deriveWalkers, emoteFor, lastActs, lastSpeech } from './choreography'
 const CELL = 16 // avatar cell in the strip, manifest avatars.cell
 const CELL_PX = CELL * SPRITE_SCALE
 // bubbles and letters draw at ×2: full-size cells would crowd the heads they label
 const EMOTE_PX = CELL * 2
 /** an emote shows while its act is fresh, then the village calms down */
 const EMOTE_FRESH_MS = 6000
+/** a spoken line hangs over its speaker briefly, then the emote returns */
+const SPEECH_MS = 6000
 
 // every standing villager idles between the same two strip columns (down0 ↔ down1)
 const BOB_VARS = {
@@ -36,6 +38,9 @@ const shortName = (name: string): string => {
   const s = name.replace(/\s+agents?$/i, '')
   return s.length > 16 ? s.slice(0, 15).trimEnd() + '…' : s
 }
+
+const truncText = (s: string, n: number): string =>
+  s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s
 
 /** Palette hexes arrive as "#rrggbb"; alpha tints stay derived from them. */
 function hexA(hex: string, alpha: number): string {
@@ -195,6 +200,8 @@ function Scene({
 
   const acts = useMemo(() => lastActs(world.events), [world.events])
 
+  const speech = useMemo(() => lastSpeech(world.events), [world.events])
+
   const guardrails = world.events.filter(
     (e) => e.type === 'GuardrailBlock' && renderTime - e.ts >= 0 && renderTime - e.ts < 2800,
   )
@@ -338,6 +345,8 @@ function Scene({
         // operators wear their owner (= department lead) hue, like the classic home wedges
         const ownerHue = ag.kind === 'operator' ? personById.get(ag.ownerId)?.hue : undefined
         const emote = emoteFor(world.agentStatus.get(ag.id) ?? 'idle', acts.get(ag.id), renderTime, EMOTE_FRESH_MS)
+        const sp = speech.get(ag.id)
+        const speaking = sp != null && renderTime - sp.ts < SPEECH_MS
         const isDim = dimmed(ag.deptId, ag.id)
         return (
           <div key={ag.id} className="absolute" style={{ left: pt.x, top: pt.y, zIndex: z, ...dim(isDim) }}>
@@ -354,7 +363,31 @@ function Scene({
                 }}
               />
             )}
-            {emote && (
+            {speaking ? (
+              <div
+                className="pointer-events-none absolute whitespace-normal rounded-sm border px-1.5 py-1 text-left leading-snug"
+                style={{
+                  left: 0,
+                  top: -(CELL_PX + 12),
+                  transform: 'translate(-50%, -100%)',
+                  maxWidth: 190,
+                  background: art.palette.paper,
+                  color: art.palette.ink,
+                  borderColor: hexA(art.palette.outline, 0.5),
+                  boxShadow: `2px 2px 0 ${hexA(art.palette.outline, 0.18)}`,
+                }}
+              >
+                <span className="font-mono text-[8px]">{truncText(sp!.text, 84)}</span>
+                <div
+                  className="absolute -bottom-[3px] left-1/2 size-[6px] -translate-x-1/2 rotate-45"
+                  style={{
+                    background: art.palette.paper,
+                    borderRight: `1px solid ${hexA(art.palette.outline, 0.5)}`,
+                    borderBottom: `1px solid ${hexA(art.palette.outline, 0.5)}`,
+                  }}
+                />
+              </div>
+            ) : emote ? (
               <img
                 src={art.emotes.files[emote]}
                 alt=""
@@ -362,7 +395,7 @@ function Scene({
                 className="pixelated pointer-events-none absolute select-none"
                 style={{ left: 0, top: -(CELL_PX + EMOTE_PX + 4), transform: 'translateX(-50%)', width: EMOTE_PX, height: EMOTE_PX }}
               />
-            )}
+            ) : null}
             <div
               onClick={(e) => {
                 e.stopPropagation()

@@ -147,6 +147,25 @@ function endpointFor(
   return art.plaza
 }
 
+// ── Speech ───────────────────────────────────────────────────────────────────
+
+export interface Speech {
+  text: string
+  ts: number
+}
+
+/** Each agent's most recent spoken line — agent-side chats only (a person's
+ *  question has no body in the valley to speak it). */
+export function lastSpeech(events: WorldEvent[]): Map<string, Speech> {
+  const m = new Map<string, Speech>()
+  for (const e of events) {
+    if (e.type !== 'Chat' || e.from?.kind !== 'agent') continue
+    const text = e.payload?.text ?? e.title
+    if (text) m.set(e.from.id, { text, ts: e.ts })
+  }
+  return m
+}
+
 // ── Status emotes ────────────────────────────────────────────────────────────
 
 export interface LastAct {
