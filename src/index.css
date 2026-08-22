@@ -54,17 +54,17 @@
 html.dark {
   color-scheme: dark;
 
-  --color-bg: #14130d;
-  --color-surface: #1c1b13;
-  --color-raised: #23221a;
-  --color-hover: #2b2a20;
-  --color-line: #32302a;
-  --color-linebright: #45422f;
-  --color-ink: #ece9dd;
-  --color-mut: #a9a696;
-  --color-dim: #7b7867;
+  --color-bg: #141617;
+  --color-surface: #191b1c;
+  --color-raised: #202324;
+  --color-hover: #26292a;
+  --color-line: #2b2e2f;
+  --color-linebright: #3c4041;
+  --color-ink: #e5e7e4;
+  --color-mut: #a1a6a2;
+  --color-dim: #6f7571;
 
-  --color-task: #8ba7f0;
+  --color-task: #91a9dc;
   --color-artifact: #63bd82;
   --color-permission: #d19a3f;
   --color-escalation: #e86a55;
@@ -74,12 +74,12 @@ html.dark {
 
   /* Neutral charcoal on the map gives the warm product chrome a clear
      boundary, with a darker void and a legible drafting wedge structure. */
-  --color-map-canvas: #20211f;
-  --color-map-void: #181a18;
-  --color-map-wedge: #2b2c28;
-  --color-map-wedge-home: #32322d;
-  --color-map-line: #686861;
-  --color-map-ring: #4e514a;
+  --color-map-canvas: #202322;
+  --color-map-void: #171918;
+  --color-map-wedge: #2e312f;
+  --color-map-wedge-home: #363936;
+  --color-map-line: #60645f;
+  --color-map-ring: #444844;
   --color-map-instrument: #797b73;
   --color-map-node: #30312d;
   --color-map-node-ring: #777972;
@@ -130,14 +130,14 @@ body {
 /* ── panels & chrome (layered so plain utilities can override them) ── */
 @layer components {
   .panel {
-    @apply bg-surface border border-line rounded-lg;
+    @apply bg-surface border border-line rounded-sm;
     box-shadow: 0 1px 2px rgb(23 22 15 / 0.05), 0 8px 24px rgb(23 22 15 / 0.05);
   }
   .chip {
-    @apply inline-flex items-center gap-1 rounded-md border border-line bg-surface px-1.5 py-0.5 text-[11px] font-medium text-mut;
+    @apply inline-flex items-center gap-1 rounded-sm border border-line bg-surface px-1.5 py-0.5 text-[10px] font-medium text-mut;
   }
   .btn {
-    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border border-linebright bg-surface px-3 py-1.5 text-[13px] font-medium text-ink transition-colors hover:bg-raised;
+    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-sm border border-linebright bg-surface px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:bg-raised;
   }
   .btn-primary {
     @apply border-ink bg-ink text-bg hover:bg-ink/85 hover:border-ink;
@@ -146,7 +146,7 @@ body {
     @apply border-human/50 bg-human/8 text-human hover:bg-human/15 hover:border-human;
   }
   .kbd {
-    @apply rounded border border-linebright bg-raised px-1.5 py-0.5 font-mono text-[10px] text-mut;
+    @apply border border-linebright bg-raised px-1.5 py-0.5 font-mono text-[10px] text-mut;
   }
 }
 
@@ -193,7 +193,7 @@ body {
   stroke-opacity: 0.78;
 }
 html.dark .coops-map .map-instrument {
-  opacity: 0.28;
+  opacity: 0.14;
 }
 html.dark .coops-map .map-gateway-ring {
   stroke-opacity: 0.4;

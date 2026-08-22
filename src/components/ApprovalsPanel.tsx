@@ -41,13 +41,11 @@ export default function ApprovalsPanel() {
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto overscroll-contain bg-surface">
-      <div className="mx-auto flex w-full max-w-[1600px] min-w-0 flex-1 flex-col px-5 py-5 lg:px-8 lg:py-6">
-        <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line pb-3">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-dim">Human queue</span>
-          <h2 className="text-[19px] font-semibold tracking-[-0.02em]">Work &amp; approvals</h2>
-          <Chip className={approvals.length > 0 ? HUMAN_TINT : 'bg-raised!'}>{approvals.length}</Chip>
+      <div className="flex w-full min-w-0 flex-1 flex-col px-6 py-4 lg:px-9">
+        <header className="flex min-h-10 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line">
+          <h2 className="text-[17px] font-semibold tracking-[-0.025em]">Approvals</h2>
+          <span className={cx('font-mono text-[10px] tabular-nums', approvals.length > 0 ? 'text-human' : 'text-dim')}>{approvals.length} waiting</span>
           <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="mr-0.5 font-mono text-[10px] uppercase tracking-wider text-dim">Show</span>
             <QueueFilterButton label="All" active={filter === 'all'} onClick={() => setFilter('all')} />
             <QueueFilterButton label="Assigned to me" active={filter === 'mine'} onClick={() => setFilter('mine')} />
             <QueueFilterButton label="Accounts" active={filter === 'auth'} onClick={() => setFilter('auth')} />
@@ -56,11 +54,11 @@ export default function ApprovalsPanel() {
           </div>
         </header>
 
-        <div className="mt-4 min-w-0 flex-1">
+        <div className="min-w-0 flex-1">
           {visibleApprovals.length === 0 ? (
             approvals.length === 0 ? <EmptyState /> : <FilteredEmptyState />
           ) : (
-            <div className="overflow-x-auto border-y border-line">
+            <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] table-fixed border-collapse text-left">
                 <colgroup>
                   <col className="w-[15%]" />
@@ -69,13 +67,10 @@ export default function ApprovalsPanel() {
                   <col className="w-[12%]" />
                   <col className="w-[24%]" />
                 </colgroup>
-                <thead className="bg-raised/55">
+                <thead>
                   <tr className="border-b border-line">
-                    <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Type</th>
-                    <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Request</th>
-                    <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Routed to</th>
-                    <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Age</th>
-                    <th className="px-3 py-2.5 text-right font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Action</th>
+                    {['Type', 'Request', 'Routed to', 'Age'].map((label) => <th key={label} className="px-3 py-2 text-[10px] font-medium text-dim">{label}</th>)}
+                    <th className="px-3 py-2 text-right text-[10px] font-medium text-dim">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -98,7 +93,7 @@ export default function ApprovalsPanel() {
           {resolved.length > 0 && (
             <section className="mt-8">
               <div className="mb-2 flex items-center gap-2">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-dim">Recently resolved</span>
+                <span className="text-[11px] font-medium text-mut">Recently resolved</span>
                 <span className="h-px flex-1 bg-line" />
               </div>
               <div className="border-y border-line">
@@ -138,7 +133,7 @@ const KIND_CHIP: Record<PendingApproval['kind'], { label: string; cls: string }>
 function QueueFilterButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button type="button" className="inline-flex cursor-pointer" onClick={onClick}>
-      <Chip className={cx('transition-colors', active ? 'border-task/55 bg-task/10 text-task' : 'bg-raised! hover:border-linebright hover:text-ink')}>
+      <Chip className={cx('transition-colors', active ? 'border-task/55 text-task' : 'border-transparent hover:border-linebright hover:text-ink')}>
         {label}
       </Chip>
     </button>
@@ -213,12 +208,12 @@ function ApprovalRow({
         }}
         title="Open on map"
       >
-        <td className="px-3 py-2">
+        <td className="px-3 py-1.5">
           <span className="mr-2 inline-block h-5 w-0.5 rounded-full align-middle" style={{ background: deptHue == null ? 'var(--color-linebright)' : `hsl(${deptHue} 55% 50%)` }} aria-hidden />
           <Pill className={cx(chip.cls, 'text-[9px]')}><CapabilityGlyph />{chip.label}</Pill>
           {dept && <div className="mt-1.5 text-[11px] text-dim">{dept.name}</div>}
         </td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-1.5">
           <div className="max-w-[34rem] text-[13px] leading-snug font-medium text-ink">{approval.what}</div>
           {requester && (
             <div className="mt-1 text-[11px] text-dim">
@@ -227,7 +222,7 @@ function ApprovalRow({
           )}
           {bp && <div className="mt-1 font-mono text-[10px] text-task">Blueprint review · inheritance limits</div>}
         </td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-1.5">
           <div className="flex min-w-0 items-center gap-2">
             <span
               className={cx('flex size-7 shrink-0 items-center justify-center rounded-full border border-linebright text-[9px] font-bold', person && 'text-abyss')}
@@ -248,8 +243,8 @@ function ApprovalRow({
             </div>
           )}
         </td>
-        <td className="px-3 py-2 font-mono text-[11px] text-dim tabular-nums">{timeAgo(approval.ts)}</td>
-        <td className="px-3 py-2 text-right">
+        <td className="px-3 py-1.5 font-mono text-[11px] text-dim tabular-nums">{timeAgo(approval.ts)}</td>
+        <td className="px-3 py-1.5 text-right">
           <div className="flex flex-wrap justify-end gap-1.5">
             {approval.kind === 'auth' ? (
               <button className="btn btn-primary h-7 px-2.5 text-[11px]" onClick={(event) => { event.stopPropagation(); onConnect() }}>

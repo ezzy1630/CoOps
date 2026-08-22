@@ -40,14 +40,12 @@ export default function MapOverlays() {
   return (
     <>
       <div
-        className="absolute bottom-0 left-0 z-10 flex h-[58px] items-center gap-4 border-t border-line bg-surface px-4"
+        className="absolute bottom-0 left-0 z-10 flex h-10 items-center gap-3 border-t border-line bg-surface px-3"
         style={{ right: panelW }}
         aria-label="Map status bar"
       >
         <Legend />
-        <StatusDivider />
         <ZoomControls />
-        <StatusDivider />
         <PulseSparkline />
         <div className="min-w-0 flex-1" />
         {!replay && (
@@ -57,7 +55,7 @@ export default function MapOverlays() {
 
       {task && !replay && (
         <div
-          className="pointer-events-none absolute bottom-[70px] left-0 z-10 flex justify-center px-3 transition-[right] duration-300"
+          className="pointer-events-none absolute bottom-[52px] left-0 z-10 flex justify-center px-3 transition-[right] duration-300"
           style={{ right: panelW }}
         >
           <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 shadow-[0_2px_8px_rgb(23_22_15/0.08)] anim-fadeup">
@@ -107,11 +105,10 @@ function Legend() {
   ] as const
 
   return (
-    <div className="flex shrink-0 items-center gap-2.5 text-[10px] text-mut">
-      <span className="mr-1 text-[11px] font-medium text-ink">Legend</span>
+    <div className="flex shrink-0 items-center gap-2 text-[9px] text-dim">
       {entries.map(([color, label]) => (
         <span key={label} className="flex items-center gap-1.5 whitespace-nowrap">
-          <span className="size-1.5 rounded-full" style={{ background: color }} />
+          <span className="h-2 w-px" style={{ background: color }} />
           <span className="hidden lg:inline">{label}</span>
         </span>
       ))}
@@ -119,23 +116,15 @@ function Legend() {
   )
 }
 
-function StatusDivider() {
-  return <span className="h-6 w-px shrink-0 bg-line" aria-hidden />
-}
-
 function ZoomControls() {
   return (
-    <div className="flex shrink-0 items-center gap-1 text-[11px] text-mut" aria-label="Map zoom controls">
-      <span className="mr-1 text-[11px] font-medium text-ink">Zoom</span>
-      <button className="flex size-7 items-center justify-center rounded border border-linebright hover:bg-hover hover:text-ink" title="Zoom out" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1 / 1.45 })}>
+    <div className="flex shrink-0 items-center border-l border-line pl-2 text-[10px] text-mut" aria-label="Map zoom controls">
+      <button className="flex size-6 items-center justify-center hover:bg-hover hover:text-ink" title="Zoom out" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1 / 1.45 })}>
         −
       </button>
-      <span className="flex h-7 min-w-10 items-center justify-center rounded border border-line bg-raised px-1 font-mono text-[10px] tabular-nums">100%</span>
-      <button className="flex size-7 items-center justify-center rounded border border-linebright hover:bg-hover hover:text-ink" title="Zoom in" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1.45 })}>
+      <button className="flex h-6 min-w-9 items-center justify-center font-mono text-[9px] tabular-nums hover:bg-hover hover:text-ink" title="Fit the whole company" onClick={() => useStore.getState().requestCamera({ type: 'fit' })}>Fit</button>
+      <button className="flex size-6 items-center justify-center hover:bg-hover hover:text-ink" title="Zoom in" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1.45 })}>
         +
-      </button>
-      <button className="ml-1 rounded border border-transparent px-1.5 py-1 text-[10px] hover:bg-hover hover:text-ink" title="Fit the whole company" onClick={() => useStore.getState().requestCamera({ type: 'fit' })}>
-        Fit
       </button>
     </div>
   )
@@ -156,7 +145,7 @@ function DemoAction({
 }) {
   if (heroStage === 'idle') {
     return (
-      <button className="btn btn-primary h-8 shrink-0 text-[12px]" onClick={() => useStore.getState().runHeroAuto()}>
+      <button className="h-6 shrink-0 border-l border-line px-3 text-[10px] font-medium text-ink hover:bg-hover" onClick={() => useStore.getState().runHeroAuto()}>
         <PlayIcon />
         Run the launch demo
       </button>
@@ -164,20 +153,20 @@ function DemoAction({
   }
   if (heroStage === 'done' && heroTask) {
     return (
-      <button className="btn btn-primary h-8 shrink-0 text-[12px]" onClick={onReplay}>
+      <button className="h-6 shrink-0 border-l border-line px-3 text-[10px] font-medium text-ink hover:bg-hover" onClick={onReplay}>
         <ReplayIcon />
         Replay the launch
       </button>
     )
   }
   return (
-    <div className="flex min-w-0 max-w-[430px] items-center gap-3" title={beat}>
-      <div className="flex shrink-0 items-center gap-1.5 font-mono text-[9px] uppercase tracking-wider">
+    <div className="flex min-w-0 max-w-[520px] items-center gap-3" title={beat}>
+      <div className="flex shrink-0 items-center gap-1.5 text-[9px]">
         {ACTS.map((label, index) => (
           <span key={label} className="flex items-center gap-1.5">
             {index > 0 && <span className="text-dim">→</span>}
             <span className={cx(index + 1 === act ? 'text-ink' : index + 1 < act ? 'text-mut' : 'text-dim')}>
-              {index + 1} {label}
+              {label}
             </span>
           </span>
         ))}

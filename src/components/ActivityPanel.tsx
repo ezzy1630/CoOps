@@ -37,19 +37,16 @@ export default function ActivityPanel() {
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto overscroll-contain bg-surface">
-      <div className="mx-auto flex w-full max-w-[1600px] min-w-0 flex-1 flex-col px-5 py-5 lg:px-8 lg:py-6">
-        <header className="sticky top-0 z-10 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface/95 pb-3 backdrop-blur-sm">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-dim">System record</span>
-          <h2 className="text-[19px] font-semibold tracking-[-0.02em]">Activity</h2>
-          <span className="font-mono text-[10px] tabular-nums text-dim">{rows.length} shown <span className="text-linebright">·</span> {active} active <span className="text-linebright">·</span> {blocked} blocked <span className="text-linebright">·</span> {fmtUsd(spend)} today</span>
+      <div className="flex w-full min-w-0 flex-1 flex-col px-6 py-4 lg:px-9">
+        <header className="sticky top-0 z-10 flex min-h-10 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-surface/95 backdrop-blur-sm">
+          <h2 className="text-[17px] font-semibold tracking-[-0.025em]">Activity</h2>
+          <span className="font-mono text-[10px] tabular-nums text-dim">{rows.length} shown / {active} active / {blocked} blocked / {fmtUsd(spend)} today</span>
           <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="mr-0.5 font-mono text-[10px] uppercase tracking-wider text-dim">Dept</span>
             <FilterChip label="All" active={dept === 'all'} onClick={() => setDept('all')} />
             {DEPARTMENTS.map((d) => (
               <FilterChip key={d.id} label={d.name} active={dept === d.id} onClick={() => setDept(d.id)} />
             ))}
             <span className="mx-1 h-3 w-px bg-line" />
-            <span className="mr-0.5 font-mono text-[10px] uppercase tracking-wider text-dim">Stream</span>
             {TYPE_FILTERS.map((f) => (
               <FilterChip key={f.key} label={f.label} active={group === f.key} onClick={() => setGroup(f.key)} />
             ))}
@@ -68,13 +65,10 @@ export default function ActivityPanel() {
                 <col className="w-[17%]" />
                 <col className="w-[21%]" />
               </colgroup>
-              <thead className="bg-raised/55">
+              <thead>
                 <tr className="border-b border-line">
-                  <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">When</th>
-                  <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Stream</th>
-                  <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Event</th>
-                  <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Route</th>
-                  <th className="px-3 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Metrics</th>
+                  {['When', 'Stream', 'Event', 'Route'].map((label) => <th key={label} className="px-3 py-2 text-[10px] font-medium text-dim">{label}</th>)}
+                  <th className="px-3 py-2 text-right text-[10px] font-medium text-dim">Metrics</th>
                 </tr>
               </thead>
               <tbody>
@@ -130,8 +124,8 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
         className={cx(
           'transition-colors',
           active
-            ? 'border-task/55 bg-task/10 text-task'
-            : 'bg-raised! hover:border-linebright hover:text-ink',
+            ? 'border-task/55 text-task'
+            : 'border-transparent hover:border-linebright hover:text-ink',
         )}
       >
         {label}
@@ -172,8 +166,6 @@ function TypeChip({ type }: { type: EventType }) {
       className="shrink-0 whitespace-nowrap"
       style={{
         color: c,
-        borderColor: `color-mix(in srgb, ${c} 40%, transparent)`,
-        background: `color-mix(in srgb, ${c} 10%, transparent)`,
       }}
     >
       {capability && <CapabilityGlyph />}
@@ -268,7 +260,7 @@ function Row({ event: e, highlighted, onTrace, onOpenMap }: { event: WorldEvent;
         <div className="truncate text-[12px] text-ink" title={e.detail ?? e.title}>{e.title}</div>
         {e.detail && <div className="mt-0.5 truncate text-[10px] text-dim">{e.detail}</div>}
       </td>
-      <td className="px-3 py-1.5 text-[10px] text-dim">{route ?? '—'}</td>
+      <td className="px-3 py-1.5 text-[10px] text-dim">{route ?? '-'}</td>
       <td className="px-3 py-1.5">
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {isArtifact && (

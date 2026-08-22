@@ -32,7 +32,7 @@ function StatusDot({ status, className }: { status: AgentStatus; className?: str
     <span
       title={status}
       className={cx(
-        'size-2 shrink-0 rounded-full',
+        'size-1.5 shrink-0 rounded-full',
         status === 'idle' && 'bg-linebright',
         status === 'working' && 'bg-task',
         status === 'blocked' && 'bg-permission',
@@ -47,8 +47,7 @@ function Avatar({ personId }: { personId: string }) {
   if (!p) return null
   return (
     <span
-      className="flex size-7 shrink-0 items-center justify-center rounded-full border border-linebright text-[10px] font-bold"
-      style={{ background: `hsl(${p.hue} 52% 87%)` }}
+      className="flex size-6 shrink-0 items-center justify-center border border-linebright bg-raised text-[9px] font-semibold text-mut"
     >
       {p.initials}
     </span>
@@ -73,7 +72,7 @@ function Section({
   return (
     <section className="border-t border-line px-3 py-2.5">
       <div className="mb-1.5 flex items-baseline gap-2">
-        <h3 className="font-mono text-[10px] uppercase tracking-wide text-dim">{title}</h3>
+        <h3 className="text-[10px] font-medium text-mut">{title}</h3>
         {meta && <span className="font-mono text-[10px] text-dim/70 tabular-nums">{meta}</span>}
       </div>
       {children}
@@ -191,11 +190,11 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
         {/* ── department agent ── */}
         {operator && (
           <div className="px-3 py-2.5">
-            <div className="rounded-md border border-line bg-raised/60 p-2.5">
+            <div className="border-l border-linebright pl-3">
               <div className="flex items-center gap-2">
                 <StatusDot status={world.agentStatus.get(operator.id) ?? 'idle'} />
                 <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{operator.name}</span>
-                <Chip className={cx(CHIP_FILL, 'shrink-0')}>Department Agent</Chip>
+                <span className="text-[10px] text-dim">Department agent</span>
               </div>
               <p className="mt-1.5 text-[12px] leading-snug text-mut">{operator.purpose}</p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -231,7 +230,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   <button
                     key={w.id}
                     onClick={() => useStore.getState().openPanel('agent', w.id)}
-                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-hover"
+                    className="flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors hover:bg-hover"
                   >
                     <StatusDot status={status} />
                     <span className="min-w-0 flex-1">
@@ -250,7 +249,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                         {status === 'working' && task ? task.title : w.purpose}
                       </span>
                     </span>
-                    <span className="shrink-0 text-[10px] text-dim">▶</span>
+                    <span className="shrink-0 text-[10px] text-dim">→</span>
                   </button>
                 )
               })}
@@ -271,7 +270,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   <div
                     key={t.id}
                     className={cx(
-                      'rounded px-2 py-1 transition-colors',
+                      'px-2 py-1 transition-colors',
                       selectedTaskId === t.id ? 'bg-raised ring-1 ring-task/40' : 'hover:bg-hover',
                       over && 'opacity-70',
                     )}

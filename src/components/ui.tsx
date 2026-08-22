@@ -1,26 +1,26 @@
 import type { HTMLAttributes } from 'react'
 import { cx } from '../utils'
 
-/** The one chip: 6px radius, hairline border. Every panel imports this instead of rolling its own. */
+/** Compact inline control or count. It stays quiet next to the record it qualifies. */
 export function Chip({ className, ...rest }: HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       {...rest}
       className={cx(
-        'inline-flex items-center gap-1 rounded-md border border-line bg-surface px-1.5 py-0.5 text-[11px] font-medium text-mut',
+        'inline-flex items-center gap-1 border border-line px-1.5 py-0.5 text-[10px] font-medium text-mut',
         className,
       )}
     />
   )
 }
 
-/** Small mono status pill for event types and section kickers. */
+/** Small record qualifier. Color is semantic; shape is deliberately neutral. */
 export function Pill({ className, ...rest }: HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       {...rest}
       className={cx(
-        'inline-flex items-center rounded-md border border-line bg-raised px-1.5 py-0.5 font-mono text-[9.5px] tracking-wider uppercase',
+        'inline-flex items-center gap-1 font-mono text-[9.5px] text-mut',
         className,
       )}
     />
