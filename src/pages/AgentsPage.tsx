@@ -96,7 +96,11 @@ function AgentRow({ agent, world }: { agent: AgentDef; world: ReturnType<typeof 
   const owner = personById.get(agent.ownerId)
   const tools = agent.toolIds.map((id) => toolById.get(id)?.name ?? id)
 
-  const open = () => useStore.getState().openPanel('agent', agent.id)
+  const open = () => {
+    const store = useStore.getState()
+    store.requestCamera({ type: 'agent', agentId: agent.id })
+    store.openPanel('agent', agent.id)
+  }
 
   return (
     <tr
