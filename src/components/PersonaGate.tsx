@@ -18,7 +18,7 @@ export default function PersonaGate() {
     <motion.div
       initial={false}
       exit={{ opacity: 0, transition: { duration: 0.5, ease: 'easeOut' } }}
-      className="absolute inset-0 z-40 flex flex-col items-center justify-center overflow-hidden bg-bg/85"
+      className="absolute inset-0 z-40 flex flex-col items-center justify-center overflow-hidden bg-bg/80"
     >
       <motion.div {...rise(0)} className="flex flex-col items-center">
         <Wordmark size={44} />
@@ -50,7 +50,7 @@ export default function PersonaGate() {
               key={p.personId}
               {...rise(0.32 + i * 0.08)}
               onClick={() => useStore.getState().enter(p.personId)}
-              className="group w-64 cursor-pointer rounded-xl border border-line bg-surface p-4 text-left shadow-[0_1px_2px_rgb(23_22_15/0.05),0_8px_24px_rgb(23_22_15/0.06)] transition-all hover:-translate-y-0.5 hover:border-task/50 hover:bg-raised"
+              className="group w-64 cursor-pointer rounded-xl border border-linebright bg-surface p-4 dark:bg-raised text-left shadow-[0_1px_2px_rgb(23_22_15/0.05),0_8px_24px_rgb(23_22_15/0.06)] transition-all hover:-translate-y-0.5 hover:border-task/50 hover:bg-raised"
             >
               <span
                 className="flex size-12 items-center justify-center rounded-full text-[13px] font-bold"
@@ -70,7 +70,7 @@ export default function PersonaGate() {
 
       <motion.p
         {...rise(0.6)}
-        className="absolute bottom-6 flex items-center gap-2 font-mono text-[10px] text-dim"
+        className="absolute bottom-6 flex items-center gap-2 font-mono text-[10px] text-mut"
       >
         <span className="size-1.5 rounded-full bg-ok anim-breathe" />
         <span className="uppercase tracking-[0.14em]">Live</span>
