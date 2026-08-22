@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { deptById, personById, PERSONAS } from '../data/company'
 import { virtualAt } from '../engine/replay'
@@ -75,6 +75,8 @@ export default function Header() {
 
       <div className="flex-1" />
 
+      <PulseSparkline />
+
       <Clock replayVirtual={replay ? virtualAt(replay.knots, replay.wallMs) : null} />
 
       {/* multiplayer presence */}
@@ -142,6 +144,53 @@ export default function Header() {
       </button>
       <PersonaMenu personaId={persona?.id} />
     </header>
+  )
+}
+
+/** Quiet events-per-minute pulse: 12 one-minute buckets over the trailing 12 min. */
+function PulseSparkline() {
+  const logLen = useStore((s) => s.log.length)
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 15_000)
+    return () => clearInterval(t)
+  }, [])
+
+  const { points, perMin } = useMemo(() => {
+    const log = useStore.getState().log
+    const now = Date.now()
+    const buckets = new Array<number>(12).fill(0)
+    let perMin = 0
+    // log is sorted by ts; walk back from the tail until events are too old
+    for (let i = log.length - 1; i >= 0; i--) {
+      const age = now - log[i].ts
+      if (age < 0) continue
+      if (age >= 12 * 60_000) break
+      buckets[11 - Math.floor(age / 60_000)]++
+      if (age < 60_000) perMin++
+    }
+    const max = Math.max(1, ...buckets)
+    const points = buckets
+      .map((v, i) => `${(1 + (i * 62) / 11).toFixed(1)},${(15 - (v / max) * 13).toFixed(1)}`)
+      .join(' ')
+    return { points, perMin }
+  }, [logLen, tick])
+
+  return (
+    <div className="flex items-center gap-2" title="Company activity — events per minute, trailing 12 min">
+      <svg width="64" height="16" viewBox="0 0 64 16" aria-hidden className="text-ink">
+        <polyline
+          points={points}
+          fill="none"
+          stroke="currentColor"
+          strokeOpacity="0.35"
+          strokeWidth="1"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <span className="font-mono text-[10px] tabular-nums text-dim">{perMin} ev/min</span>
+    </div>
   )
 }
 

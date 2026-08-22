@@ -73,17 +73,18 @@ export default function App() {
     )
   }
 
-  if (!entered) return <PersonaGate />
-
   const width = panel ? PANEL_WIDTH[panel.kind] : 0
 
+  // Pre-entry, the engine is already running: render the live map full-screen
+  // with the persona gate as a translucent veil above it. The map stays mounted
+  // across entry, so choosing a persona hands the camera straight to the app.
   return (
     <div className="flex h-full flex-col">
-      <Header />
+      {entered && <Header />}
       <main className="relative flex-1 overflow-hidden">
         <CompanyMap />
-        <MapOverlays />
-        <ReplayScrubber />
+        {entered && <MapOverlays />}
+        {entered && <ReplayScrubber />}
         <AnimatePresence>
           {panel && (
             <motion.aside
@@ -105,11 +106,16 @@ export default function App() {
             </motion.aside>
           )}
         </AnimatePresence>
-        <Toasts />
+        {entered && <Toasts />}
+        <AnimatePresence>{!entered && <PersonaGate />}</AnimatePresence>
       </main>
-      <CommandPalette />
-      <FirstRun />
-      <ArtifactViewer />
+      {entered && (
+        <>
+          <CommandPalette />
+          <FirstRun />
+          <ArtifactViewer />
+        </>
+      )}
     </div>
   )
 }

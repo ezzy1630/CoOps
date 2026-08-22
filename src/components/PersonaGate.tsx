@@ -1,14 +1,7 @@
-import type { CSSProperties } from 'react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store'
 import { PERSONAS, personById } from '../data/company'
 import { Wordmark } from '../App'
-
-const AMBIENT: CSSProperties = {
-  backgroundImage:
-    'radial-gradient(circle at 1px 1px, rgb(29 28 23 / 0.08) 1px, transparent 0)',
-  backgroundSize: '30px 30px',
-}
 
 const rise = (delay: number) => ({
   initial: { opacity: 0, y: 10 },
@@ -16,41 +9,48 @@ const rise = (delay: number) => ({
   transition: { duration: 0.45, delay, ease: 'easeOut' as const },
 })
 
-/** Role-aware entry: pick who you are, and the company arranges itself around you. */
+/**
+ * Title sequence: the live company map runs underneath; this is a translucent
+ * paper veil above it. Pick who you are, and the veil lifts.
+ */
 export default function PersonaGate() {
   return (
-    <div className="relative flex h-full flex-col items-center justify-center overflow-hidden bg-bg" style={AMBIENT}>
-      <div className="absolute top-4 left-4">
-        <Wordmark size={20} />
-      </div>
-
+    <motion.div
+      initial={false}
+      exit={{ opacity: 0, transition: { duration: 0.5, ease: 'easeOut' } }}
+      className="absolute inset-0 z-40 flex flex-col items-center justify-center overflow-hidden bg-bg/85"
+    >
       <motion.div {...rise(0)} className="flex flex-col items-center">
-        <Wordmark size={40} />
+        <Wordmark size={44} />
       </motion.div>
 
       <motion.h1
         {...rise(0.08)}
         className="mt-7 max-w-3xl text-center text-3xl font-semibold tracking-tight md:text-4xl"
       >
-        Every department gets its own agent team.
+        The live map of a company that runs on agents.
       </motion.h1>
 
       <motion.p {...rise(0.16)} className="mt-4 max-w-xl text-center text-[14px] leading-relaxed text-mut">
-        This is Everpeak Outfitters — six departments, each run by a persistent agent that hires workers,
-        trades tasks with its peers, and knows exactly which human can unblock it. Choose who you are;
-        the company adapts.
+        Six departments of Everpeak Outfitters, each run by a persistent agent that hires workers,
+        trades tasks with its peers, and knows exactly which human can unblock it.
+        Choose who you are — the company arranges itself around you.
       </motion.p>
 
-      <div className="mt-10 flex items-stretch gap-3.5">
+      <motion.div {...rise(0.26)} className="mt-9 font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+        Enter as
+      </motion.div>
+
+      <div className="mt-3 flex items-stretch gap-3.5">
         {PERSONAS.map((p, i) => {
           const person = personById.get(p.personId)
           if (!person) return null
           return (
             <motion.button
               key={p.personId}
-              {...rise(0.26 + i * 0.08)}
+              {...rise(0.32 + i * 0.08)}
               onClick={() => useStore.getState().enter(p.personId)}
-              className="group w-64 cursor-pointer rounded-xl border border-line bg-surface/95 p-4 text-left shadow-[0_1px_2px_rgb(23_22_15/0.05),0_8px_24px_rgb(23_22_15/0.06)] transition-all hover:-translate-y-0.5 hover:border-task/50 hover:bg-raised/95"
+              className="group w-64 cursor-pointer rounded-xl border border-line bg-surface p-4 text-left shadow-[0_1px_2px_rgb(23_22_15/0.05),0_8px_24px_rgb(23_22_15/0.06)] transition-all hover:-translate-y-0.5 hover:border-task/50 hover:bg-raised"
             >
               <span
                 className="flex size-12 items-center justify-center rounded-full text-[13px] font-bold"
@@ -68,10 +68,14 @@ export default function PersonaGate() {
         })}
       </div>
 
-      <motion.p {...rise(0.56)} className="absolute bottom-6 max-w-lg text-center text-[11px] text-dim">
-        A live simulated company runs behind this demo — the map is real, the people are fictional,
-        no login needed.
+      <motion.p
+        {...rise(0.6)}
+        className="absolute bottom-6 flex items-center gap-2 font-mono text-[10px] text-dim"
+      >
+        <span className="size-1.5 rounded-full bg-ok anim-breathe" />
+        <span className="uppercase tracking-[0.14em]">Live</span>
+        <span>— the map behind this screen is running right now · fictional people, no login</span>
       </motion.p>
-    </div>
+    </motion.div>
   )
 }

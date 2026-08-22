@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
-import { deptById, personById } from '../data/company'
+import { deptById, personById, TOOLS } from '../data/company'
 import { cx, timeAgo } from '../utils'
 import type { PendingApproval, Ref, WorldEvent } from '../types'
 
@@ -250,34 +250,53 @@ const SCOPES = [
 
 function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose: () => void }) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [connected, setConnected] = useState(false)
   const person = personById.get(approval.personId)
   const email = `${approval.personId}@everpeak.co`
 
   // keep the latest props without re-arming the connect timer
-  const latest = useRef({ approval, onClose })
+  const latest = useRef({ approval, onClose, step })
   useEffect(() => {
-    latest.current = { approval, onClose }
+    latest.current = { approval, onClose, step }
   })
+
+  // once "Allow" is clicked the grant goes through, even if the modal is dismissed early
+  const resolvedRef = useRef(false)
+  const finish = () => {
+    if (!resolvedRef.current) {
+      resolvedRef.current = true
+      useStore.getState().approve(latest.current.approval)
+    }
+    latest.current.onClose()
+  }
+  const requestClose = () => {
+    if (latest.current.step === 3) finish()
+    else latest.current.onClose()
+  }
 
   useEffect(() => {
     if (step !== 3) return
-    const t = setTimeout(() => {
-      useStore.getState().approve(latest.current.approval)
-      latest.current.onClose()
-    }, 1100)
-    return () => clearTimeout(t)
+    // brief connecting spinner, then the capability diagram, then resolve
+    const t1 = setTimeout(() => setConnected(true), 950)
+    const t2 = setTimeout(finish, 4200)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        requestClose()
       }
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [onClose])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/25">
@@ -289,7 +308,7 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
           <button
             className="rounded px-1.5 py-0.5 text-[13px] text-dim hover:bg-hover hover:text-ink"
             title="Cancel"
-            onClick={onClose}
+            onClick={requestClose}
           >
             ✕
           </button>
@@ -346,11 +365,22 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
           </div>
         )}
 
-        {step === 3 && (
+        {step === 3 && !connected && (
           <div className="flex flex-col items-center gap-3 px-4 py-10">
             <span className="size-6 animate-spin rounded-full border-2 border-line border-t-task" />
             <span className="text-[13px] text-mut">Connecting {approval.what}…</span>
             <span className="text-[11px] text-dim">Issuing a scoped capability to the agent</span>
+          </div>
+        )}
+
+        {step === 3 && connected && (
+          <div className="anim-fadeup flex flex-col items-center px-4 pt-7 pb-5">
+            <span className="flex size-7 items-center justify-center rounded-full border border-ok/45 bg-ok/10 text-[13px] text-ok">
+              ✓
+            </span>
+            <span className="mt-2.5 text-[13px] font-medium">Connected</span>
+            <span className="mt-0.5 text-[11px] text-dim">A scoped capability was issued</span>
+            <CapabilityDiagram approval={approval} />
           </div>
         )}
 
@@ -360,6 +390,75 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
       </div>
     </div>,
     document.body,
+  )
+}
+
+/**
+ * The security story in one glyph: the human grants a capability, the
+ * capability is scoped to one agent. The credential itself never moves.
+ */
+function CapabilityDiagram({ approval }: { approval: PendingApproval }) {
+  const agents = useStore((s) => s.world.agents)
+  const person = personById.get(approval.personId)
+  const agentName = refLabel(approval.requestedBy, agents) ?? 'Requesting agent'
+
+  const what = approval.what.toLowerCase()
+  const tool =
+    TOOLS.find((t) => what.includes(t.name.toLowerCase()) || what.includes(t.id)) ??
+    TOOLS.find((t) => t.ownerId === approval.personId && t.requiresAuth)
+  const slug =
+    tool?.id ??
+    approval.what.replace(/^connect\s+/i, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
+  const scope = `${slug}.reports.read`
+
+  return (
+    <div className="mt-5 w-full">
+      <div className="flex w-full items-center justify-center gap-1">
+        <span className="flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-raised px-1.5 py-1">
+          <span
+            className="flex size-4 shrink-0 items-center justify-center rounded-full text-[7px] font-bold text-abyss"
+            style={{ background: person ? `hsl(${person.hue} 52% 87%)` : 'var(--color-raised)' }}
+          >
+            {person?.initials}
+          </span>
+          <span className="text-[10px] font-medium text-ink">{person?.name.split(' ')[0] ?? approval.personId}</span>
+        </span>
+
+        <ScopeArrow label="grants" />
+
+        <span className="min-w-0 shrink rounded-md border border-human/45 bg-human/10 px-1.5 py-1">
+          <span className="block truncate font-mono text-[8.5px] text-human">{scope}</span>
+        </span>
+
+        <ScopeArrow label="scoped to" />
+
+        <span className="max-w-24 shrink-0 rounded-md border border-line bg-raised px-1.5 py-1 text-center text-[10px] leading-[1.2] font-medium text-ink">
+          {agentName}
+        </span>
+      </div>
+      <p className="mx-auto mt-3 max-w-72 text-center text-[10px] leading-relaxed text-dim">
+        The credential never leaves the vault — the agent holds a scoped, revocable capability.
+      </p>
+    </div>
+  )
+}
+
+function ScopeArrow({ label }: { label: string }) {
+  return (
+    <span className="flex shrink-0 flex-col items-center gap-px px-0.5">
+      <span className="font-mono text-[7.5px] tracking-wide whitespace-nowrap text-human">{label}</span>
+      <svg width="32" height="6" viewBox="0 0 32 6" aria-hidden className="text-human">
+        <path
+          d="M1 3h27M25 1l3.5 2L25 5"
+          fill="none"
+          stroke="currentColor"
+          strokeOpacity="0.6"
+          strokeWidth="1"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
   )
 }
 
