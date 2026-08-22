@@ -58,8 +58,8 @@ export default function App() {
       if (e.key === 'Escape') {
         if (st.artifactEventId) st.closeArtifact()
         else if (st.paletteOpen) st.setPaletteOpen(false)
-        else if (st.replay) st.exitReplay()
         else if (st.view !== 'map') st.setView('map')
+        else if (st.replay) st.exitReplay()
         else if (st.selectedTaskId) st.selectTask(null)
         else if (st.panel) st.closePanel()
       }
@@ -88,51 +88,55 @@ export default function App() {
   // across entry, so choosing a persona hands the camera straight to the app.
   return (
     <div className="flex h-full">
-      {!entered ? (
-        <main className="relative min-w-0 flex-1 overflow-hidden">
-          <CompanyMap />
+      {entered && <NavRail />}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {entered && <Header />}
+        <main className="relative min-h-0 flex-1 overflow-hidden">
+          <div className={mapView || !entered ? 'absolute inset-0' : 'invisible absolute inset-0'}>
+            <CompanyMap />
+          </div>
+
+          {entered && !mapView && (
+            <div className="absolute inset-0 z-10 overflow-auto bg-bg">
+              <PageContent view={view} />
+            </div>
+          )}
+
+          {entered && mapView && <MapOverlays />}
+          {entered && mapView && <ReplayScrubber />}
           <AnimatePresence>
-            <PersonaGate />
+            {entered && mapView && panel && (
+              <motion.aside
+                key={`${panel.kind}-${panel.id ?? ''}`}
+                initial={{ x: width + 24 }}
+                animate={{ x: 0 }}
+                exit={{ x: width + 24 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 36 }}
+                className="absolute top-0 right-0 bottom-0 z-20"
+                style={{ width }}
+              >
+                <div className="h-full overflow-hidden border-l border-line bg-surface shadow-[-8px_0_24px_rgb(23_22_15/0.04)]">
+                  {panel.kind === 'agent' && <AgentRoom agentId={panel.id!} />}
+                  {panel.kind === 'dept' && <DeptWorkspace deptId={panel.id!} />}
+                  {panel.kind === 'approvals' && <ApprovalsPanel />}
+                  {panel.kind === 'activity' && <ActivityPanel />}
+                  {panel.kind === 'diff' && <InheritanceDiff />}
+                </div>
+              </motion.aside>
+            )}
           </AnimatePresence>
+          {entered && <Toasts />}
+          <AnimatePresence>{!entered && <PersonaGate />}</AnimatePresence>
         </main>
-      ) : (
-        <>
-          <NavRail />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Header />
-            <main className={`relative min-h-0 flex-1 ${mapView ? 'overflow-hidden' : 'overflow-auto bg-bg'}`}>
-              {mapView ? <CompanyMap /> : <PageContent view={view} />}
-              {mapView && <MapOverlays />}
-              {mapView && <ReplayScrubber />}
-              <AnimatePresence>
-                {mapView && panel && (
-                  <motion.aside
-                    key={`${panel.kind}-${panel.id ?? ''}`}
-                    initial={{ x: width + 24 }}
-                    animate={{ x: 0 }}
-                    exit={{ x: width + 24 }}
-                    transition={{ type: 'spring', stiffness: 380, damping: 36 }}
-                    className="absolute top-0 right-0 bottom-0 z-20"
-                    style={{ width }}
-                  >
-                    <div className="h-full overflow-hidden border-l border-line bg-surface shadow-[-8px_0_24px_rgb(23_22_15/0.04)]">
-                      {panel.kind === 'agent' && <AgentRoom agentId={panel.id!} />}
-                      {panel.kind === 'dept' && <DeptWorkspace deptId={panel.id!} />}
-                      {panel.kind === 'approvals' && <ApprovalsPanel />}
-                      {panel.kind === 'activity' && <ActivityPanel />}
-                      {panel.kind === 'diff' && <InheritanceDiff />}
-                    </div>
-                  </motion.aside>
-                )}
-              </AnimatePresence>
-              <Toasts />
-            </main>
+
+        {entered && (
+          <>
             <CommandPalette />
             <FirstRun />
             <ArtifactViewer />
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

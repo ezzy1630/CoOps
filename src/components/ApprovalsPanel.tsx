@@ -243,7 +243,7 @@ function ApprovalRow({
           {isMine && <Chip className={cx('mt-1.5 text-[10px]', TASK_TINT)}>assigned to you</Chip>}
           {viewerPerson && (
             <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-artifact">
-              <span className="size-1.5 animate-pulse rounded-full bg-artifact" />
+              <span className="size-1.5 rounded-full bg-artifact" />
               {viewerPerson.name.split(' ')[0]} is viewing
             </div>
           )}
@@ -266,7 +266,11 @@ function ApprovalRow({
             {approval.taskId && (
               <button
                 className="btn h-7 px-2.5 text-[11px] text-mut"
-                onClick={(event) => { event.stopPropagation(); useStore.getState().selectTask(approval.taskId ?? null) }}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  useStore.getState().selectTask(approval.taskId ?? null)
+                  onOpenMap()
+                }}
               >
                 Focus on map
               </button>
