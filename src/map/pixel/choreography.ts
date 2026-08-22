@@ -183,8 +183,10 @@ const EMOTE_OF_ACTING: Partial<Record<EventType, EmoteName>> = {
   ArtifactDelivered: 'delivering',
 }
 
-/** Blocked wins outright; otherwise the last act shows while it is fresh, then
- *  the village settles back to quiet idling. */
+/** Blocked and working are *states*, shown as long as they hold — a 6s
+ *  window on those would hide the village's baseline activity behind the
+ *  ambient engine's quiet gaps. Fresh specific acts (delivering, awaiting,
+ *  escalated, reading) still override the baseline, then expire back to it. */
 export function emoteFor(
   status: AgentStatus,
   last: LastAct | undefined,
@@ -192,7 +194,10 @@ export function emoteFor(
   freshMs: number,
 ): EmoteName | null {
   if (status === 'blocked') return 'blocked'
-  if (!last || now - last.ts >= freshMs) return null
-  if (!last.acting) return 'reading'
-  return EMOTE_OF_ACTING[last.type] ?? null
+  if (last && now - last.ts < freshMs) {
+    if (!last.acting) return 'reading'
+    const specific = EMOTE_OF_ACTING[last.type]
+    if (specific && specific !== 'working') return specific
+  }
+  return status === 'working' ? 'working' : null
 }
