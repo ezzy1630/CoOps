@@ -18,12 +18,13 @@ export default function NavRail() {
   const approvals = useStore((s) => s.world.approvals.length)
   const persona = useStore((s) => s.persona)
   const theme = useStore((s) => s.theme)
+  const fun = useStore((s) => s.mapStyle === 'fun')
   const mapActivity = useStore((s) => [...s.world.agentStatus.values()].some((status) => status === 'working'))
 
   return (
     <aside className="relative z-40 flex w-[148px] shrink-0 flex-col border-r border-line bg-bg" aria-label="Primary navigation">
       <div className="flex h-14 shrink-0 items-center px-4">
-        <span className="text-[15px] font-semibold tracking-[-0.035em]">CoOps</span>
+        <span className={cx('text-[15px] font-semibold tracking-[-0.035em]', fun && 'font-display')}>CoOps</span>
       </div>
       <nav className="flex flex-1 flex-col px-2 py-2">
         {NAV_ITEMS.map((item) => {
@@ -33,9 +34,9 @@ export default function NavRail() {
               className={cx('group relative flex h-9 w-full items-center gap-2 px-2 text-left text-[12px] transition-colors', active ? 'bg-raised text-ink' : 'text-mut hover:bg-hover hover:text-ink')}
               onClick={() => useStore.getState().setView(item.view)}>
               <span className={cx('w-4 font-mono text-[9px] text-dim', active && 'text-task')}>{item.index}</span>
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              <span className={cx('min-w-0 flex-1 truncate', fun && 'font-display')}>{item.label}</span>
               {item.view === 'map' && mapActivity && <span className="size-1.5 rounded-full bg-task" title="Work in flight" aria-label="Work in flight" />}
-              {item.view === 'approvals' && approvals > 0 && <span className="font-mono text-[10px] tabular-nums text-human">{approvals}</span>}
+              {item.view === 'approvals' && approvals > 0 && <span className={cx('text-[10px] tabular-nums text-human', fun ? 'font-display' : 'font-mono')}>{approvals}</span>}
             </button>
           )
         })}

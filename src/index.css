@@ -6,6 +6,8 @@
 @theme {
   --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* valley chrome only — short labels wear the pixel face, body copy never does */
+  --font-display: "Pixelify Sans", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
 
   /* warm paper, ink, and muted semantic accents — enterprise, not spaceship */
   --color-bg: #f5f4f0;
@@ -270,6 +272,14 @@ html.fun-mode {
   --color-fun-escalation: #d15a49;
   --color-fun-guard: #8a63c9;
   --color-fun-human: #e3ae52;
+
+  /* the letterbox around the scaled stage reads as packed earth (a manifest
+     ground tone), part of the valley rather than app chrome; the dark theme
+     drops it to warm earth-shadow so a lit board doesn't glow at midnight */
+  --color-map-canvas: #cdbd97;
+}
+html.fun-mode.dark {
+  --color-map-canvas: #443227;
 }
 
 /* nearest-neighbour upscale for sprite <img>s and background strips */
