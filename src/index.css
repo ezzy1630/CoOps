@@ -126,3 +126,50 @@ svg text {
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* ── replay scrubber input: transparent native track (the component draws the
+   hairline track, played portion and event ticks), plain ink thumb ── */
+input[type="range"].scrub {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"].scrub::-webkit-slider-runnable-track {
+  height: 12px;
+  background: transparent;
+  border: none;
+}
+input[type="range"].scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--color-ink);
+  border: 1px solid var(--color-surface);
+}
+input[type="range"].scrub::-moz-range-track {
+  height: 12px;
+  background: transparent;
+  border: none;
+}
+input[type="range"].scrub::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--color-ink);
+  border: 1px solid var(--color-surface);
+}
+input[type="range"].scrub:focus-visible {
+  outline: none;
+}
+input[type="range"].scrub:focus-visible::-webkit-slider-thumb {
+  outline: 1px solid var(--color-task);
+  outline-offset: 1px;
+}
+input[type="range"].scrub:focus-visible::-moz-range-thumb {
+  outline: 1px solid var(--color-task);
+  outline-offset: 1px;
+}
