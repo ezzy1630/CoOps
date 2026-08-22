@@ -3,6 +3,8 @@ import type { Content, Tool } from '@google/genai'
 import type { AgentBlueprint, WorldEvent } from '../../../src/types.js'
 import type { GuardrailAdapter } from '../guardrail/types.js'
 import type { DeptMemory } from '../memory/types.js'
+import { createDryRunTools, WORKSPACE_TOOLS } from '../tools/dryrun.js'
+import type { WorkspaceToolAdapter } from '../tools/types.js'
 import { scheduleExchange } from './exchanges.js'
 import { createMockBrain } from './mock.js'
 import type { BrainAdapter, BrainCtx } from './types.js'
@@ -63,6 +65,19 @@ const TOOLS: Tool[] = [{
         required: ['name', 'purpose'],
       },
     },
+    {
+      name: 'workspace_write',
+      description: 'Record a side-effectful write to a connected workspace tool (Drive, Sheets, Zendesk, Shopify, Slack) as an audited dry-run event.',
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          tool: { type: Type.STRING, description: 'Which workspace tool to write to.', enum: [...WORKSPACE_TOOLS] },
+          action: { type: Type.STRING, description: 'The write action, e.g. "upload file", "append row", "create ticket".' },
+          detail: { type: Type.STRING, description: 'One-line summary of exactly what the write would change.' },
+        },
+        required: ['tool', 'action', 'detail'],
+      },
+    },
   ],
 }]
 
@@ -75,14 +90,16 @@ export function createGeminiBrain(opts: {
   model?: string
   guardrail: GuardrailAdapter
   memory: DeptMemory
+  workspaceTools?: WorkspaceToolAdapter
 }): BrainAdapter {
+  const workspaceTools = opts.workspaceTools ?? createDryRunTools()
   const ai = new GoogleGenAI({ apiKey: opts.apiKey })
   const model = opts.model ?? process.env.COOPS_GEMINI_MODEL ?? 'gemini-2.0-flash'
 
   return {
     async handle(ctx, agentId, deptId, text, personId) {
       try {
-        await runTurn(ctx, ai, model, opts.guardrail, opts.memory, agentId, deptId, text, personId)
+        await runTurn(ctx, ai, model, opts.guardrail, opts.memory, workspaceTools, agentId, deptId, text, personId)
       } catch (err) {
         console.error('[gemini-brain] falling back to mock brain for this message:', err)
         void createMockBrain().handle(ctx, agentId, deptId, text, personId)
@@ -97,6 +114,7 @@ async function runTurn(
   model: string,
   guardrail: GuardrailAdapter,
   memory: DeptMemory,
+  workspaceTools: WorkspaceToolAdapter,
   agentId: string,
   deptId: string,
   text: string,
@@ -120,6 +138,7 @@ async function runTurn(
     'You are a plain-label operator: concise, practical, no roleplay.',
     'Coordinate peer departments by dispatching typed tasks with dispatch_exchange.',
     'When a recurring job deserves its own dedicated agent, draft it with propose_blueprint; the human approves blueprints under Work & Approvals.',
+    'Record side-effectful writes to connected tools (Google Drive, Sheets, Zendesk, Shopify, Slack) with workspace_write; each call is logged as a dry-run audit event and no external system is touched.',
     'Never ask for passwords, API keys, secrets, card numbers, or government IDs.',
     'Always answer by calling reply_to_human; plain text is treated as a reply too.',
   ].filter(Boolean).join('\n')
@@ -220,6 +239,29 @@ async function runTurn(
       contents.push({ role: 'model', parts: [{ functionCall: call }] })
       contents.push(functionResponse(call.name, 'blueprint proposed'))
       replied = await say(`I drafted a blueprint for “${blueprint.name}” — open Work & Approvals to review and approve it.`)
+      continue
+    }
+
+    if (call.name === 'workspace_write') {
+      const tool = asString(args.tool).trim().toLowerCase()
+      const action = asString(args.action).trim()
+      const result = await workspaceTools.call(tool, action)
+      contents.push({ role: 'model', parts: [{ functionCall: call }] })
+      if (!result.ok) {
+        contents.push(functionResponse(call.name, `error: ${result.detail}`))
+        continue
+      }
+      ctx.emit({
+        type: 'ToolCall',
+        from: { kind: 'agent', id: agentId },
+        deptFrom: deptId,
+        taskId: undefined,
+        title: `${tool}: ${action}`,
+        detail: result.detail,
+        payload: { tool, action, costUsd: 0.01, latencyMs: 420 },
+      })
+      contents.push(functionResponse(call.name, result.detail))
+      replied = await say(`Recorded ${tool}.${action} as a dry-run write — no external system was touched.`)
       continue
     }
 
