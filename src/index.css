@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* warm paper, ink, and muted semantic accents — enterprise, not spaceship */
+  --color-bg: #f5f4f0;
+  --color-abyss: #17160f;
+  --color-surface: #ffffff;
+  --color-raised: #f0eee8;
+  --color-hover: #e9e7df;
+  --color-line: #e2e0d8;
+  --color-linebright: #cfccc1;
+  --color-ink: #1d1c17;
+  --color-mut: #6d6a60;
+  --color-dim: #9a968a;
+
+  --color-task: #2557d6;
+  --color-artifact: #1e7a3d;
+  --color-permission: #a16207;
+  --color-escalation: #c03221;
+  --color-guard: #6d28d9;
+  --color-human: #a16207;
+  --color-ok: #1e7a3d;
+
+  /* runtime-swappable bits that aren't plain colors */
+  --dotgrid: rgb(29 28 23 / 0.08); /* map/persona dot texture */
+  --av-s: 52%;                     /* person avatar saturation */
+  --av-l: 87%;                     /* person avatar lightness */
+}
+
+/* ── dark theme: same tokens, warm charcoal — swap, don't redesign ── */
+html.dark {
+  color-scheme: dark;
+
+  --color-bg: #14130d;
+  --color-surface: #1c1b13;
+  --color-raised: #23221a;
+  --color-hover: #2b2a20;
+  --color-line: #32302a;
+  --color-linebright: #45422f;
+  --color-ink: #ece9dd;
+  --color-mut: #a9a696;
+  --color-dim: #7b7867;
+
+  --color-task: #8ba7f0;
+  --color-artifact: #63bd82;
+  --color-permission: #d19a3f;
+  --color-escalation: #e86a55;
+  --color-guard: #ab8df2;
+  --color-human: #d19a3f;
+  --color-ok: #63bd82;
+
+  --dotgrid: rgb(236 233 221 / 0.055);
+  --av-s: 38%;
+  --av-l: 32%;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  @apply bg-bg text-ink font-sans antialiased;
+  font-feature-settings: "ss01";
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-task) 18%, transparent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-linebright) transparent;
+}
+
+/* ── panels & chrome (layered so plain utilities can override them) ── */
+@layer components {
+  .panel {
+    @apply bg-surface border border-line rounded-lg;
+    box-shadow: 0 1px 2px rgb(23 22 15 / 0.05), 0 8px 24px rgb(23 22 15 / 0.05);
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded border border-line bg-surface px-1.5 py-0.5 text-[11px] font-medium text-mut;
+  }
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border border-linebright bg-surface px-3 py-1.5 text-[13px] font-medium text-ink transition-colors hover:bg-raised;
+  }
+  .btn-primary {
+    @apply border-ink bg-ink text-bg hover:bg-ink/85 hover:border-ink;
+  }
+  .btn-human {
+    @apply border-human/50 bg-human/8 text-human hover:bg-human/15 hover:border-human;
+  }
+  .kbd {
+    @apply rounded border border-linebright bg-raised px-1.5 py-0.5 font-mono text-[10px] text-mut;
+  }
+}
+
+/* ── ambient status motion (deterministic, CSS-driven; no glow) ── */
+@keyframes breathe {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.95; }
+}
+@keyframes workpulse {
+  0%, 100% { stroke-opacity: 1; }
+  50% { stroke-opacity: 0.45; }
+}
+@keyframes gatewayflash {
+  0% { opacity: 0; transform: scale(0.6); }
+  18% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+@keyframes dashflow {
+  to { stroke-dashoffset: -22; }
+}
+@keyframes fadeup {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.anim-breathe { animation: breathe 4.2s ease-in-out infinite; }
+.anim-work { animation: workpulse 1.6s ease-in-out infinite; }
+.anim-fadeup { animation: fadeup 0.25s ease-out both; }
+.edge-flow { stroke-dasharray: 7 15; animation: dashflow 0.9s linear infinite; }
+.edge-dotted { stroke-dasharray: 2 6; }
+
+svg text {
+  user-select: none;
+  -webkit-user-select: none;
+}
