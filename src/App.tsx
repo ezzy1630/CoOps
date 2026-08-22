@@ -14,6 +14,7 @@ import InheritanceDiff from './components/InheritanceDiff'
 import CommandPalette from './components/CommandPalette'
 import PersonaGate from './components/PersonaGate'
 import FirstRun from './components/FirstRun'
+import ArtifactViewer from './components/ArtifactViewer'
 
 export default function App() {
   const entered = useStore((s) => s.entered)
@@ -49,7 +50,8 @@ export default function App() {
         return
       }
       if (e.key === 'Escape') {
-        if (st.paletteOpen) st.setPaletteOpen(false)
+        if (st.artifactEventId) st.closeArtifact()
+        else if (st.paletteOpen) st.setPaletteOpen(false)
         else if (st.replay) st.exitReplay()
         else if (st.selectedTaskId) st.selectTask(null)
         else if (st.panel) st.closePanel()
@@ -107,6 +109,7 @@ export default function App() {
       </main>
       <CommandPalette />
       <FirstRun />
+      <ArtifactViewer />
     </div>
   )
 }

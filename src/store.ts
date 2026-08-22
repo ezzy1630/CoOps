@@ -88,6 +88,7 @@ interface Store {
   panel: PanelState | null
   selectedTaskId: TaskId | null
   highlightEventId: string | null
+  artifactEventId: string | null
   replay: ReplayState | null
   paletteOpen: boolean
   firstRunStep: number | null
@@ -110,6 +111,8 @@ interface Store {
   closePanel(): void
   selectTask(taskId: TaskId | null): void
   setHighlight(eventId: string | null): void
+  openArtifact(eventId: string): void
+  closeArtifact(): void
   startReplay(taskId: TaskId): void
   setReplayWall(wallMs: number): void
   toggleReplayPlay(): void
@@ -249,6 +252,7 @@ export const useStore = create<Store>()((set, get) => {
     panel: null,
     selectedTaskId: null,
     highlightEventId: null,
+    artifactEventId: null,
     replay: null,
     paletteOpen: false,
     firstRunStep: null,
@@ -387,6 +391,12 @@ export const useStore = create<Store>()((set, get) => {
     },
     setHighlight(eventId) {
       set({ highlightEventId: eventId })
+    },
+    openArtifact(eventId) {
+      set({ artifactEventId: eventId })
+    },
+    closeArtifact() {
+      set({ artifactEventId: null })
     },
 
     startReplay(taskId) {
