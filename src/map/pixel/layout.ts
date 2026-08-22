@@ -121,13 +121,12 @@ export function mailAnchor(art: PixelArt, b: PixelBuilding, idx: number): Pt {
   })
 }
 
-/** Roaming colleagues linger at the fan's outer edge, shifted left per index
- *  so two visitors never overlap. */
+/** Roaming colleagues dock at the building's shoulder beside the sign —
+ *  attached to the place they're viewing, not drifting in the grass. */
 export function presencePoint(art: PixelArt, b: PixelBuilding, idx: number): Pt {
-  const d = outDir(b)
   return clampToWorld(art, {
-    x: b.door.x + d.x * (RING_RADII[RING_RADII.length - 1] + 14) - idx * 22,
-    y: b.door.y + d.y * (RING_RADII[RING_RADII.length - 1] + 14),
+    x: b.x + b.w + 8,
+    y: b.y + 4 - idx * 14,
   })
 }
 
