@@ -181,9 +181,19 @@ function TypeChip({ type }: { type: EventType }) {
 
 // ─── Feed row ────────────────────────────────────────────────────────────────
 
+function DocGlyph() {
+  return (
+    <svg viewBox="0 0 10 12" className="size-2.5 shrink-0" aria-hidden="true">
+      <path d="M2 .9h4.1L8.7 3.5v7.6H2z" fill="none" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M6.1.9v2.6h2.6" fill="none" stroke="currentColor" strokeWidth="1.1" />
+    </svg>
+  )
+}
+
 function Row({ event: e, highlighted, onTrace }: { event: WorldEvent; highlighted: boolean; onTrace: () => void }) {
   const isToday = new Date(e.ts).toDateString() === new Date().toDateString()
   const guard = e.type === 'GuardrailBlock'
+  const isArtifact = e.type === 'ArtifactDelivered'
   const route = e.deptFrom && e.deptTo && e.deptFrom !== e.deptTo
     ? `${deptById.get(e.deptFrom)?.name ?? e.deptFrom} → ${deptById.get(e.deptTo)?.name ?? e.deptTo}`
     : null
@@ -194,12 +204,14 @@ function Row({ event: e, highlighted, onTrace }: { event: WorldEvent; highlighte
       onMouseEnter={() => useStore.getState().setHighlight(e.id)}
       onMouseLeave={() => useStore.getState().setHighlight(null)}
       onClick={() => {
-        if (e.taskId) useStore.getState().selectTask(e.taskId)
+        if (isArtifact) useStore.getState().openArtifact(e.id)
+        else if (e.taskId) useStore.getState().selectTask(e.taskId)
       }}
+      title={isArtifact ? 'Open the delivered document' : undefined}
       className={cx(
         'flex items-center gap-2 border-b border-line/50 px-3 py-1.5',
-        e.taskId && 'cursor-pointer',
-        highlighted ? 'bg-hover' : 'hover:bg-raised/60',
+        (e.taskId || isArtifact) && 'cursor-pointer',
+        highlighted ? 'bg-hover' : isArtifact ? 'hover:bg-artifact/8' : 'hover:bg-raised/60',
       )}
       style={guard ? { borderLeft: '2px solid color-mix(in srgb, var(--color-guard) 60%, transparent)' } : { borderLeft: '2px solid transparent' }}
     >
@@ -211,6 +223,14 @@ function Row({ event: e, highlighted, onTrace }: { event: WorldEvent; highlighte
         {e.title}
       </span>
       {route && <span className="shrink-0 text-[10px] text-dim">{route}</span>}
+      {isArtifact && (
+        <span
+          className={cx(PILL, 'shrink-0 border-artifact/45 bg-artifact/8 font-mono text-[9px] text-artifact')}
+          title="Open the delivered document"
+        >
+          <DocGlyph /> open
+        </span>
+      )}
       {e.payload?.costUsd != null && (
         <span className={cx(PILL, 'shrink-0 border-line bg-raised font-mono text-[9px] text-mut')}>
           {fmtUsd(e.payload.costUsd)}

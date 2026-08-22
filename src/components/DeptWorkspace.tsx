@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useStore } from '../store'
 import { TOOLS, deptById, personById } from '../data/company'
+import { artifactEventName } from '../data/artifactContent'
 import { cx, fmtUsd, timeAgo } from '../utils'
 import type { AgentStatus, TaskStatus } from '../types'
 
@@ -96,6 +97,15 @@ function Section({
       </div>
       {children}
     </section>
+  )
+}
+
+function DocGlyph() {
+  return (
+    <svg viewBox="0 0 10 12" className="size-2.5 shrink-0" aria-hidden="true">
+      <path d="M2 .9h4.1L8.7 3.5v7.6H2z" fill="none" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M6.1.9v2.6h2.6" fill="none" stroke="currentColor" strokeWidth="1.1" />
+    </svg>
   )
 }
 
@@ -271,36 +281,54 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
             <div className="space-y-0.5">
               {[...active, ...finished].map((t) => {
                 const over = t.status === 'done' || t.status === 'failed'
+                const delivered = log.filter((e) => e.type === 'ArtifactDelivered' && e.taskId === t.id)
                 return (
                   <div
                     key={t.id}
                     className={cx(
-                      'flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors',
+                      'rounded-lg px-2 py-1.5 transition-colors',
                       selectedTaskId === t.id ? 'bg-raised ring-1 ring-task/40' : 'hover:bg-hover',
                       over && 'opacity-70',
                     )}
                   >
-                    <button
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                      onClick={() => useStore.getState().selectTask(t.id)}
-                    >
-                      <Chip tone={taskTone(t.status)} size="sm" className="shrink-0">
-                        {t.status.replace('_', ' ')}
-                      </Chip>
-                      <span className="min-w-0 flex-1 truncate text-[12.5px]">{t.title}</span>
-                      {t.costUsd > 0 && (
-                        <span className="shrink-0 font-mono text-[10px] text-dim">{fmtUsd(t.costUsd)}</span>
-                      )}
-                      <span className="shrink-0 text-[10px] text-dim">{timeAgo(t.createdAt, now)}</span>
-                    </button>
-                    {over && (
+                    <div className="flex items-center gap-2">
                       <button
-                        className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] text-mut transition-colors hover:border-task/50 hover:text-task"
-                        title="Replay this task on the map"
-                        onClick={() => useStore.getState().startReplay(t.id)}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        onClick={() => useStore.getState().selectTask(t.id)}
                       >
-                        ↺ replay
+                        <Chip tone={taskTone(t.status)} size="sm" className="shrink-0">
+                          {t.status.replace('_', ' ')}
+                        </Chip>
+                        <span className="min-w-0 flex-1 truncate text-[12.5px]">{t.title}</span>
+                        {t.costUsd > 0 && (
+                          <span className="shrink-0 font-mono text-[10px] text-dim">{fmtUsd(t.costUsd)}</span>
+                        )}
+                        <span className="shrink-0 text-[10px] text-dim">{timeAgo(t.createdAt, now)}</span>
                       </button>
+                      {over && (
+                        <button
+                          className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] text-mut transition-colors hover:border-task/50 hover:text-task"
+                          title="Replay this task on the map"
+                          onClick={() => useStore.getState().startReplay(t.id)}
+                        >
+                          ↺ replay
+                        </button>
+                      )}
+                    </div>
+                    {delivered.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1 pl-0.5">
+                        {delivered.map((ae) => (
+                          <button
+                            key={ae.id}
+                            className="inline-flex max-w-full cursor-pointer items-center gap-1 rounded-md border border-artifact/35 bg-artifact/8 px-1.5 py-0.5 text-[10px] font-medium text-artifact transition-colors hover:border-artifact/60 hover:bg-artifact/15"
+                            title={`Open: ${artifactEventName(ae)}`}
+                            onClick={() => useStore.getState().openArtifact(ae.id)}
+                          >
+                            <DocGlyph />
+                            <span className="truncate">{artifactEventName(ae)}</span>
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )
