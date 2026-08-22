@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useStore } from '../store'
 import { LAUNCH_AGENT_ID, deptById, personById, toolById } from '../data/company'
 import { cx, fmtUsd, timeAgo } from '../utils'
-import type { AgentStatus, PendingApproval, WorldEvent } from '../types'
+import type { AgentStatus, EventType, PendingApproval, WorldEvent } from '../types'
 
 // ─── Web Speech API (absent from lib.dom in this TS version) ─────────────────
 
@@ -114,19 +114,6 @@ function Row({ k, v }: { k: string; v: string }) {
   )
 }
 
-/** Chip tone for an event: explicit types win, otherwise the edge it travels on. */
-function eventTone(e: WorldEvent): string {
-  if (e.type === 'GuardrailBlock') return 'border-guard/50 text-guard'
-  if (e.type === 'ToolCall') return 'border-line text-mut'
-  switch (e.edge) {
-    case 'task': return 'border-task/50 text-task'
-    case 'artifact': return 'border-artifact/50 text-artifact'
-    case 'permission': return 'border-permission/50 text-permission'
-    case 'escalation': return 'border-escalation/50 text-escalation'
-    default: return 'border-line text-mut'
-  }
-}
-
 // ─── Agent Room ──────────────────────────────────────────────────────────────
 
 export default function AgentRoom({ agentId }: { agentId: string }) {
@@ -144,6 +131,19 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
     () => log.filter((e) => e.type === 'Chat' && (e.from?.id === agentId || e.to?.id === agentId)),
     [log, agentId],
   )
+
+  // consecutive messages from one voice fold under a single sender line
+  const groups = useMemo<ThreadGroup[]>(() => {
+    const out: ThreadGroup[] = []
+    for (const e of messages) {
+      const fromPerson = e.from?.kind === 'person'
+      const senderId = e.from?.id ?? 'system'
+      const last = out[out.length - 1]
+      if (last && last.senderId === senderId && last.fromPerson === fromPerson) last.msgs.push(e)
+      else out.push({ key: e.id, fromPerson, senderId, msgs: [e] })
+    }
+    return out
+  }, [messages])
 
   // timeline = every non-chat event this agent touched, plus the task it is on now
   const currentTaskId = world.agentTask.get(agentId)
@@ -297,17 +297,17 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
 
       {/* ── body ── */}
       {tab === 'chat' ? (
-        <div ref={chatScroll} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3">
+        <div ref={chatScroll} className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">
           {messages.length === 0 && !blueprint && (
             <p className="py-6 text-center text-[12px] text-dim">
               No conversation yet. Ask for work, a status read, or a brand-new agent.
             </p>
           )}
-          {messages.map((e) => (
-            <Bubble key={e.id} e={e} agentName={agent.name} now={now} />
+          {groups.map((g) => (
+            <MessageGroup key={g.key} group={g} agentName={agent.name} now={now} />
           ))}
           {blueprint?.blueprint && <BlueprintCard approval={blueprint} now={now} />}
-          {pending && <Typing />}
+          {pending && <Thinking agentName={agent.name} />}
         </div>
       ) : (
         <TimelineList events={timeline} highlightEventId={highlightEventId} now={now} />
@@ -336,78 +336,221 @@ function TabButton({
 
 // ─── Conversation ────────────────────────────────────────────────────────────
 
-function Bubble({ e, agentName, now }: { e: WorldEvent; agentName: string; now: number }) {
-  const fromPerson = e.from?.kind === 'person'
-  const who = fromPerson ? personById.get(e.from?.id ?? '')?.name ?? 'You' : agentName
-  const text = e.payload?.text ?? e.title
-  return (
-    <div className={cx('flex', fromPerson ? 'justify-end' : 'justify-start')}>
-      <div
-        className={cx(
-          'max-w-[86%] rounded-lg border px-2.5 py-1.5',
-          fromPerson ? 'border-task/30 bg-task/10' : 'border-line bg-raised',
-        )}
-      >
-        <div className="text-[13px] leading-snug whitespace-pre-wrap">{text}</div>
-        <div className={cx('mt-1 text-[10px]', fromPerson ? 'text-task/70' : 'text-dim')}>
-          {who} · {timeAgo(e.ts, now)}
-        </div>
-      </div>
-    </div>
-  )
+interface ThreadGroup {
+  key: string
+  fromPerson: boolean
+  senderId: string
+  msgs: WorldEvent[]
 }
 
-function Typing() {
+/**
+ * Editorial thread: a small-caps sender line with a mono timestamp, then plain
+ * paragraphs. The agent's voice hangs off a 2px hairline instead of a bubble.
+ */
+function MessageGroup({ group, agentName, now }: { group: ThreadGroup; agentName: string; now: number }) {
+  const who = group.fromPerson ? personById.get(group.senderId)?.name ?? 'You' : agentName
+  const first = group.msgs[0]
   return (
-    <div className="flex justify-start">
-      <div className="flex items-center gap-1 rounded-lg border border-line bg-raised px-3 py-2.5">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="size-1.5 animate-pulse rounded-full bg-dim"
-            style={{ animationDelay: `${i * 180}ms`, animationDuration: '1.1s' }}
-          />
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <span
+          className={cx(
+            'truncate text-[11px] font-semibold uppercase tracking-[0.12em]',
+            group.fromPerson ? 'text-ink' : 'text-mut',
+          )}
+        >
+          {who}
+        </span>
+        {first && <span className="shrink-0 font-mono text-[10px] text-dim">{timeAgo(first.ts, now)}</span>}
+      </div>
+      <div className={cx('mt-1.5 space-y-2', !group.fromPerson && 'border-l-2 border-linebright pl-3')}>
+        {group.msgs.map((e) => (
+          <p key={e.id} className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink">
+            {e.payload?.text ?? e.title}
+          </p>
         ))}
       </div>
     </div>
   )
 }
 
+function Thinking({ agentName }: { agentName: string }) {
+  return (
+    <div className="border-l-2 border-linebright pl-3">
+      <span className="inline-flex items-baseline gap-1.5 text-[12px] text-dim">
+        {agentName} is thinking
+        <span className="inline-flex items-center gap-[3px]">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="size-[3px] animate-pulse rounded-full bg-dim"
+              style={{ animationDelay: `${i * 180}ms`, animationDuration: '1.1s' }}
+            />
+          ))}
+        </span>
+      </span>
+    </div>
+  )
+}
+
+/** The blueprint as a formal spec sheet: header band, hairline-ruled sections, sign-off. */
 function BlueprintCard({ approval, now }: { approval: PendingApproval; now: number }) {
   const bp = approval.blueprint
   if (!bp) return null
   const owner = personById.get(bp.ownerId)
-  const tools = bp.toolIds.map((id) => toolById.get(id)?.name ?? id).join(' · ')
+  const deptName = deptById.get(bp.deptId)?.name ?? bp.deptId
   return (
-    <div className="anim-fadeup rounded-lg border border-task/30 bg-task/5 p-3">
-      <div className="flex items-center gap-2">
-        <Chip tone="border-task/50 text-task" size="sm" className="font-mono tracking-wide">BLUEPRINT</Chip>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{bp.name}</span>
-        <span className="shrink-0 text-[10px] text-dim">{timeAgo(approval.ts, now)}</span>
+    <div className="anim-fadeup overflow-hidden rounded-md border border-linebright bg-surface">
+      {/* header band */}
+      <div className="flex items-center gap-2.5 border-b border-linebright bg-raised px-3.5 py-2.5">
+        <span className="shrink-0 font-mono text-[9.5px] font-medium tracking-[0.22em] text-mut">
+          BLUEPRINT
+        </span>
+        <span aria-hidden className="h-3.5 w-px shrink-0 bg-linebright" />
+        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{bp.name}</span>
+        <span className="shrink-0 rounded-sm border border-linebright bg-surface px-1.5 py-px font-mono text-[9px] text-mut">
+          v1
+        </span>
       </div>
-      <dl className="mt-2.5 space-y-1 text-[11.5px]">
-        <Row k="purpose" v={bp.purpose} />
-        <Row k="trigger" v={bp.trigger} />
-        {bp.skills.length > 0 && <Row k="skills" v={bp.skills.join(' · ')} />}
-        {tools && <Row k="tools" v={tools} />}
-        {bp.collaborators.length > 0 && <Row k="collaborators" v={bp.collaborators.join(' · ')} />}
-        {bp.approvals.length > 0 && <Row k="approvals" v={bp.approvals.join(' · ')} />}
-        {bp.limits.length > 0 && <Row k="limits" v={bp.limits.join(' · ')} />}
-      </dl>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+
+      <div className="divide-y divide-line">
+        <SpecSection label="Objective">
+          <p>{bp.purpose}</p>
+          <p className="mt-1.5 font-mono text-[10px] text-dim">
+            <span className="uppercase tracking-[0.08em]">trigger</span> — {bp.trigger}
+          </p>
+        </SpecSection>
+
+        {(bp.skills.length > 0 || bp.collaborators.length > 0) && (
+          <SpecSection label="Skills & collaborators">
+            {bp.skills.length > 0 && <p>{bp.skills.join(' · ')}</p>}
+            {bp.collaborators.length > 0 && (
+              <p className="mt-1 text-mut">Works with {bp.collaborators.join(', ')}</p>
+            )}
+          </SpecSection>
+        )}
+
+        {bp.toolIds.length > 0 && (
+          <SpecSection label="Tools & scopes">
+            <ul className="space-y-1">
+              {bp.toolIds.map((id) => {
+                const t = toolById.get(id)
+                const needsAuth = t?.requiresAuth === true && t.connected !== true
+                return (
+                  <li key={id} className="flex items-baseline gap-2">
+                    <span>{t?.name ?? id}</span>
+                    {t?.kind && <span className="font-mono text-[10px] text-dim">{t.kind}</span>}
+                    {needsAuth && (
+                      <span className="ml-auto shrink-0 font-mono text-[9px] uppercase tracking-[0.08em] text-permission">
+                        auth required
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </SpecSection>
+        )}
+
+        {bp.limits.length > 0 && (
+          <SpecSection label="Inherited guardrails" tone="text-guard">
+            <ul className="space-y-1">
+              {bp.limits.map((l) => (
+                <li key={l} className="flex gap-2">
+                  <span aria-hidden className="mt-[0.55em] h-px w-2.5 shrink-0 bg-guard/70" />
+                  <span>{l}</span>
+                </li>
+              ))}
+            </ul>
+          </SpecSection>
+        )}
+
+        {bp.approvals.length > 0 && (
+          <SpecSection label="Escalation path" tone="text-escalation">
+            <ul className="space-y-1">
+              {bp.approvals.map((a) => (
+                <li key={a} className="flex gap-2">
+                  <span aria-hidden className="mt-[0.55em] h-px w-2.5 shrink-0 bg-escalation/70" />
+                  <span>{a}</span>
+                </li>
+              ))}
+            </ul>
+          </SpecSection>
+        )}
+      </div>
+
+      {/* sign-off */}
+      <div className="flex flex-wrap items-center gap-2 border-t border-linebright px-3.5 py-2.5">
         <button className="btn btn-primary" onClick={() => useStore.getState().approve(approval)}>
           Approve blueprint
         </button>
         <button className="btn" onClick={() => useStore.getState().openPanel('diff')}>
           View inheritance
         </button>
-        {owner && <span className="text-[11px] text-dim">{owner.name} signs this off</span>}
+        <span className="ml-auto text-right text-[10.5px] leading-tight text-dim">
+          {owner ? `${owner.name} signs this off` : deptName}
+          <span className="block font-mono text-[9.5px]">{timeAgo(approval.ts, now)}</span>
+        </span>
       </div>
     </div>
   )
 }
 
+function SpecSection({ label, tone, children }: { label: string; tone?: string; children: ReactNode }) {
+  return (
+    <section className="px-3.5 py-2.5">
+      <h4 className={cx('font-mono text-[9.5px] uppercase tracking-[0.18em]', tone ?? 'text-dim')}>
+        {label}
+      </h4>
+      <div className="mt-1.5 text-[12.5px] leading-relaxed text-ink">{children}</div>
+    </section>
+  )
+}
+
 // ─── Timeline ────────────────────────────────────────────────────────────────
+
+/** Milestones get a ring around their dot on the rail. */
+const MAJOR_EVENTS = new Set<EventType>(['TaskCompleted', 'AgentSpawned', 'GuardrailBlock'])
+
+interface RailTone {
+  dot: string
+  ring: string
+  label: string
+  title?: string
+}
+
+/** Dot color for an event: explicit types win, otherwise the edge it travels on. */
+function railTone(e: WorldEvent): RailTone {
+  if (e.type === 'GuardrailBlock')
+    return { dot: 'bg-guard', ring: 'border-guard/40', label: 'text-guard', title: 'text-guard' }
+  if (e.type === 'Escalation' || e.type === 'TaskFailed' || e.edge === 'escalation')
+    return { dot: 'bg-escalation', ring: 'border-escalation/40', label: 'text-escalation', title: 'text-escalation' }
+  if (e.type === 'ToolCall')
+    return { dot: 'bg-linebright', ring: 'border-linebright', label: 'text-dim' }
+  if (e.type === 'PermissionRequest' || e.type === 'AuthRequired' || e.edge === 'permission')
+    return { dot: 'bg-permission', ring: 'border-permission/40', label: 'text-dim' }
+  if (e.type === 'ArtifactDelivered' || e.edge === 'artifact')
+    return { dot: 'bg-artifact', ring: 'border-artifact/40', label: 'text-dim' }
+  if (e.edge === 'task' || e.type.startsWith('Task') || e.type.startsWith('Blueprint') || e.type === 'AgentSpawned' || e.type === 'DelegatedTo')
+    return { dot: 'bg-task', ring: 'border-task/40', label: 'text-dim' }
+  return { dot: 'bg-linebright', ring: 'border-linebright', label: 'text-dim' }
+}
+
+/** "TaskCompleted" → "TASK COMPLETED" for the mono meta line. */
+const typeLabel = (t: EventType) => t.replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase()
+
+function DocGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 10 12" className={cx('size-[11px] shrink-0', className)} aria-hidden="true">
+      <path
+        d="M1.5 0.5h4.5L9 3.3V11a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 1 11V1a.5.5 0 0 1 .5-.5Z"
+        fill="none" stroke="currentColor" strokeWidth="1"
+      />
+      <path d="M6 0.5v3h3" fill="none" stroke="currentColor" strokeWidth="1" />
+      <path d="M3 6.5h4M3 8.5h4" stroke="currentColor" strokeWidth="0.9" />
+    </svg>
+  )
+}
 
 function TimelineList({
   events, highlightEventId, now,
@@ -450,45 +593,75 @@ function TimelineList({
   }
 
   return (
-    <div ref={scroll} className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2.5 py-3">
-      {events.map((e) => {
-        const isOpen = open.has(e.id)
-        const lit = highlightEventId === e.id || flash === e.id
-        return (
-          <div
-            key={e.id}
-            data-event-id={e.id}
-            ref={(el) => {
-              if (el) rows.current.set(e.id, el)
-              else rows.current.delete(e.id)
-            }}
-            onMouseEnter={() => useStore.getState().setHighlight(e.id)}
-            onMouseLeave={() => useStore.getState().setHighlight(null)}
-            className={cx(
-              'rounded-lg border transition-colors',
-              lit
-                ? 'border-task/40 bg-raised ring-1 ring-task/60'
-                : 'border-transparent hover:border-line hover:bg-hover',
-            )}
-          >
-            <button
-              className="flex w-full items-center gap-2 px-2 py-1.5 text-left"
-              onClick={() => {
-                toggle(e.id)
-                if (e.taskId) useStore.getState().selectTask(e.taskId)
+    <div ref={scroll} className="min-h-0 flex-1 overflow-y-auto py-3 pr-2">
+      <div className="relative">
+        {/* the execution rail */}
+        <div aria-hidden className="absolute top-2 bottom-2 left-[15px] w-px bg-line" />
+        {events.map((e) => {
+          const isOpen = open.has(e.id)
+          const lit = highlightEventId === e.id || flash === e.id
+          const tone = railTone(e)
+          const major = MAJOR_EVENTS.has(e.type)
+          const isArtifact = e.type === 'ArtifactDelivered'
+          return (
+            <div
+              key={e.id}
+              data-event-id={e.id}
+              ref={(el) => {
+                if (el) rows.current.set(e.id, el)
+                else rows.current.delete(e.id)
               }}
+              onMouseEnter={() => useStore.getState().setHighlight(e.id)}
+              onMouseLeave={() => useStore.getState().setHighlight(null)}
+              className={cx(
+                'group relative ml-[26px] rounded-md transition-colors',
+                lit ? 'bg-task/10 ring-1 ring-task/35 ring-inset' : 'hover:bg-hover',
+              )}
             >
-              <Chip tone={eventTone(e)} size="sm" className="shrink-0 font-mono">{e.type}</Chip>
-              <span className="min-w-0 flex-1 truncate text-[12.5px]">{e.title}</span>
-              <span className="shrink-0 text-[10px] text-dim">{timeAgo(e.ts, now)}</span>
-              <span className={cx('shrink-0 text-[9px] text-dim transition-transform', isOpen && 'rotate-90')}>
-                ▶
+              {/* typed dot sitting on the rail */}
+              <span aria-hidden className="absolute top-[11px] -left-[15px] flex size-[9px] items-center justify-center">
+                {major && <span className={cx('absolute inset-0 rounded-full border bg-surface', tone.ring)} />}
+                <span className={cx('relative size-[5px] rounded-full', tone.dot)} />
               </span>
-            </button>
-            {isOpen && <EventDetail e={e} />}
-          </div>
-        )
-      })}
+              <div className="flex items-start">
+                <button
+                  className="min-w-0 flex-1 py-1.5 pl-2.5 text-left"
+                  onClick={() => {
+                    if (e.taskId) useStore.getState().selectTask(e.taskId)
+                    if (isArtifact) useStore.getState().openArtifact(e.id)
+                    else toggle(e.id)
+                  }}
+                >
+                  <span className="flex items-baseline gap-2">
+                    {isArtifact && <DocGlyph className="self-center text-artifact" />}
+                    <span className={cx('min-w-0 flex-1 truncate text-[12.5px] leading-[18px]', tone.title ?? 'text-ink')}>
+                      {e.title}
+                    </span>
+                    {isArtifact && (
+                      <span className="hidden shrink-0 font-mono text-[9px] tracking-[0.08em] text-artifact uppercase group-hover:inline">
+                        open →
+                      </span>
+                    )}
+                    <span className="shrink-0 font-mono text-[10px] text-dim">{timeAgo(e.ts, now)}</span>
+                  </span>
+                  <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9.5px] tracking-[0.06em]">
+                    <span className={tone.label}>{typeLabel(e.type)}</span>
+                    {e.taskId && <span className="text-dim/70">· {e.taskId}</span>}
+                  </span>
+                </button>
+                <button
+                  className="shrink-0 px-2 pt-[9px] pb-1 text-[8px] text-dim hover:text-ink"
+                  title={isOpen ? 'Collapse' : 'Details'}
+                  onClick={() => toggle(e.id)}
+                >
+                  <span className={cx('inline-block transition-transform', isOpen && 'rotate-90')}>▶</span>
+                </button>
+              </div>
+              {isOpen && <EventDetail e={e} />}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -497,7 +670,7 @@ function EventDetail({ e }: { e: WorldEvent }) {
   const pl = e.payload
   const blockedPerson = e.blockedOn ? personById.get(e.blockedOn.personId) : undefined
   return (
-    <div className="border-t border-line px-2 pt-2 pb-2.5">
+    <div className="border-t border-line pt-2 pr-2 pb-2.5 pl-2.5">
       {e.detail && <p className="mb-2 text-[11.5px] leading-snug text-mut">{e.detail}</p>}
       <dl className="space-y-1 text-[11.5px]">
         {pl?.objective && <Row k="objective" v={pl.objective} />}
