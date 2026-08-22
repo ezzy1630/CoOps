@@ -106,6 +106,31 @@ function plazaScatter(art: PixelArt, hash: number): Pt {
   })
 }
 
+// ─── Anchors for visitors and mail ───────────────────────────────────────────
+
+export function buildingFor(art: PixelArt, deptId: string): PixelBuilding | undefined {
+  return art.buildings.find((b) => b.deptId === deptId)
+}
+
+/** Approval mail waits beside the door, stacked down-right per extra letter
+ *  (the same diagonal the classic map's badge anchors use). */
+export function mailAnchor(art: PixelArt, b: PixelBuilding, idx: number): Pt {
+  return clampToWorld(art, {
+    x: b.door.x + 24 + idx * 8,
+    y: b.door.y + 10 + idx * 46,
+  })
+}
+
+/** Roaming colleagues linger at the fan's outer edge, shifted left per index
+ *  so two visitors never overlap. */
+export function presencePoint(art: PixelArt, b: PixelBuilding, idx: number): Pt {
+  const d = outDir(b)
+  return clampToWorld(art, {
+    x: b.door.x + d.x * (RING_RADII[RING_RADII.length - 1] + 14) - idx * 22,
+    y: b.door.y + d.y * (RING_RADII[RING_RADII.length - 1] + 14),
+  })
+}
+
 /** Keep feet (and the chip under them) inside the stage. */
 function clampToWorld(art: PixelArt, p: Pt): Pt {
   return {

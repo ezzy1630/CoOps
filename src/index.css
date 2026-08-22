@@ -288,8 +288,16 @@ html.fun-mode {
 .sprite-bob {
   animation: sprite-bob 1.1s steps(1, end) infinite;
 }
+/* walkers reuse the same two-frame flip at a running step; reduced motion
+   freezes them on their contact pose via the element's static position */
+.sprite-walk {
+  animation: sprite-bob 0.38s steps(1, end) infinite;
+}
 @media (prefers-reduced-motion: reduce) {
   .sprite-bob {
+    animation: none;
+  }
+  .sprite-walk {
     animation: none;
   }
 }
