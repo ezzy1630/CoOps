@@ -15,6 +15,7 @@ interface Entry {
   title: string
   sub: string
   action: () => void
+  tickHue?: number
 }
 
 const GROUP_ORDER: Group[] = ['Actions', 'Departments', 'Agents', 'People', 'Tasks', 'Approvals']
@@ -33,6 +34,15 @@ const MAX_VISIBLE = 14
 
 const deptName = (id: string) => deptById.get(id)?.name ?? id
 const statusLabel = (s: Task['status']) => s.replace('_', ' ')
+
+function CapabilityGlyph() {
+  return (
+    <svg viewBox="0 0 10 12" className="size-2.5 shrink-0 text-permission" aria-hidden="true">
+      <path d="M2.6 5.2V3.5a2.4 2.4 0 0 1 4.8 0v1.7" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="1.2" y="5.2" width="7.6" height="6" rx="1.3" fill="currentColor" />
+    </svg>
+  )
+}
 
 /** Active work first, then the most recently finished. */
 function rankTasks(tasks: Task[]): Task[] {
@@ -110,6 +120,7 @@ export default function CommandPalette() {
         group: 'Departments',
         title: d.name,
         sub: d.blurb,
+        tickHue: personById.get(d.leadId)?.hue,
         action: () => {
           st().requestCamera({ type: 'dept', deptId: d.id })
           st().openPanel('dept', d.id)
@@ -123,6 +134,7 @@ export default function CommandPalette() {
         group: 'Agents',
         title: a.name,
         sub: `${a.kind === 'operator' ? 'Department Agent' : 'Worker'} — ${deptName(a.deptId)}`,
+        tickHue: personById.get(a.ownerId)?.hue,
         action: () => {
           st().requestCamera({ type: 'agent', agentId: a.id })
           st().openPanel('agent', a.id)
@@ -136,6 +148,7 @@ export default function CommandPalette() {
         group: 'People',
         title: p.name,
         sub: p.owns.length > 0 ? `${p.role} · owns ${p.owns[0]}` : p.role,
+        tickHue: p.hue,
         action: () => st().openPanel('dept', p.deptId),
       })
     }
@@ -146,6 +159,7 @@ export default function CommandPalette() {
         group: 'Tasks',
         title: t.title,
         sub: `${statusLabel(t.status)} · ${deptName(t.originDept)}`,
+        tickHue: personById.get(deptById.get(t.originDept)?.leadId ?? '')?.hue,
         action: () => {
           st().selectTask(t.id)
           if (t.path.length > 1) st().requestCamera({ type: 'fit' })
@@ -159,6 +173,7 @@ export default function CommandPalette() {
         group: 'Approvals',
         title: a.what,
         sub: `waiting on ${personById.get(a.personId)?.name ?? 'a human'}`,
+        tickHue: personById.get(a.personId)?.hue,
         action: () => st().openPanel('approvals'),
       })
     }
@@ -226,7 +241,7 @@ export default function CommandPalette() {
       <div className="absolute inset-0 bg-ink/25" onClick={close} />
 
       <div className="absolute top-[18vh] left-1/2 w-[560px] -translate-x-1/2">
-        <div className="panel anim-fadeup flex max-h-[60vh] flex-col overflow-hidden">
+        <div className="panel anim-fadeup flex max-h-[60vh] flex-col overflow-hidden rounded-md">
           {/* search */}
           <div className="flex shrink-0 items-center gap-2.5 border-b border-line px-3">
             <svg width="14" height="14" viewBox="0 0 16 16" className="shrink-0 text-dim">
@@ -242,14 +257,14 @@ export default function CommandPalette() {
               }}
               onKeyDown={onKeyDown}
               placeholder="Jump to any agent, task, person, department, or approval…"
-              className="h-12 w-full bg-transparent text-[14px] text-ink outline-none placeholder:text-dim"
+              className="h-11 w-full bg-transparent text-[13px] text-ink outline-none placeholder:text-dim"
               spellCheck={false}
               autoComplete="off"
             />
           </div>
 
           {/* results */}
-          <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+          <div className="min-h-0 flex-1 overflow-y-auto p-1">
             {visible.length === 0 && (
               <div className="px-3 py-8 text-center text-[12px] text-dim">
                 Nothing matches that. Try a department, a person, or a task.
@@ -258,7 +273,7 @@ export default function CommandPalette() {
             {visible.map((e, i) => (
               <div key={e.key}>
                 {(i === 0 || visible[i - 1].group !== e.group) && (
-                  <div className="px-2 pt-2.5 pb-1 font-mono text-[10px] tracking-wider text-dim uppercase">
+                  <div className="px-2 pt-2 pb-1 font-mono text-[10px] tracking-wider text-dim uppercase">
                     {e.group}
                   </div>
                 )}
@@ -269,14 +284,21 @@ export default function CommandPalette() {
                   onClick={() => run(e)}
                   onMouseMove={() => setIndex(i)}
                   className={cx(
-                    'flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors',
-                    i === index ? 'bg-hover ring-1 ring-linebright' : 'hover:bg-hover/50',
+                    'flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-left transition-colors',
+                    i === index ? 'bg-hover ring-1 ring-linebright/80' : 'hover:bg-hover/50',
                   )}
                 >
-                  <span
-                    className="size-1.5 shrink-0 rounded-full"
-                    style={{ background: GROUP_DOT[e.group] }}
-                  />
+                  <span className="flex shrink-0 items-center gap-1">
+                    <span className="size-1.5 rounded-full" style={{ background: GROUP_DOT[e.group] }} />
+                    {e.tickHue != null && (
+                      <span
+                        aria-hidden
+                        className="h-3 w-0.5 rounded-full"
+                        style={{ background: `hsl(${e.tickHue} 56% 52%)` }}
+                      />
+                    )}
+                  </span>
+                  {e.group === 'Approvals' && <CapabilityGlyph />}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px]">{e.title}</span>
                     <span className="block truncate text-[11px] text-dim">{e.sub}</span>
@@ -287,7 +309,7 @@ export default function CommandPalette() {
           </div>
 
           {/* footer */}
-          <div className="flex shrink-0 items-center gap-1.5 border-t border-line bg-raised/60 px-3 py-2 text-[11px] text-dim">
+          <div className="flex shrink-0 items-center gap-1.5 border-t border-line bg-raised/60 px-3 py-1.5 text-[11px] text-dim">
             <span className="kbd">↑↓</span>
             navigate
             <span className="px-1">·</span>

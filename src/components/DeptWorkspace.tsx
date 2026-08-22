@@ -34,8 +34,8 @@ function StatusDot({ status, className }: { status: AgentStatus; className?: str
       className={cx(
         'size-2 shrink-0 rounded-full',
         status === 'idle' && 'bg-linebright',
-        status === 'working' && 'bg-task anim-work',
-        status === 'blocked' && 'bg-permission anim-breathe',
+        status === 'working' && 'bg-task',
+        status === 'blocked' && 'bg-permission',
         className,
       )}
     />
@@ -71,10 +71,10 @@ function Section({
   title, meta, children,
 }: { title: string; meta?: string; children: ReactNode }) {
   return (
-    <section className="border-t border-line px-3.5 py-3">
-      <div className="mb-2 flex items-baseline gap-2">
+    <section className="border-t border-line px-3 py-2.5">
+      <div className="mb-1.5 flex items-baseline gap-2">
         <h3 className="font-mono text-[10px] uppercase tracking-wide text-dim">{title}</h3>
-        {meta && <span className="font-mono text-[10px] text-dim/70">{meta}</span>}
+        {meta && <span className="font-mono text-[10px] text-dim/70 tabular-nums">{meta}</span>}
       </div>
       {children}
     </section>
@@ -147,6 +147,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
   )
 
   const tools = useMemo(() => TOOLS.filter((t) => t.deptId === deptId), [deptId])
+  const departmentHue = lead ? `hsl(${lead.hue} 56% 52%)` : 'var(--color-linebright)'
 
   if (!dept) {
     return (
@@ -160,10 +161,13 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
   return (
     <div className="flex h-full flex-col">
       {/* ── header ── */}
-      <div className="flex shrink-0 items-start gap-3 border-b border-line px-3.5 py-3">
+      <div className="flex shrink-0 items-start gap-3 border-b border-line px-3 py-2.5">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-[15px] font-semibold">{dept.name}</h2>
-          <p className="mt-0.5 truncate text-[11px] text-dim">{dept.blurb}</p>
+          <div className="flex items-center gap-2">
+            <span aria-hidden className="h-3.5 w-0.5 shrink-0 rounded-full" style={{ background: departmentHue }} />
+            <h2 className="truncate text-[14px] font-semibold">{dept.name}</h2>
+          </div>
+          <p className="mt-0.5 truncate text-[12px] text-dim">{dept.blurb}</p>
         </div>
         {lead && (
           <div className="flex shrink-0 items-center gap-2" title={`Department lead: ${lead.name}`}>
@@ -175,7 +179,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
           </div>
         )}
         <button
-          className="shrink-0 rounded px-1.5 py-0.5 text-[13px] text-dim hover:bg-hover hover:text-ink"
+          className="shrink-0 rounded px-1.5 py-0.5 text-[14px] text-dim transition-colors hover:bg-hover hover:text-ink"
           title="Close"
           onClick={() => useStore.getState().closePanel()}
         >
@@ -186,23 +190,23 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
       <div className="min-h-0 flex-1 overflow-y-auto">
         {/* ── department agent ── */}
         {operator && (
-          <div className="px-3.5 py-3">
-            <div className="rounded-lg border border-line bg-raised/60 p-3">
+          <div className="px-3 py-2.5">
+            <div className="rounded-md border border-line bg-raised/60 p-2.5">
               <div className="flex items-center gap-2">
                 <StatusDot status={world.agentStatus.get(operator.id) ?? 'idle'} />
                 <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{operator.name}</span>
                 <Chip className={cx(CHIP_FILL, 'shrink-0')}>Department Agent</Chip>
               </div>
               <p className="mt-1.5 text-[12px] leading-snug text-mut">{operator.purpose}</p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <button
-                  className="btn btn-primary"
+                  className="btn btn-primary h-7 px-2.5 py-1 text-[12px]"
                   onClick={() => useStore.getState().openPanel('agent', operator.id)}
                 >
                   Open Agent Room
                 </button>
                 <button
-                  className="rounded-md px-2 py-1.5 text-[12px] text-mut transition-colors hover:bg-hover hover:text-ink"
+                  className="rounded px-2 py-1 text-[12px] text-mut transition-colors hover:bg-hover hover:text-ink"
                   title="Describe the job in chat — the agent interviews you, then drafts a blueprint"
                   onClick={() => useStore.getState().openPanel('agent', operator.id)}
                 >
@@ -218,7 +222,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
           {workers.length === 0 ? (
             <Empty>No workers yet — ask the department agent for one.</Empty>
           ) : (
-            <div className="space-y-0.5">
+            <div className="space-y-px">
               {workers.map((w) => {
                 const status = world.agentStatus.get(w.id) ?? 'idle'
                 const taskId = world.agentTask.get(w.id)
@@ -227,12 +231,12 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   <button
                     key={w.id}
                     onClick={() => useStore.getState().openPanel('agent', w.id)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-hover"
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-hover"
                   >
                     <StatusDot status={status} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
-                        <span className="truncate text-[12.5px]">{w.name}</span>
+                        <span className="truncate text-[12px]">{w.name}</span>
                         {w.bornAt != null && (
                           <Chip className={cx(CHIP_FILL, 'shrink-0 border-task/50 text-task')}>new</Chip>
                         )}
@@ -259,7 +263,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
           {active.length === 0 && finished.length === 0 ? (
             <Empty>Nothing in the queue.</Empty>
           ) : (
-            <div className="space-y-0.5">
+            <div className="space-y-px">
               {[...active, ...finished].map((t) => {
                 const over = t.status === 'done' || t.status === 'failed'
                 const delivered = log.filter((e) => e.type === 'ArtifactDelivered' && e.taskId === t.id)
@@ -267,7 +271,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   <div
                     key={t.id}
                     className={cx(
-                      'rounded-md px-2 py-1.5 transition-colors',
+                      'rounded px-2 py-1 transition-colors',
                       selectedTaskId === t.id ? 'bg-raised ring-1 ring-task/40' : 'hover:bg-hover',
                       over && 'opacity-70',
                     )}
@@ -280,11 +284,11 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                         <Chip className={cx(CHIP_FILL, 'shrink-0', taskTone(t.status))}>
                           {t.status.replace('_', ' ')}
                         </Chip>
-                        <span className="min-w-0 flex-1 truncate text-[12.5px]">{t.title}</span>
+                        <span className="min-w-0 flex-1 truncate text-[12px]">{t.title}</span>
                         {t.costUsd > 0 && (
-                          <span className="shrink-0 font-mono text-[10px] text-dim">{fmtUsd(t.costUsd)}</span>
+                          <span className="shrink-0 font-mono text-[10px] text-dim tabular-nums">{fmtUsd(t.costUsd)}</span>
                         )}
-                        <span className="shrink-0 text-[10px] text-dim">{timeAgo(t.createdAt, now)}</span>
+                        <span className="shrink-0 font-mono text-[10px] text-dim tabular-nums">{timeAgo(t.createdAt, now)}</span>
                       </button>
                       {over && (
                         <button
@@ -329,7 +333,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
           {incoming.length === 0 ? (
             <Empty>No cross-department requests today.</Empty>
           ) : (
-            <div className="space-y-0.5">
+            <div className="space-y-px">
               {incoming.map((e) => (
                 <button
                   key={e.id}
@@ -338,14 +342,14 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   }}
                   onMouseEnter={() => useStore.getState().setHighlight(e.id)}
                   onMouseLeave={() => useStore.getState().setHighlight(null)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-hover"
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-hover"
                 >
                   <Chip className={cx(CHIP_FILL, 'shrink-0 border-task/40 text-task')}>
                     {deptById.get(e.deptFrom ?? '')?.name ?? e.deptFrom}
                   </Chip>
                   <span className="shrink-0 text-dim">→</span>
-                  <span className="min-w-0 flex-1 truncate text-[12.5px]">{e.title}</span>
-                  <span className="shrink-0 text-[10px] text-dim">{timeAgo(e.ts, now)}</span>
+                  <span className="min-w-0 flex-1 truncate text-[12px]">{e.title}</span>
+                  <span className="shrink-0 font-mono text-[10px] text-dim tabular-nums">{timeAgo(e.ts, now)}</span>
                 </button>
               ))}
             </div>
@@ -357,7 +361,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
           {tools.length === 0 ? (
             <Empty>No systems mapped to this department.</Empty>
           ) : (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               {tools.map((t) => {
                 const needsAuth = t.requiresAuth === true && t.connected !== true
                 const owner = personById.get(t.ownerId)

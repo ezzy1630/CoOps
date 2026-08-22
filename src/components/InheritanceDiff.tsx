@@ -1,6 +1,9 @@
 import { useStore } from '../store'
+import { personById } from '../data/company'
 import { cx } from '../utils'
 import { Chip, Pill } from './ui'
+
+const MARKETING_HUE = personById.get('maya')?.hue ?? 330
 
 /**
  * Configuration inheritance for one worker — the Summit Launch Agent.
@@ -10,14 +13,17 @@ import { Chip, Pill } from './ui'
 export default function InheritanceDiff() {
   return (
     <div className="flex h-full flex-col">
-      <header className="flex shrink-0 items-start gap-2 border-b border-line px-3 py-2.5">
+      <header className="flex shrink-0 items-start gap-2 border-b border-line px-3 py-2">
         <div className="min-w-0">
-          <h2 className="text-[13px] font-semibold">Configuration inheritance</h2>
-          <p className="truncate text-[11px] text-dim">Summit Launch Agent — Marketing / Everpeak baseline</p>
+          <div className="flex items-center gap-2">
+            <span aria-hidden className="h-3.5 w-0.5 shrink-0 rounded-full" style={{ background: `hsl(${MARKETING_HUE} 56% 52%)` }} />
+            <h2 className="text-[14px] font-semibold">Configuration inheritance</h2>
+          </div>
+          <p className="truncate text-[12px] text-dim">Summit Launch Agent — Marketing / Everpeak baseline</p>
         </div>
         <div className="flex-1" />
         <button
-          className="rounded px-1.5 py-0.5 text-[13px] text-dim hover:bg-hover hover:text-ink"
+          className="rounded px-1.5 py-0.5 text-[14px] text-dim transition-colors hover:bg-hover hover:text-ink"
           title="Close"
           onClick={() => useStore.getState().closePanel()}
         >
@@ -25,7 +31,7 @@ export default function InheritanceDiff() {
         </button>
       </header>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line px-3 py-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-line px-3 py-1.5">
         <LegendChip label="Company baseline" cls={BASELINE_TINT} />
         <LegendChip label="Marketing overrides" cls={DEPT_TINT} />
         <LegendChip label="Worker local" cls={LOCAL_TINT} />
@@ -46,7 +52,7 @@ export default function InheritanceDiff() {
         ))}
       </div>
 
-      <footer className="shrink-0 border-t border-line px-3 py-2.5 text-[12px] leading-relaxed text-mut">
+      <footer className="shrink-0 border-t border-line px-3 py-2 text-[12px] leading-relaxed text-mut">
         Children can narrow inherited access but can never silently broaden it. Broadening always routes to a named
         human.
       </footer>
@@ -170,9 +176,9 @@ const SECTIONS: Section[] = [
  * lose to the atom's own base utility at equal specificity.
  */
 const BASELINE_TINT = 'border-linebright bg-raised! text-dim!'
-const DEPT_TINT = 'border-task/45 bg-task/10 text-task'
-const LOCAL_TINT = 'border-artifact/45! bg-artifact/10! text-artifact!'
-const DENIED_TINT = 'border-escalation/45! bg-escalation/10! text-escalation!'
+const DEPT_TINT = 'border-task/35 bg-task/6 text-task'
+const LOCAL_TINT = 'border-artifact/35! bg-artifact/6! text-artifact!'
+const DENIED_TINT = 'border-escalation/35! bg-escalation/6! text-escalation!'
 
 const SOURCE_LABEL: Record<Layer, string> = { baseline: 'baseline', dept: 'dept', local: 'local' }
 const SOURCE_CLS: Record<Layer, string> = {
@@ -193,9 +199,18 @@ const VALUE_CLS: Record<RowState, string> = {
   denied: 'text-escalation line-through decoration-escalation/60',
 }
 
+function LockGlyph() {
+  return (
+    <svg viewBox="0 0 10 12" className="size-2.5 shrink-0" aria-hidden="true">
+      <path d="M2.6 5.2V3.5a2.4 2.4 0 0 1 4.8 0v1.7" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="1.2" y="5.2" width="7.6" height="6" rx="1.3" fill="currentColor" />
+    </svg>
+  )
+}
+
 function SettingRow({ row }: { row: DiffRow }) {
   return (
-    <div className="grid grid-cols-[142px_1fr_140px] items-start gap-3 border-b border-line/50 px-3 py-2 hover:bg-raised/50">
+    <div className="grid grid-cols-[142px_1fr_140px] items-start gap-3 border-b border-line/50 px-3 py-1.5 hover:bg-raised/50">
       <div className="text-[12px] leading-snug text-ink">{row.name}</div>
 
       <div className="min-w-0">
@@ -205,7 +220,7 @@ function SettingRow({ row }: { row: DiffRow }) {
             return (
               <span key={i} className="flex items-baseline gap-1.5">
                 {i > 0 && <span className="text-dim">→</span>}
-                <span className={cx(last ? VALUE_CLS[row.state] : 'text-dim line-through decoration-dim/50')}>{v}</span>
+                <span className={cx('tabular-nums', last ? VALUE_CLS[row.state] : 'text-dim line-through decoration-dim/50')}>{v}</span>
               </span>
             )
           })}
@@ -215,7 +230,10 @@ function SettingRow({ row }: { row: DiffRow }) {
 
       <div className="flex items-center justify-end gap-1.5">
         <Pill className={SOURCE_CLS[row.source]}>{SOURCE_LABEL[row.source]}</Pill>
-        <span className={cx('text-[10px]', STATE_CLS[row.state])}>{row.state}</span>
+        <span className={cx('flex items-center gap-1 text-[10px]', STATE_CLS[row.state])}>
+          {row.state === 'denied' && <LockGlyph />}
+          {row.state}
+        </span>
       </div>
     </div>
   )
