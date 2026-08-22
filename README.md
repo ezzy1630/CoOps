@@ -27,6 +27,21 @@ Open http://localhost:5173 in **Chrome on a desktop** (voice input uses the Web 
 
 Vite · React 19 · TypeScript · Tailwind v4 · zustand · framer-motion. The map is hand-rolled SVG — deterministic ring layout, semantic zoom, no graph library.
 
+## Backend
+
+A TypeScript event server (`server/`) owns the same typed event log: SSE stream,
+chat and approval commands, deterministic MockBrain by default, Gemini
+function-calling brain / department memory / guardrail / dry-run workspace tools
+when `GEMINI_API_KEY` is set, and A2A protocol exposure per operator with
+`COOPS_ENABLE_A2A=1`. Point the frontend at it with `?backend=live`.
+
+```sh
+npm run server        # :8080 alongside npm run dev
+```
+
+See `server/src/README.md` for routes and `docs/deploy.md` for env vars,
+capability levels, and Cloud Run deployment.
+
 ## Architecture note
 
 The entire UI is a fold over a typed event log (`src/engine/reducer.ts`). The simulator (`src/data/scenarios.ts`, `src/data/hero.ts`) emits the same `WorldEvent` types the real backend will; live mode, the activity feed, task focus and the replay scrubber are all the same pure function evaluated at different points in virtual time.
