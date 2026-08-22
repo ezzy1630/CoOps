@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { PANEL_WIDTH, useStore } from './store'
 import CompanyMap from './map/CompanyMap'
 import Header from './components/Header'
+import NavRail from './components/NavRail'
 import MapOverlays from './components/MapOverlays'
 import ReplayScrubber from './components/ReplayScrubber'
 import Toasts from './components/Toasts'
@@ -15,9 +16,14 @@ import CommandPalette from './components/CommandPalette'
 import PersonaGate from './components/PersonaGate'
 import FirstRun from './components/FirstRun'
 import ArtifactViewer from './components/ArtifactViewer'
+import ActivityPage from './pages/ActivityPage'
+import AgentsPage from './pages/AgentsPage'
+import ApprovalsPage from './pages/ApprovalsPage'
+import DocumentsPage from './pages/DocumentsPage'
 
 export default function App() {
   const entered = useStore((s) => s.entered)
+  const view = useStore((s) => s.view)
   const panel = useStore((s) => s.panel)
   const startEngine = useStore((s) => s.startEngine)
   const [tooSmall, setTooSmall] = useState(false)
@@ -53,6 +59,7 @@ export default function App() {
         if (st.artifactEventId) st.closeArtifact()
         else if (st.paletteOpen) st.setPaletteOpen(false)
         else if (st.replay) st.exitReplay()
+        else if (st.view !== 'map') st.setView('map')
         else if (st.selectedTaskId) st.selectTask(null)
         else if (st.panel) st.closePanel()
       }
@@ -74,50 +81,68 @@ export default function App() {
   }
 
   const width = panel ? PANEL_WIDTH[panel.kind] : 0
+  const mapView = view === 'map'
 
   // Pre-entry, the engine is already running: render the live map full-screen
   // with the persona gate as a translucent veil above it. The map stays mounted
   // across entry, so choosing a persona hands the camera straight to the app.
   return (
-    <div className="flex h-full flex-col">
-      {entered && <Header />}
-      <main className="relative flex-1 overflow-hidden">
-        <CompanyMap />
-        {entered && <MapOverlays />}
-        {entered && <ReplayScrubber />}
-        <AnimatePresence>
-          {panel && (
-            <motion.aside
-              key={`${panel.kind}-${panel.id ?? ''}`}
-              initial={{ x: width + 24 }}
-              animate={{ x: 0 }}
-              exit={{ x: width + 24 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 36 }}
-              className="absolute top-0 right-0 bottom-0 z-20"
-              style={{ width }}
-            >
-              <div className="h-full overflow-hidden border-l border-line bg-surface shadow-[-8px_0_24px_rgb(23_22_15/0.04)]">
-                {panel.kind === 'agent' && <AgentRoom agentId={panel.id!} />}
-                {panel.kind === 'dept' && <DeptWorkspace deptId={panel.id!} />}
-                {panel.kind === 'approvals' && <ApprovalsPanel />}
-                {panel.kind === 'activity' && <ActivityPanel />}
-                {panel.kind === 'diff' && <InheritanceDiff />}
-              </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
-        {entered && <Toasts />}
-        <AnimatePresence>{!entered && <PersonaGate />}</AnimatePresence>
-      </main>
-      {entered && (
+    <div className="flex h-full">
+      {!entered ? (
+        <main className="relative min-w-0 flex-1 overflow-hidden">
+          <CompanyMap />
+          <AnimatePresence>
+            <PersonaGate />
+          </AnimatePresence>
+        </main>
+      ) : (
         <>
-          <CommandPalette />
-          <FirstRun />
-          <ArtifactViewer />
+          <NavRail />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Header />
+            <main className={`relative min-h-0 flex-1 ${mapView ? 'overflow-hidden' : 'overflow-auto bg-bg'}`}>
+              {mapView ? <CompanyMap /> : <PageContent view={view} />}
+              {mapView && <MapOverlays />}
+              {mapView && <ReplayScrubber />}
+              <AnimatePresence>
+                {mapView && panel && (
+                  <motion.aside
+                    key={`${panel.kind}-${panel.id ?? ''}`}
+                    initial={{ x: width + 24 }}
+                    animate={{ x: 0 }}
+                    exit={{ x: width + 24 }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 36 }}
+                    className="absolute top-0 right-0 bottom-0 z-20"
+                    style={{ width }}
+                  >
+                    <div className="h-full overflow-hidden border-l border-line bg-surface shadow-[-8px_0_24px_rgb(23_22_15/0.04)]">
+                      {panel.kind === 'agent' && <AgentRoom agentId={panel.id!} />}
+                      {panel.kind === 'dept' && <DeptWorkspace deptId={panel.id!} />}
+                      {panel.kind === 'approvals' && <ApprovalsPanel />}
+                      {panel.kind === 'activity' && <ActivityPanel />}
+                      {panel.kind === 'diff' && <InheritanceDiff />}
+                    </div>
+                  </motion.aside>
+                )}
+              </AnimatePresence>
+              <Toasts />
+            </main>
+            <CommandPalette />
+            <FirstRun />
+            <ArtifactViewer />
+          </div>
         </>
       )}
     </div>
   )
+}
+
+function PageContent({ view }: { view: ReturnType<typeof useStore.getState>['view'] }) {
+  if (view === 'approvals') return <ApprovalsPage />
+  if (view === 'activity') return <ActivityPage />
+  if (view === 'agents') return <AgentsPage />
+  if (view === 'documents') return <DocumentsPage />
+  return null
 }
 
 export function Wordmark({ size = 22 }: { size?: number }) {

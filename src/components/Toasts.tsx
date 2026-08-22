@@ -2,38 +2,47 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { PANEL_WIDTH, useStore } from '../store'
 import { cx } from '../utils'
 
+/** Transient updates sit above the map status bar and stay clear of slide-overs. */
 export default function Toasts() {
   const toasts = useStore((s) => s.toasts)
   const panel = useStore((s) => s.panel)
+  const view = useStore((s) => s.view)
+  const mapDock = view === 'map'
+
   return (
     <div
-      className="absolute top-3 z-40 flex w-80 flex-col gap-2 transition-all"
-      style={{ right: panel ? PANEL_WIDTH[panel.kind] + 12 : 12 }}
+      className={cx(
+        'absolute z-40 flex w-80 flex-col gap-2 transition-all',
+        mapDock ? 'bottom-[70px]' : 'top-3',
+      )}
+      style={{ right: mapDock && panel ? PANEL_WIDTH[panel.kind] + 12 : 12 }}
+      aria-live="polite"
     >
-      <AnimatePresence>
-        {toasts.slice(-3).map((t) => (
+      <AnimatePresence initial={false}>
+        {toasts.slice(-3).map((toast) => (
           <motion.div
-            key={t.id}
-            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+            key={toast.id}
+            initial={{ opacity: 0, y: mapDock ? 8 : -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, x: 30 }}
             className={cx(
-              'panel cursor-pointer p-3',
-              t.kind === 'block' && 'border-guard/40',
-              t.kind === 'human' && 'border-human/40',
+              'cursor-pointer rounded-md border bg-surface p-3 shadow-[0_2px_10px_rgb(23_22_15/0.1)]',
+              toast.kind === 'block' && 'border-guard/40',
+              toast.kind === 'human' && 'border-human/40',
+              toast.kind === 'info' && 'border-line',
             )}
-            onClick={() => useStore.getState().dismissToast(t.id)}
+            onClick={() => useStore.getState().dismissToast(toast.id)}
           >
             <div
               className={cx(
-                'text-[13px] font-medium',
-                t.kind === 'block' && 'text-guard',
-                t.kind === 'human' && 'text-human',
+                'text-[12px] font-medium',
+                toast.kind === 'block' && 'text-guard',
+                toast.kind === 'human' && 'text-human',
               )}
             >
-              {t.title}
+              {toast.title}
             </div>
-            {t.detail && <div className="mt-0.5 text-[12px] leading-snug text-mut">{t.detail}</div>}
+            {toast.detail && <div className="mt-0.5 text-[11px] leading-snug text-mut">{toast.detail}</div>}
           </motion.div>
         ))}
       </AnimatePresence>

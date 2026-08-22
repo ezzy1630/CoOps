@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { PANEL_WIDTH, useStore } from '../store'
 import { cx } from '../utils'
+import { NAV_RAIL_WIDTH } from './NavRail'
 
 interface Step {
   kicker: string
@@ -31,7 +32,7 @@ const STEPS: Step[] = [
 ]
 
 const CARD_W = 380
-const HEADER = 48 // header height — the map starts below it
+const HEADER = 56 // header height, the map starts below it
 
 interface Anchor {
   card: CSSProperties
@@ -47,7 +48,7 @@ interface Anchor {
 function anchorFor(step: number, w: number, h: number, panelW: number): Anchor {
   const mapH = h - HEADER
   // the map the reader can actually see — a panel may be covering the right edge
-  const cx = (w - panelW) / 2
+  const cx = NAV_RAIL_WIDTH + (w - NAV_RAIL_WIDTH - panelW) / 2
   const cy = HEADER + mapH / 2
 
   // keep every target clear of the card that points at it, and inside the visible map
@@ -56,7 +57,7 @@ function anchorFor(step: number, w: number, h: number, panelW: number): Anchor {
 
   if (step === 0) {
     // the empty center of the ring
-    const left = 64
+    const left = NAV_RAIL_WIDTH + 24
     const ringR = Math.round(Math.min(46, mapH * 0.07))
     const tx = clear(cx, left, 70 + ringR)
     return {
@@ -68,7 +69,7 @@ function anchorFor(step: number, w: number, h: number, panelW: number): Anchor {
 
   if (step === 1) {
     // edges and traveling envelopes, out toward the lower mid-ring
-    const left = 208
+    const left = NAV_RAIL_WIDTH + 104
     const bottom = 40
     const ty = cy + Math.min(mapH * 0.24, 240)
     const tx = clear(cx + 28, left, 90)
@@ -79,10 +80,11 @@ function anchorFor(step: number, w: number, h: number, panelW: number): Anchor {
     }
   }
 
-  // the header's Search / ⌘K button, top right (measured: right edge 100px in, 99×32 at y=8)
-  const left = w - 24 - CARD_W
+  // The header search control is centered between the breadcrumb and presence cluster.
+  const left = Math.max(NAV_RAIL_WIDTH + 24, w - 24 - CARD_W)
   const top = HEADER + 36
-  const box = { x: w - 203, y: 4, w: 107, h: 40 }
+  const searchW = Math.min(430, Math.max(280, w - NAV_RAIL_WIDTH - 700))
+  const box = { x: NAV_RAIL_WIDTH + (w - NAV_RAIL_WIDTH - searchW) / 2, y: 7, w: searchW, h: 42 }
   return {
     card: { left, top },
     leader: { x1: left + CARD_W - 180, y1: top - 8, x2: box.x + box.w / 2, y2: box.y + box.h + 2 },

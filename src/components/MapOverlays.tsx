@@ -1,11 +1,13 @@
+import { useEffect, useMemo, useState } from 'react'
 import { PANEL_WIDTH, useStore } from '../store'
 import { deptById, personById } from '../data/company'
 import { cx } from '../utils'
 import { Chip } from './ui'
+import type { Task } from '../types'
 
 const ACTS = ['Interview', 'Fan-out', 'Unblock & deliver'] as const
 
-/** Legend, zoom controls, the one-click demo trigger, and the task-focus breadcrumb. */
+/** Map-only chrome. The status bar keeps controls visible without floating over the map. */
 export default function MapOverlays() {
   const heroStage = useStore((s) => s.heroStage)
   const selectedTaskId = useStore((s) => s.selectedTaskId)
@@ -15,108 +17,53 @@ export default function MapOverlays() {
   const log = useStore((s) => s.log)
 
   const task = selectedTaskId ? world.tasks.get(selectedTaskId) : null
-
-  const heroTask = [...world.tasks.values()].find((t) => t.title.startsWith('Summit Series launch'))
-  // centre bottom chrome on the map still visible beside an open panel
+  const heroTask = [...world.tasks.values()].find((candidate) => candidate.title.startsWith('Summit Series launch'))
   const panelW = panel ? PANEL_WIDTH[panel.kind] : 0
 
-  // which act of the launch demo is on stage — derived, no extra store state
   const heroUnblocked =
     !!heroTask &&
     log.some(
-      (e) => e.taskId === heroTask.id && (e.type === 'AccountConnected' || e.type === 'ApprovalGranted'),
+      (event) => event.taskId === heroTask.id && (event.type === 'AccountConnected' || event.type === 'ApprovalGranted'),
     )
   const act = heroStage === 'interview' || heroStage === 'blueprint' ? 1 : heroUnblocked ? 3 : 2
   const beat =
     act === 1
       ? 'Maya describes the outcome; the Marketing Agent drafts a blueprint to approve.'
       : act === 3
-        ? 'QuickBooks connected — the run resumes from its checkpoint and delivers.'
+        ? 'QuickBooks connected. The run resumes from its checkpoint and delivers.'
         : !heroTask
-          ? 'Blueprint approved — the Summit Launch Agent is spawning under Marketing.'
+          ? 'Blueprint approved. The Summit Launch Agent is spawning under Marketing.'
           : heroTask.blockedOn
-            ? `Blocked — only ${personById.get(heroTask.blockedOn.personId)?.name ?? 'one human'} can ${heroTask.blockedOn.what.charAt(0).toLowerCase() + heroTask.blockedOn.what.slice(1)}.`
+            ? `Blocked. Only ${personById.get(heroTask.blockedOn.personId)?.name ?? 'one human'} can ${heroTask.blockedOn.what.charAt(0).toLowerCase() + heroTask.blockedOn.what.slice(1)}.`
             : 'Work fans out to Finance, Legal and Support, running in parallel.'
 
   return (
     <>
-      {/* legend — bottom left */}
-      <div className="panel absolute bottom-3 left-3 z-10 flex flex-col gap-1.5 p-2.5 text-[11px] text-mut">
-        {(
-          [
-            ['var(--color-task)', 'Task'],
-            ['var(--color-artifact)', 'Artifact'],
-            ['var(--color-permission)', 'Permission · human'],
-            ['var(--color-escalation)', 'Escalation'],
-            ['var(--color-guard)', 'Guardrail block'],
-          ] as const
-        ).map(([c, label]) => (
-          <div key={label} className="flex items-center gap-2">
-            <span className="h-0.5 w-4 rounded" style={{ background: c }} />
-            {label}
-          </div>
-        ))}
+      <div
+        className="absolute bottom-0 left-0 z-10 flex h-[58px] items-center gap-4 border-t border-line bg-surface px-4"
+        style={{ right: panelW }}
+        aria-label="Map status bar"
+      >
+        <Legend />
+        <StatusDivider />
+        <ZoomControls />
+        <StatusDivider />
+        <PulseSparkline />
+        <div className="min-w-0 flex-1" />
+        {!replay && (
+          <DemoAction heroStage={heroStage} heroTask={heroTask} act={act} beat={beat} onReplay={() => heroTask && useStore.getState().startReplay(heroTask.id)} />
+        )}
       </div>
 
-      {/* zoom controls — left, above legend */}
-      <div className="panel absolute bottom-40 left-3 z-10 flex flex-col overflow-hidden text-mut">
-        <button className="px-2.5 py-1.5 hover:bg-hover hover:text-ink" title="Zoom in" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1.45 })}>+</button>
-        <button className="border-y border-line px-2.5 py-1.5 hover:bg-hover hover:text-ink" title="Zoom out" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1 / 1.45 })}>−</button>
-        <button className="px-2 py-1.5 text-[10px] hover:bg-hover hover:text-ink" title="Fit the whole company" onClick={() => useStore.getState().requestCamera({ type: 'fit' })}>fit</button>
-      </div>
-
-      {/* one-click hero demo — bottom right (hidden while a panel covers it) */}
-      {!replay && (
-        <div className="absolute bottom-3 z-10 transition-all" style={{ right: panelW + 12 }}>
-          {heroStage === 'idle' && (
-            <button
-              className="btn btn-primary shadow-[0_1px_2px_rgb(23_22_15/0.08)]"
-              onClick={() => useStore.getState().runHeroAuto()}
-            >
-              ▶ Run the launch demo
-            </button>
-          )}
-          {(heroStage === 'interview' || heroStage === 'blueprint' || heroStage === 'running') && (
-            <div className="panel anim-fadeup flex w-[330px] flex-col gap-2 px-3 py-2.5">
-              <div className="flex items-center gap-1.5 font-mono text-[10px] tracking-wider uppercase">
-                {ACTS.map((label, n) => (
-                  <span key={label} className="flex items-center gap-1.5">
-                    {n > 0 && <span className="text-dim">→</span>}
-                    <span
-                      className={cx(
-                        n + 1 === act ? 'text-ink' : n + 1 < act ? 'text-mut' : 'text-dim',
-                      )}
-                    >
-                      {n + 1} {label}
-                    </span>
-                  </span>
-                ))}
-              </div>
-              <div className="flex items-start gap-2 border-t border-line pt-2 text-[12px] leading-snug text-mut">
-                <span className="mt-1.5 size-1.5 shrink-0 animate-pulse rounded-full bg-task" />
-                {beat}
-              </div>
-            </div>
-          )}
-          {heroStage === 'done' && heroTask && (
-            <button className="btn btn-primary" onClick={() => useStore.getState().startReplay(heroTask.id)}>
-              ↺ Replay the launch
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* task focus breadcrumb — bottom center */}
       {task && !replay && (
         <div
-          className="pointer-events-none absolute bottom-3 left-0 z-10 flex justify-center px-3 transition-[right] duration-300"
+          className="pointer-events-none absolute bottom-[70px] left-0 z-10 flex justify-center px-3 transition-[right] duration-300"
           style={{ right: panelW }}
         >
-          <div className="panel anim-fadeup pointer-events-auto flex max-w-full items-center gap-2 px-3 py-2">
+          <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 shadow-[0_2px_8px_rgb(23_22_15/0.08)] anim-fadeup">
             <Chip
               className={cx(
                 'shrink-0',
-                // `!` beats the Chip atom's own text-mut / border-line in the cascade
                 task.status === 'done' && 'border-artifact/50! text-artifact!',
                 (task.status === 'waiting_auth' || task.status === 'waiting_approval') && 'border-permission/50! text-permission!',
                 task.status === 'running' && 'border-task/50! text-task!',
@@ -127,10 +74,10 @@ export default function MapOverlays() {
             </Chip>
             <span className="max-w-56 truncate text-[13px] font-medium">{task.title}</span>
             <span className="flex items-center gap-1 text-[11px] text-mut">
-              {task.path.map((d, i) => (
-                <span key={i} className="flex items-center gap-1">
-                  {i > 0 && <span className="text-dim">→</span>}
-                  {deptById.get(d)?.name ?? d}
+              {task.path.map((dept, index) => (
+                <span key={dept} className="flex items-center gap-1">
+                  {index > 0 && <span className="text-dim">→</span>}
+                  {deptById.get(dept)?.name ?? dept}
                 </span>
               ))}
               {task.status === 'done' && <span className="text-artifact">→ done</span>}
@@ -147,5 +94,156 @@ export default function MapOverlays() {
         </div>
       )}
     </>
+  )
+}
+
+function Legend() {
+  const entries = [
+    ['var(--color-task)', 'Task'],
+    ['var(--color-artifact)', 'Artifact'],
+    ['var(--color-permission)', 'Human'],
+    ['var(--color-escalation)', 'Escalation'],
+    ['var(--color-guard)', 'Guardrail'],
+  ] as const
+
+  return (
+    <div className="flex shrink-0 items-center gap-2.5 text-[10px] text-mut">
+      <span className="mr-1 text-[11px] font-medium text-ink">Legend</span>
+      {entries.map(([color, label]) => (
+        <span key={label} className="flex items-center gap-1.5 whitespace-nowrap">
+          <span className="size-1.5 rounded-full" style={{ background: color }} />
+          <span className="hidden lg:inline">{label}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function StatusDivider() {
+  return <span className="h-6 w-px shrink-0 bg-line" aria-hidden />
+}
+
+function ZoomControls() {
+  return (
+    <div className="flex shrink-0 items-center gap-1 text-[11px] text-mut" aria-label="Map zoom controls">
+      <span className="mr-1 text-[11px] font-medium text-ink">Zoom</span>
+      <button className="flex size-7 items-center justify-center rounded border border-linebright hover:bg-hover hover:text-ink" title="Zoom out" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1 / 1.45 })}>
+        −
+      </button>
+      <span className="flex h-7 min-w-10 items-center justify-center rounded border border-line bg-raised px-1 font-mono text-[10px] tabular-nums">100%</span>
+      <button className="flex size-7 items-center justify-center rounded border border-linebright hover:bg-hover hover:text-ink" title="Zoom in" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1.45 })}>
+        +
+      </button>
+      <button className="ml-1 rounded border border-transparent px-1.5 py-1 text-[10px] hover:bg-hover hover:text-ink" title="Fit the whole company" onClick={() => useStore.getState().requestCamera({ type: 'fit' })}>
+        Fit
+      </button>
+    </div>
+  )
+}
+
+function DemoAction({
+  heroStage,
+  heroTask,
+  act,
+  beat,
+  onReplay,
+}: {
+  heroStage: ReturnType<typeof useStore.getState>['heroStage']
+  heroTask: Task | undefined
+  act: number
+  beat: string
+  onReplay: () => void
+}) {
+  if (heroStage === 'idle') {
+    return (
+      <button className="btn btn-primary h-8 shrink-0 text-[12px]" onClick={() => useStore.getState().runHeroAuto()}>
+        <PlayIcon />
+        Run the launch demo
+      </button>
+    )
+  }
+  if (heroStage === 'done' && heroTask) {
+    return (
+      <button className="btn btn-primary h-8 shrink-0 text-[12px]" onClick={onReplay}>
+        <ReplayIcon />
+        Replay the launch
+      </button>
+    )
+  }
+  return (
+    <div className="flex min-w-0 max-w-[430px] items-center gap-3" title={beat}>
+      <div className="flex shrink-0 items-center gap-1.5 font-mono text-[9px] uppercase tracking-wider">
+        {ACTS.map((label, index) => (
+          <span key={label} className="flex items-center gap-1.5">
+            {index > 0 && <span className="text-dim">→</span>}
+            <span className={cx(index + 1 === act ? 'text-ink' : index + 1 < act ? 'text-mut' : 'text-dim')}>
+              {index + 1} {label}
+            </span>
+          </span>
+        ))}
+      </div>
+      <span className="h-4 w-px shrink-0 bg-line" aria-hidden />
+      <span className="min-w-0 truncate text-[11px] text-mut">{beat}</span>
+    </div>
+  )
+}
+
+/** Quiet events-per-minute pulse, based on the trailing twelve minutes. */
+function PulseSparkline() {
+  const logLen = useStore((s) => s.log.length)
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick((value) => value + 1), 15_000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const { bars, perMin, quiet } = useMemo(() => {
+    const log = useStore.getState().log
+    const now = Date.now()
+    const buckets = new Array<number>(12).fill(0)
+    let perMin = 0
+    for (let index = log.length - 1; index >= 0; index -= 1) {
+      const age = now - log[index].ts
+      if (age < 0) continue
+      if (age >= 12 * 60_000) break
+      buckets[11 - Math.floor(age / 60_000)] += 1
+      if (age < 60_000) perMin += 1
+    }
+    const max = Math.max(1, ...buckets)
+    const bars = buckets.map((value, index) => {
+      const height = value === 0 ? 1 : Math.max(2, (value / max) * 13)
+      return { x: index * 5.4, y: 16 - height, height, opacity: value === 0 ? 0.2 : 0.45 }
+    })
+    return { bars, perMin, quiet: perMin < 1 && buckets.every((value) => value <= 1) }
+  }, [logLen, tick])
+
+  if (quiet) return <span className="shrink-0 font-mono text-[10px] tabular-nums text-dim">0 ev/min</span>
+  return (
+    <div className="flex shrink-0 items-center gap-2" title="Company activity — events per minute, trailing 12 min">
+      <svg width="64" height="16" viewBox="0 0 64 16" aria-hidden>
+        {bars.map((bar, index) => (
+          <rect key={index} x={bar.x} y={bar.y} width="4.4" height={bar.height} fill="var(--color-task)" fillOpacity={bar.opacity} />
+        ))}
+      </svg>
+      <span className="font-mono text-[10px] tabular-nums text-dim">{perMin} ev/min</span>
+    </div>
+  )
+}
+
+function PlayIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+      <path d="m3 2 7 4-7 4V2Z" />
+    </svg>
+  )
+}
+
+function ReplayIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+      <path d="M3 6.5A5 5 0 1 1 4.8 11" strokeLinecap="round" />
+      <path d="M3 3.5v3h3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
