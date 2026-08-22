@@ -29,10 +29,10 @@ export const variantFor = (agentId: string, variantCount: number): number =>
 
 // ─── Villager stand points ───────────────────────────────────────────────────
 
-const OP_DOOR_GAP = 13 // operators stand just outside their doorway
-const RING_RADII = [30, 54] // first fan ring, then the crowded spill ring
-const RING_SLOTS = 5 // workers per ring before spilling outward
-const FAN_ARC = Math.PI * 0.8 // fan toward open ground, not back at the wall
+const OP_DOOR_GAP = 26 // operators clear their doorway (and the dept label)
+const RING_RADII = [46, 80] // sized for 48-unit sprites: neighbours need ~40 units
+const RING_SLOTS = 6 // workers per ring before spilling outward
+const FAN_ARC = Math.PI // half-circle toward the street, not back at the wall
 
 export interface StandSpot {
   pt: Pt

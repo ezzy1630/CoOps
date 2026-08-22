@@ -293,8 +293,11 @@ function Scene({
             <div
               className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-sm border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]"
               style={{
+                // above the roofline: below the door is the operator's spot,
+                // and the sprite buried every sign that hung there
                 left: b.w / 2,
-                top: b.h + 2,
+                top: -6,
+                transform: 'translate(-50%, -100%)',
                 background: art.palette.paper,
                 color: art.palette.ink,
                 borderColor: hexA(art.palette.outline, 0.5),
