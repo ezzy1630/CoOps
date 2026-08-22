@@ -4,6 +4,9 @@ import { Bus } from './bus.js'
 import { startHttp } from './http.js'
 import { Scheduler } from './runtime/scheduler.js'
 import { createMockBrain } from './brain/mock.js'
+import { createGeminiBrain } from './brain/gemini.js'
+import { createHeuristicGuardrail } from './guardrail/heuristic.js'
+import { openJsonlMemory } from './memory/jsonl.js'
 import type { BrainCtx } from './brain/types.js'
 import type { WorldEvent } from '../../src/types.js'
 
@@ -59,7 +62,10 @@ function worldTasks(events: WorldEvent[]): { id: string; title: string; status: 
 
 const interviews = new Map<string, number | null>()
 const scheduler = new Scheduler(e => store.append(e))
-const brain = createMockBrain()
+const guardrail = createHeuristicGuardrail()
+const brain = cfg.geminiApiKey
+  ? createGeminiBrain({ apiKey: cfg.geminiApiKey, guardrail, memory: openJsonlMemory(cfg.dataDir) })
+  : createMockBrain()
 
 const brainCtx: BrainCtx = {
   emit: e => {

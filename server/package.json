@@ -13,5 +13,8 @@
     "@types/node": "^22.14.0",
     "tsx": "^4.19.0",
     "typescript": "~5.9.2"
+  },
+  "dependencies": {
+    "@google/genai": "^2.18.0"
   }
 }
