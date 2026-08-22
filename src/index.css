@@ -26,6 +26,28 @@
   --color-guard: #6d28d9;
   --color-human: #a16207;
   --color-ok: #1e7a3d;
+
+  /* map surfaces are deliberately separate from app chrome. The map keeps
+     its drafting-table texture while the surrounding product surfaces stay
+     plain and legible. */
+  --color-map-canvas: #eeece6;
+  --color-map-void: #e6e3db;
+  --color-map-wedge: #f4f1e9;
+  --color-map-wedge-home: #ebe7dc;
+  --color-map-line: #b0ada3;
+  --color-map-ring: #a29f95;
+  --color-map-instrument: #858279;
+  --color-map-node: #fbfaf6;
+  --color-map-node-ring: #9b978d;
+  --color-map-node-muted: #aaa69c;
+  --color-map-label: #5f5c54;
+  --color-map-grid: rgb(29 28 23 / 0.065);
+  --color-map-task: #2557d6;
+  --color-map-artifact: #1e7a3d;
+  --color-map-permission: #a16207;
+  --color-map-escalation: #c03221;
+  --color-map-guard: #6d28d9;
+  --color-map-human: #a16207;
 }
 
 /* ── dark theme: same tokens, warm charcoal — swap, don't redesign ── */
@@ -49,6 +71,39 @@ html.dark {
   --color-guard: #ab8df2;
   --color-human: #d19a3f;
   --color-ok: #63bd82;
+
+  /* Cool charcoal on the map gives the warm product chrome a clear boundary,
+     with a slightly darker central void and lighter district wedges. */
+  --color-map-canvas: #202426;
+  --color-map-void: #181c1e;
+  --color-map-wedge: #252a2d;
+  --color-map-wedge-home: #2b3033;
+  --color-map-line: #555d60;
+  --color-map-ring: #646d70;
+  --color-map-instrument: #747d7f;
+  --color-map-node: #2b3032;
+  --color-map-node-ring: #737b7e;
+  --color-map-node-muted: #536064;
+  --color-map-label: #b9c0c0;
+  --color-map-grid: rgb(234 238 236 / 0.045);
+  --color-map-task: #85a0df;
+  --color-map-artifact: #71ab82;
+  --color-map-permission: #c49650;
+  --color-map-escalation: #d16b5d;
+  --color-map-guard: #9b87d0;
+  --color-map-human: #c18f4c;
+}
+
+:root {
+  --map-label-alpha: 1;
+  --map-label-spacing: 0.22em;
+  --map-inscription-alpha: 0.76;
+}
+
+html.dark {
+  --map-label-alpha: 0.7;
+  --map-label-spacing: 0.16em;
+  --map-inscription-alpha: 0.58;
 }
 
 html,
@@ -95,15 +150,7 @@ body {
   }
 }
 
-/* ── ambient status motion (deterministic, CSS-driven; no glow) ── */
-@keyframes breathe {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 0.95; }
-}
-@keyframes workpulse {
-  0%, 100% { stroke-opacity: 1; }
-  50% { stroke-opacity: 0.45; }
-}
+/* ── small, purposeful motion ── */
 @keyframes gatewayflash {
   0% { opacity: 0; transform: scale(0.6); }
   18% { opacity: 1; transform: scale(1.15); }
@@ -116,11 +163,25 @@ body {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.anim-breathe { animation: breathe 4.2s ease-in-out infinite; }
-.anim-work { animation: workpulse 1.6s ease-in-out infinite; }
 .anim-fadeup { animation: fadeup 0.25s ease-out both; }
 .edge-flow { stroke-dasharray: 7 15; animation: dashflow 0.9s linear infinite; }
 .edge-dotted { stroke-dasharray: 2 6; }
+
+/* Map labels and instrument marks are intentionally quieter than app chrome.
+   These are static visual rules; activity is communicated by the data color
+   and position, not a continuously repainting node. */
+.coops-map text {
+  font-variant-numeric: tabular-nums;
+}
+.coops-map .map-instrument {
+  opacity: 0.72;
+}
+.coops-map .map-agent-node {
+  transition: fill 160ms ease, stroke 160ms ease;
+}
+html.dark .coops-map .map-instrument {
+  opacity: 0.56;
+}
 
 svg text {
   user-select: none;

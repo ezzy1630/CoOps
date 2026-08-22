@@ -8,7 +8,7 @@ import type { AgentStatus, EdgeKind, EventType, WorldEvent } from '../types'
 import {
   backOut, crossPath, districtLabelArc, districtSubArc, easeInOut, easeOut, EDGE_COLOR, fitScale,
   GATEWAY_ARC_BOTTOM, GATEWAY_ARC_TOP, GATEWAY_TICKS, layout, polar, progressArc, qLength, qPoint,
-  R_GATEWAY, zonesBBox, ZOOM_DETAIL, ZOOM_MID, type Pt, type Zone,
+  R_GATEWAY, R_ZONE_IN, zonesBBox, ZOOM_DETAIL, ZOOM_MID, type Pt, type Zone,
 } from './geometry'
 
 const trunc = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
@@ -472,14 +472,15 @@ export default function CompanyMap() {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 cursor-grab active:cursor-grabbing overflow-hidden bg-bg"
+      className="coops-map absolute inset-0 cursor-grab active:cursor-grabbing overflow-hidden"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       style={{
-        // paper texture must follow the ink token, or dark mode loses the grid
-        backgroundImage:
-          'radial-gradient(circle at 1px 1px, var(--dotgrid, color-mix(in srgb, var(--color-ink) 9%, transparent)) 1px, transparent 0)',
+        // The map is a view inside the app, so its canvas and drafting grid
+        // have their own surface tokens instead of borrowing app chrome.
+        backgroundColor: 'var(--color-map-canvas)',
+        backgroundImage: 'radial-gradient(circle at 1px 1px, var(--color-map-grid) 1px, transparent 0)',
         backgroundSize: '30px 30px',
       }}
     >
@@ -497,20 +498,33 @@ export default function CompanyMap() {
           </defs>
 
           {/* quiet instrument details: faint contours + compass ticks on the gateway */}
-          <g className="pointer-events-none" fill="none" stroke="var(--color-ink)">
+          <circle
+            r={R_ZONE_IN - 4}
+            fill="var(--color-map-void)"
+            stroke="var(--color-map-ring)"
+            strokeOpacity={0.28}
+            strokeWidth={1 * inv}
+            className="pointer-events-none"
+          />
+          <g className="map-instrument pointer-events-none" fill="none" stroke="var(--color-map-instrument)">
             <circle r={64} strokeOpacity={0.05} strokeWidth={1} />
             <circle r={118} strokeOpacity={0.045} strokeWidth={1} strokeDasharray="1 7" />
             <circle r={210} strokeOpacity={0.05} strokeWidth={1} />
-            <path d={GATEWAY_TICKS} strokeOpacity={0.13} strokeWidth={1} />
+            <path d={GATEWAY_TICKS} strokeOpacity={0.1} strokeWidth={1} />
           </g>
 
           {/* gateway ring + hollow center */}
-          <circle r={R_GATEWAY} fill="none" stroke="var(--color-line)" strokeWidth={1.4 * inv} strokeDasharray={`${3 * inv} ${7 * inv}`} />
+          <circle r={R_GATEWAY} fill="none" stroke="var(--color-map-ring)" strokeWidth={1.4 * inv} strokeDasharray={`${3 * inv} ${7 * inv}`} />
           {/* the hollow middle is the thesis, so it is engraved like one: a seal
               around the ring, an inscription at dead centre — not a status */}
           {showAgents && showText && (
             <g className="pointer-events-none" fontFamily="var(--font-mono)">
-              <text fill="var(--color-mut)" opacity={0.85} fontSize={Math.min(16, 10.5 * inv)} letterSpacing="0.16em">
+              <text
+                fill="var(--color-map-label)"
+                opacity={`calc(0.8 * var(--map-inscription-alpha))`}
+                fontSize={Math.min(16, 10.5 * inv)}
+                letterSpacing="var(--map-label-spacing)"
+              >
                 <textPath href="#gw-top" startOffset="50%" textAnchor="middle">
                   AGENT GATEWAY
                 </textPath>
@@ -519,18 +533,23 @@ export default function CompanyMap() {
                 y={-1 * inv}
                 dx={1.7 * inv}
                 textAnchor="middle"
-                fill="var(--color-ink)"
-                opacity={0.5}
+                fill="var(--color-map-label)"
+                opacity={`calc(0.46 * var(--map-inscription-alpha))`}
                 fontSize={Math.min(16, 11 * inv)}
-                letterSpacing="0.3em"
+                letterSpacing="var(--map-label-spacing)"
               >
                 NO ROOT AGENT
               </text>
               <line
                 x1={-26 * inv} x2={26 * inv} y1={9 * inv} y2={9 * inv}
-                stroke="var(--color-linebright)" strokeWidth={1 * inv} opacity={0.8}
+                stroke="var(--color-map-line)" strokeWidth={1 * inv} opacity={0.72}
               />
-              <text fill="var(--color-dim)" fontSize={Math.min(14, 9.5 * inv)} letterSpacing="0.18em">
+              <text
+                fill="var(--color-map-label)"
+                opacity={`calc(0.62 * var(--map-inscription-alpha))`}
+                fontSize={Math.min(14, 9.5 * inv)}
+                letterSpacing="var(--map-label-spacing)"
+              >
                 <textPath href="#gw-bottom" startOffset="50%" textAnchor="middle">
                   DEPARTMENTS NEGOTIATE AS PEERS
                 </textPath>
@@ -547,13 +566,8 @@ export default function CompanyMap() {
               <g key={d.id} opacity={dimmed(d.id) ? 0.14 : 1} style={{ transition: 'opacity 0.35s' }}>
                 <path
                   d={z.path}
-                  // ink-through-transparent, so the district still reads when the ink turns cream
-                  fill={
-                    isHome
-                      ? 'color-mix(in srgb, var(--color-ink) 6%, transparent)'
-                      : 'color-mix(in srgb, var(--color-ink) 3.2%, transparent)'
-                  }
-                  stroke="var(--color-line)"
+                  fill={isHome ? 'var(--color-map-wedge-home)' : 'var(--color-map-wedge)'}
+                  stroke="var(--color-map-line)"
                   strokeWidth={1.2 * inv}
                   className="cursor-pointer"
                   onClick={(ev) => {
@@ -565,12 +579,12 @@ export default function CompanyMap() {
                 />
                 {showText && (
                   <text
-                    fill="var(--color-ink)"
-                    opacity={0.52 * districtLabelFade}
+                    fill="var(--color-map-label)"
+                    opacity={`calc(${0.52 * districtLabelFade} * var(--map-label-alpha))`}
                     fontSize={Math.min(30, 14 * inv)}
                     fontWeight={600}
-                    letterSpacing="0.26em"
-                    className="pointer-events-none"
+                    letterSpacing="var(--map-label-spacing)"
+                    className="map-arc-label pointer-events-none"
                   >
                     <textPath href={`#dl-${d.id}`} startOffset="50%" textAnchor="middle">
                       {d.name.toUpperCase()}
@@ -582,23 +596,23 @@ export default function CompanyMap() {
                   <text
                     fontSize={Math.min(16, 10 * inv)}
                     fontFamily="var(--font-mono)"
-                    letterSpacing="0.14em"
+                    letterSpacing="var(--map-label-spacing)"
                     opacity={countFade}
                     className="pointer-events-none"
                   >
                     <textPath href={`#ds-${d.id}`} startOffset="50%" textAnchor="middle">
                       {sum.working === 0 && sum.blocked === 0 ? (
-                        <tspan fill="var(--color-dim)">{sum.total} AGENTS · IDLE</tspan>
+                        <tspan fill="var(--color-map-label)">{sum.total} AGENTS · IDLE</tspan>
                       ) : (
                         <>
                           {sum.working > 0 && (
-                            <tspan fill="var(--color-task)" opacity={0.75}>{sum.working} ACTIVE</tspan>
+                            <tspan fill="var(--color-map-task)" opacity={0.75}>{sum.working} ACTIVE</tspan>
                           )}
                           {sum.working > 0 && sum.blocked > 0 && (
-                            <tspan fill="var(--color-dim)"> · </tspan>
+                            <tspan fill="var(--color-map-label)"> · </tspan>
                           )}
                           {sum.blocked > 0 && (
-                            <tspan fill="var(--color-permission)" opacity={0.85}>{sum.blocked} BLOCKED</tspan>
+                            <tspan fill="var(--color-map-permission)" opacity={0.85}>{sum.blocked} BLOCKED</tspan>
                           )}
                         </>
                       )}
@@ -626,7 +640,7 @@ export default function CompanyMap() {
                   <line
                     key={`inh-${wk.id}`}
                     x1={p0.x} y1={p0.y} x2={p1.x} y2={p1.y}
-                    stroke="var(--color-ink)"
+                    stroke="var(--color-map-line)"
                     strokeWidth={1 * inv}
                     opacity={dimmed(wk.deptId, wk.id) ? 0.04 : 0.09 + 0.29 * (1 - settle)}
                     style={
@@ -646,7 +660,7 @@ export default function CompanyMap() {
             const idx = pairIdx.get(key) ?? 0
             pairIdx.set(key, idx + 1)
             const { d, ctrl } = crossPath(p0, p1, idx === 0 ? 0 : (idx % 2 === 1 ? (idx + 1) / 2 : -(idx / 2)))
-            const color = EDGE_COLOR[e.edge!] ?? 'var(--color-task)'
+            const color = EDGE_COLOR[e.edge!] ?? 'var(--color-map-task)'
             const inFlight = age >= 0 && age < travel
             const fade = inFlight ? 1 : Math.max(0, 1 - (age - travel) / 3400)
             const isHl = e.id === highlightEventId
@@ -700,7 +714,7 @@ export default function CompanyMap() {
                       if (e.taskId) useStore.getState().selectTask(e.taskId)
                     }}
                   >
-                    <rect x={-9} y={-6.5} width={18} height={13} rx={2.5} fill="var(--color-surface)" stroke={color} strokeWidth={1.4} />
+                    <rect x={-9} y={-6.5} width={18} height={13} rx={2.5} fill="var(--color-map-node)" stroke={color} strokeWidth={1.4} />
                     <path d="M -9 -6.5 L 0 1 L 9 -6.5" fill="none" stroke={color} strokeWidth={1.1} />
                     {/* the only place the task title is spelled out on the map */}
                     {showDetail && showText && (
@@ -734,9 +748,9 @@ export default function CompanyMap() {
             const p = polar(R_GATEWAY, a)
             return (
               <g key={e.id} transform={`translate(${p.x},${p.y})`} className="pointer-events-none">
-                <circle r={16} fill="none" stroke="var(--color-guard)" strokeWidth={2} style={{ animation: 'gatewayflash 2.6s ease-out both' }} />
+                <circle r={16} fill="none" stroke="var(--color-map-guard)" strokeWidth={2} style={{ animation: 'gatewayflash 2.6s ease-out both' }} />
                 {showText && (
-                  <text textAnchor="middle" y={4} fontSize={12} fill="var(--color-guard)">
+                  <text textAnchor="middle" y={4} fontSize={12} fill="var(--color-map-guard)">
                     ⛨
                   </text>
                 )}
@@ -760,21 +774,21 @@ export default function CompanyMap() {
                 {fromAgent && (
                   <line
                     x1={fromAgent.x} y1={fromAgent.y} x2={anchor.x} y2={anchor.y}
-                    stroke="var(--color-human)" strokeWidth={1.5 * inv} className="edge-dotted" opacity={0.75}
+                    stroke="var(--color-map-human)" strokeWidth={1.5 * inv} className="edge-dotted" opacity={0.68}
                   />
                 )}
-                <circle cx={anchor.x} cy={anchor.y} r={14 * inv} fill={`hsl(${person?.hue ?? 40} 52% 87%)`} stroke="var(--color-human)" strokeWidth={1.5 * inv} />
+                <circle cx={anchor.x} cy={anchor.y} r={14 * inv} fill={`hsl(${person?.hue ?? 40} 52% 87%)`} stroke="var(--color-map-human)" strokeWidth={1.5 * inv} />
                 {showText && (
                   <text x={anchor.x} y={anchor.y + 3.5 * inv} textAnchor="middle" fontSize={9.5 * inv} fontWeight={700} fill={CHIP_INK}>
                     {person?.initials}
                   </text>
                 )}
                 <g transform={`translate(${anchor.x + 11 * inv},${anchor.y - 11 * inv}) scale(${inv})`}>
-                  <circle r={7} fill="var(--color-abyss)" stroke="var(--color-human)" strokeWidth={1.2} />
-                  <path d="M -2.5 -0.5 h5 v3.5 h-5 z M -1.5 -0.5 v-1.4 a1.5 1.5 0 0 1 3 0 v1.4" fill="none" stroke="var(--color-human)" strokeWidth={1.1} />
+                  <circle r={7} fill="var(--color-map-void)" stroke="var(--color-map-human)" strokeWidth={1.2} />
+                  <path d="M -2.5 -0.5 h5 v3.5 h-5 z M -1.5 -0.5 v-1.4 a1.5 1.5 0 0 1 3 0 v1.4" fill="none" stroke="var(--color-map-human)" strokeWidth={1.1} />
                 </g>
                 {showAgents && showText && (
-                  <text x={anchor.x} y={anchor.y + 26 * inv} textAnchor="middle" fontSize={10 * inv} fill="var(--color-human)" fontWeight={600}>
+                  <text x={anchor.x} y={anchor.y + 26 * inv} textAnchor="middle" fontSize={10 * inv} fill="var(--color-map-human)" fontWeight={600}>
                     {person?.name}
                   </text>
                 )}
@@ -795,7 +809,7 @@ export default function CompanyMap() {
               const inCeremony = birthAge >= 0 && birthAge < 1600
               const born = birthAge >= 800 ? 1 : birthAge < 180 ? 0.01 : backOut((birthAge - 180) / 620)
               const statusColor =
-                status === 'working' ? 'var(--color-task)' : status === 'blocked' ? 'var(--color-permission)' : 'var(--color-linebright)'
+                status === 'working' ? 'var(--color-map-task)' : status === 'blocked' ? 'var(--color-map-permission)' : 'var(--color-map-node-muted)'
               let taskId = renderWorld.agentTask.get(ag.id)
               let arcFade = 1
               if (isOp && !taskId) {
@@ -840,31 +854,30 @@ export default function CompanyMap() {
                   <g transform={`scale(${born})`}>
                     <circle
                       r={r}
-                      fill="var(--color-surface)"
+                      fill="var(--color-map-node)"
                       stroke={statusColor}
                       strokeWidth={isOp ? 2 : 1.5}
-                      className={status === 'working' ? 'anim-work' : status === 'idle' ? 'anim-breathe' : undefined}
-                      style={status === 'working' ? { color: 'var(--color-task)' } : undefined}
+                      className="map-agent-node"
                     />
-                    {isOp && <circle r={r + 5} fill="none" stroke="var(--color-linebright)" strokeWidth={0.9 * inv} />}
+                    {isOp && <circle r={r + 5} fill="none" stroke="var(--color-map-node-ring)" strokeWidth={0.9 * inv} opacity={0.78} />}
                     {arc && arc.p > 0 && (
                       <path
                         d={progressArc(r + 5, arc.p)}
                         fill="none"
-                        stroke={EDGE_COLOR[arc.kind] ?? 'var(--color-task)'}
+                        stroke={EDGE_COLOR[arc.kind] ?? 'var(--color-map-task)'}
                         strokeWidth={2 * inv}
                         strokeLinecap="round"
                         opacity={0.9 * arcFade}
                         className="pointer-events-none"
                       />
                     )}
-                    <circle r={isOp ? 4.5 : 2.8} fill={status === 'idle' ? 'var(--color-mut)' : statusColor} />
+                    <circle r={isOp ? 4.5 : 2.8} fill={status === 'idle' ? 'var(--color-map-node-muted)' : statusColor} />
                   </g>
                   {inCeremony && birthAge >= 250 && birthAge < 850 && (
                     <circle
                       r={r + 4 + 30 * easeOut((birthAge - 250) / 600)}
                       fill="none"
-                      stroke="var(--color-task)"
+                      stroke="var(--color-map-task)"
                       strokeWidth={1.4 * inv}
                       opacity={0.35 * (1 - (birthAge - 250) / 600)}
                       className="pointer-events-none"
@@ -872,8 +885,8 @@ export default function CompanyMap() {
                   )}
                   {status === 'blocked' && (
                     <g transform={`translate(${r * 0.75},${-r * 0.75})`}>
-                      <circle r={8} fill="var(--color-abyss)" stroke="var(--color-permission)" strokeWidth={1.3} />
-                      <path d="M -2.8 -0.6 h5.6 v4 h-5.6 z M -1.7 -0.6 v-1.6 a1.7 1.7 0 0 1 3.4 0 v1.6" fill="none" stroke="var(--color-permission)" strokeWidth={1.2} />
+                      <circle r={8} fill="var(--color-map-void)" stroke="var(--color-map-permission)" strokeWidth={1.3} />
+                      <path d="M -2.8 -0.6 h5.6 v4 h-5.6 z M -1.7 -0.6 v-1.6 a1.7 1.7 0 0 1 3.4 0 v1.6" fill="none" stroke="var(--color-map-permission)" strokeWidth={1.2} />
                     </g>
                   )}
                   {showText && typedN > 0 && (
@@ -883,7 +896,7 @@ export default function CompanyMap() {
                       textAnchor={typing ? 'start' : 'middle'}
                       fontSize={fs}
                       fontWeight={isOp ? 600 : 500}
-                      fill={isOp ? 'var(--color-ink)' : 'var(--color-mut)'}
+                      fill="var(--color-map-label)"
                       opacity={isOp ? 1 : status === 'idle' ? 0.72 : 0.95}
                     >
                       {label.slice(0, typedN)}
@@ -922,7 +935,7 @@ export default function CompanyMap() {
                 const pos = { x: z.presencePos.x - i * 22 * inv, y: z.presencePos.y }
                 return (
                   <g key={`${m.personId}-${m.where}`} transform={`translate(${pos.x},${pos.y})`} opacity={dimmed(m.where) ? 0.1 : 0.95} className="pointer-events-none">
-                    <circle r={9 * inv} fill={`hsl(${person.hue} 52% 87%)`} stroke="var(--color-linebright)" strokeWidth={1 * inv} />
+                    <circle r={9 * inv} fill={`hsl(${person.hue} 52% 87%)`} stroke="var(--color-map-line)" strokeWidth={1 * inv} />
                     {showText && (
                       <text y={3 * inv} textAnchor="middle" fontSize={7 * inv} fontWeight={700} fill={CHIP_INK}>
                         {person.initials}
@@ -967,7 +980,7 @@ export default function CompanyMap() {
                   setPopover(null)
                 }}
               >
-                <span className="shrink-0 font-mono text-[10px] uppercase tracking-wide" style={{ color: 'var(--color-artifact)' }}>
+                <span className="shrink-0 font-mono text-[10px] uppercase tracking-wide" style={{ color: 'var(--color-map-artifact)' }}>
                   {pl.artifact.type}
                 </span>
                 <span className="truncate">{pl.artifact.name}</span>

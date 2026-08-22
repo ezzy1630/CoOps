@@ -252,8 +252,8 @@ export function fitScale(w: number, h: number): number {
 }
 
 export const EDGE_COLOR: Record<string, string> = {
-  task: 'var(--color-task)',
-  artifact: 'var(--color-artifact)',
-  permission: 'var(--color-permission)',
-  escalation: 'var(--color-escalation)',
+  task: 'var(--color-map-task)',
+  artifact: 'var(--color-map-artifact)',
+  permission: 'var(--color-map-permission)',
+  escalation: 'var(--color-map-escalation)',
 }
