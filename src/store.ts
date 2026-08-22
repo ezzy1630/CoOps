@@ -32,6 +32,9 @@ const WARMUP_MS = 60_000
 export type PanelKind = 'agent' | 'dept' | 'approvals' | 'activity' | 'diff'
 export interface PanelState { kind: PanelKind; id?: string }
 
+/** Top-level view selected in the nav rail. 'map' hosts the contextual slide-overs. */
+export type AppView = 'map' | 'approvals' | 'activity' | 'agents' | 'documents'
+
 export const PANEL_WIDTH: Record<PanelKind, number> = {
   agent: 460,
   dept: 460,
@@ -93,6 +96,7 @@ interface Store {
   // ui
   persona: Person | null
   entered: boolean
+  view: AppView
   panel: PanelState | null
   selectedTaskId: TaskId | null
   highlightEventId: string | null
@@ -115,6 +119,7 @@ interface Store {
   // ui actions
   enter(personId: string): void
   switchPersona(personId: string): void
+  setView(view: AppView): void
   openPanel(kind: PanelKind, id?: string): void
   closePanel(): void
   selectTask(taskId: TaskId | null): void
@@ -277,6 +282,7 @@ export const useStore = create<Store>()((set, get) => {
 
     persona: null,
     entered: false,
+    view: 'map',
     panel: null,
     selectedTaskId: null,
     highlightEventId: null,
@@ -415,12 +421,19 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     switchPersona(personId) {
-      set({ panel: null, selectedTaskId: null, replay: null })
+      set({ view: 'map', panel: null, selectedTaskId: null, replay: null })
       get().enter(personId)
     },
 
+    setView(view) {
+      set({ view, panel: null })
+    },
     openPanel(kind, id) {
-      set({ panel: { kind, id } })
+      if (kind === 'approvals' || kind === 'activity') {
+        set({ view: kind, panel: null })
+        return
+      }
+      set({ view: 'map', panel: { kind, id } })
     },
     closePanel() {
       set({ panel: null })
