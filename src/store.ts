@@ -42,7 +42,9 @@ export type CameraTarget =
   | { type: 'dept'; deptId: string }
   | { type: 'agent'; agentId: string }
   | { type: 'zoomBy'; factor: number }
-export interface CameraRequest { seq: number; target: CameraTarget }
+  | { type: 'frame'; deptIds: string[] }
+/** `gentle` marks choreographed (scripted-demo) moves: slower glide, skipped if the user just moved the camera. */
+export interface CameraRequest { seq: number; target: CameraTarget; gentle?: boolean }
 
 export interface ReplayState {
   taskId: TaskId
@@ -120,7 +122,7 @@ interface Store {
   setPaletteOpen(open: boolean): void
   toggleTheme(): void
   setFirstRunStep(step: number | null): void
-  requestCamera(target: CameraTarget): void
+  requestCamera(target: CameraTarget, opts?: { gentle?: boolean }): void
   toast(title: string, detail?: string, kind?: Toast['kind']): void
   dismissToast(id: number): void
 }
@@ -137,6 +139,8 @@ export const useStore = create<Store>()((set, get) => {
       autoResolves.push({ eventId, at: Date.now() + delayMs, personId })
     },
     toast: (title, detail) => get().toast(title, detail),
+    // choreographed camera moves from scenario scripts: always the gentle profile
+    requestCamera: (target) => get().requestCamera(target, { gentle: true }),
   }
 
   const brainCtx = (): BrainCtx => ({
@@ -434,8 +438,8 @@ export const useStore = create<Store>()((set, get) => {
       if (step === null) localStorage.setItem('coops_onboarded', '1')
       set({ firstRunStep: step })
     },
-    requestCamera(target) {
-      set({ cameraRequest: { seq: get().cameraRequest.seq + 1, target } })
+    requestCamera(target, opts) {
+      set({ cameraRequest: { seq: get().cameraRequest.seq + 1, target, gentle: opts?.gentle } })
     },
 
     toast(title, detail, kind = 'info') {

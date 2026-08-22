@@ -1,5 +1,6 @@
 import type { AgentBlueprint, AgentDef, WorldEvent } from '../types'
 import { agentRef, ev, personRef, systemRef, Script, type Step } from '../engine/build'
+import type { CameraTarget } from '../store'
 import { LAUNCH_AGENT_ID } from './company'
 import { nextTaskId } from './scenarios'
 
@@ -19,6 +20,14 @@ export interface EngineApi {
   /** simulated human resolves it if the judge doesn't act in time */
   autoResolve(eventId: string, delayMs: number, personId: string): void
   toast(title: string, detail?: string): void
+  /** choreographed camera move (gentle glide; the map skips it if the user just moved the camera) */
+  requestCamera?(target: CameraTarget): void
+}
+
+/** Schedule a choreographed camera move `atMs` after now, aligned with the script clock. */
+const cameraCue = (api: EngineApi, atMs: number, target: CameraTarget) => {
+  if (!api.requestCamera) return
+  window.setTimeout(() => api.requestCamera?.(target), Math.max(0, atMs))
 }
 
 export const LAUNCH_BLUEPRINT: AgentBlueprint = {
@@ -133,7 +142,7 @@ export function heroActB(api: EngineApi, personId: string) {
     payload: { costUsd: 0.03 },
   }))
 
-  // fan out
+  // fan out — pull the camera back so all four districts are on stage
   s.then(1600, ev({
     type: 'TaskRequest', taskId, edge: 'task', travelMs: 2600,
     from: agentRef(w), to: agentRef('op-finance'),
@@ -142,6 +151,7 @@ export function heroActB(api: EngineApi, personId: string) {
     detail: 'Need the approved Q3 launch budget line confirmed against actuals.',
     payload: { objective: 'Confirm $85k launch budget against Q3 actuals', expected: 'Budget confirmation', deadline: 'EOD', sharedContext: 'launch brief §2 only' },
   }))
+  cameraCue(api, s.length - 300, { type: 'frame', deptIds: ['marketing', 'finance', 'legal', 'support'] })
   s.then(1100, ev({
     type: 'TaskRequest', taskId, edge: 'task', travelMs: 2600,
     from: agentRef(w), to: agentRef('op-legal'),
@@ -179,6 +189,8 @@ export function heroActB(api: EngineApi, personId: string) {
     blockedOn: { what: 'Connect QuickBooks', personId: 'dana', kind: 'auth' },
   })
   s.then(2200, auth)
+  // once the block lands, a slow push toward Finance — the map looks at what's stuck
+  cameraCue(api, s.length + 600, { type: 'dept', deptId: 'finance' })
 
   // Legal: accept → guardrail block → deliver
   s.then(1400, ev({
@@ -236,6 +248,8 @@ export function heroActB(api: EngineApi, personId: string) {
 export function heroActC(api: EngineApi, personId: string, taskId: string) {
   const w = LAUNCH_AGENT_ID
   const s = new Script()
+  // resuming from the checkpoint: frame the two districts still in play
+  cameraCue(api, 500, { type: 'frame', deptIds: ['finance', 'marketing'] })
   s.then(1400, ev({
     type: 'ToolCall', taskId,
     from: agentRef('w-budget'), deptFrom: 'finance', deptTo: 'finance',
@@ -277,6 +291,8 @@ export function heroActC(api: EngineApi, personId: string, taskId: string) {
     title: 'Summit Series launch prep — complete',
     detail: 'Budget confirmed · claims cleared · FAQs drafted · workspace ready.',
   }))
+  // curtain call: ease back out to the whole company
+  cameraCue(api, s.length + 1100, { type: 'fit' })
   s.then(1000, chat('op-marketing', 'agent', personId,
     'Launch prep is done. Budget confirmed by Finance, claims cleared by Legal (one wording fix), FAQs drafted by Support. Everything’s in the Summit Series Launch folder — replay the task to see the whole path.'))
   api.schedule(s.steps)

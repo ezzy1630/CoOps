@@ -4,10 +4,11 @@ import { PANEL_WIDTH, useStore } from '../store'
 import { BASE_AGENTS, DEPARTMENTS, personById } from '../data/company'
 import { buildWorld, taskParticipants } from '../engine/reducer'
 import { virtualAt } from '../engine/replay'
-import type { WorldEvent } from '../types'
+import type { EdgeKind, WorldEvent } from '../types'
 import {
-  crossPath, easeInOut, EDGE_COLOR, fitScale, layout, polar, qPoint,
-  R_GATEWAY, ZOOM_DETAIL, ZOOM_MID, type Pt,
+  backOut, crossPath, districtLabelArc, easeInOut, easeOut, EDGE_COLOR, fitScale,
+  GATEWAY_TICKS, layout, polar, progressArc, qLength, qPoint,
+  R_GATEWAY, zonesBBox, ZOOM_DETAIL, ZOOM_MID, type Pt, type Zone,
 } from './geometry'
 
 const trunc = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
@@ -76,6 +77,8 @@ export default function CompanyMap() {
       const moving =
         r != null ||
         tail.some((e) => e.edge && wall - e.ts < (e.travelMs ?? 2400) + 3600) ||
+        tail.some((e) => e.type === 'AgentSpawned' && wall - e.ts < 1800) ||
+        tail.some((e) => e.type === 'TaskCompleted' && wall - e.ts < 1100) ||
         tail.some((e) => e.type === 'GuardrailBlock' && wall - e.ts < 2800)
       if ((moving && t - lastSetRef.current > 33) || t - lastSetRef.current > 400) {
         lastSetRef.current = t
@@ -102,10 +105,62 @@ export default function CompanyMap() {
     [renderWorld, selectedTaskId],
   )
 
-  // ── camera requests (role-aware entry, palette jumps, zone clicks) ──
+  // per-task progress (for operator status arcs) + each agent's most recent task
+  const progress = useMemo(() => {
+    const byTask = new Map<string, { p: number; kind: EdgeKind; endedAt?: number }>()
+    const lastTaskOf = new Map<string, string>()
+    for (const e of renderWorld.events) {
+      if (!e.taskId || e.type === 'Chat') continue
+      let t = byTask.get(e.taskId)
+      if (!t) byTask.set(e.taskId, (t = { p: 0, kind: 'task' }))
+      switch (e.type) {
+        case 'TaskRequest': t.p = Math.max(t.p, 0.12); break
+        case 'TaskAccepted': t.p = Math.max(t.p, 0.25); break
+        case 'DelegatedTo': t.p = Math.max(t.p, 0.4); break
+        case 'StatusUpdate':
+        case 'ToolCall': t.p = Math.min(0.85, t.p + 0.09); break
+        case 'ArtifactDelivered': t.p = Math.max(t.p, 0.9); break
+        case 'TaskCompleted':
+        case 'TaskFailed': t.p = 1; t.endedAt = e.ts; break
+        default: break
+      }
+      if (e.edge) t.kind = e.edge
+      for (const ref of [e.from, e.to]) if (ref?.kind === 'agent') lastTaskOf.set(ref.id, e.taskId)
+    }
+    return { byTask, lastTaskOf }
+  }, [renderWorld])
+
+  // curved district-name arcs (textPath geometry; bottom-half arcs run reversed)
+  const labelArcs = useMemo(
+    () =>
+      new Map(
+        DEPARTMENTS.map((d) => {
+          const z = lay.zones.get(d.id)!
+          return [d.id, districtLabelArc(z, Math.sin(z.angle) > 0.001)] as const
+        }),
+      ),
+    [lay],
+  )
+
+  // quadratic-bezier lengths, cached per edge (invalidated if endpoints shift)
+  const edgeLenRef = useRef(new Map<string, { sig: string; len: number }>())
+  const edgeLen = (id: string, p0: Pt, ctrl: Pt, p1: Pt): number => {
+    const sig = `${p0.x | 0},${p0.y | 0},${ctrl.x | 0},${ctrl.y | 0},${p1.x | 0},${p1.y | 0}`
+    const hit = edgeLenRef.current.get(id)
+    if (hit && hit.sig === sig) return hit.len
+    if (edgeLenRef.current.size > 240) edgeLenRef.current.clear()
+    const len = qLength(p0, ctrl, p1)
+    edgeLenRef.current.set(id, { sig, len })
+    return len
+  }
+
+  // ── camera requests (role-aware entry, palette jumps, zone clicks, choreography) ──
   const animRef = useRef<{ stop: () => void } | null>(null)
+  const lastUserCamRef = useRef(0) // last wheel/drag — choreographed moves yield to the user
   useEffect(() => {
     if (cameraRequest.seq === 0) return
+    const gentle = cameraRequest.gentle === true
+    if (gentle && Date.now() - lastUserCamRef.current < 4000) return
     const t = cameraRequest.target
     let target: Camera
     const effW = size.w - panelWRef.current
@@ -116,6 +171,16 @@ export default function CompanyMap() {
     } else if (t.type === 'dept') {
       const z = lay.zones.get(t.deptId)
       target = z ? { cx: z.centroid.x * 0.92, cy: z.centroid.y * 0.92, k: 1.12 } : { cx: 0, cy: 0, k: fitScale(effW, size.h) }
+    } else if (t.type === 'frame') {
+      const zs = t.deptIds.map((id) => lay.zones.get(id)).filter((z): z is Zone => z != null)
+      if (zs.length === 0) {
+        target = { cx: 0, cy: 0, k: fitScale(effW, size.h) }
+      } else {
+        const b = zonesBBox(zs)
+        const pad = 90
+        const kk = Math.min(2.8, Math.max(0.3, Math.min(effW / (b.w + pad * 2), size.h / (b.h + pad * 2))))
+        target = { cx: b.x + b.w / 2, cy: b.y + b.h / 2, k: kk }
+      }
     } else {
       const p = lay.agentPos.get(t.agentId)
       target = p ? { cx: p.x, cy: p.y, k: 1.45 } : { cx: 0, cy: 0, k: fitScale(effW, size.h) }
@@ -123,8 +188,8 @@ export default function CompanyMap() {
     animRef.current?.stop()
     const from = { ...cameraRef.current }
     animRef.current = animate(0, 1, {
-      duration: 0.85,
-      ease: [0.32, 0.72, 0.12, 1],
+      duration: gentle ? 1.15 : 0.85,
+      ease: gentle ? [0.45, 0.05, 0.15, 1] : [0.32, 0.72, 0.12, 1],
       onUpdate: (v) =>
         setCamera({
           cx: from.cx + (target.cx - from.cx) * v,
@@ -144,6 +209,7 @@ export default function CompanyMap() {
     if (!el) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
+      lastUserCamRef.current = Date.now()
       animRef.current?.stop()
       const { cx, cy, k } = cameraRef.current
       const rect = el.getBoundingClientRect()
@@ -170,6 +236,7 @@ export default function CompanyMap() {
     const dy = e.clientY - d.y
     d.moved += Math.abs(dx) + Math.abs(dy)
     if (d.moved > 3) {
+      lastUserCamRef.current = Date.now()
       animRef.current?.stop()
       setCamera((c) => ({ ...c, cx: c.cx - dx / c.k, cy: c.cy - dy / c.k }))
     }
@@ -191,6 +258,8 @@ export default function CompanyMap() {
   const showAgents = k >= ZOOM_MID
   const showDetail = k >= ZOOM_DETAIL
   const inv = 1 / k // constant-screen-size factor
+  // district names sit on the map like engravings: full strength at fit, receding as you zoom into detail
+  const districtLabelFade = 0.25 + 0.75 * Math.max(0, Math.min(1, 1 - (k - ZOOM_DETAIL) / 0.6))
 
   // ── visible cross-department traffic ──
   const crossEvents = useMemo(() => {
@@ -278,6 +347,20 @@ export default function CompanyMap() {
     >
       <svg width={w} height={h} className="block">
         <g transform={`translate(${centerX},${h / 2}) scale(${k}) translate(${-cx},${-cy})`} style={{ transition: 'none' }}>
+          <defs>
+            {DEPARTMENTS.map((d) => (
+              <path key={d.id} id={`dl-${d.id}`} d={labelArcs.get(d.id)} fill="none" />
+            ))}
+          </defs>
+
+          {/* quiet instrument details: faint contours + compass ticks on the gateway */}
+          <g className="pointer-events-none" fill="none" stroke="var(--color-ink)">
+            <circle r={64} strokeOpacity={0.05} strokeWidth={1} />
+            <circle r={118} strokeOpacity={0.045} strokeWidth={1} strokeDasharray="1 7" />
+            <circle r={210} strokeOpacity={0.05} strokeWidth={1} />
+            <path d={GATEWAY_TICKS} strokeOpacity={0.13} strokeWidth={1} />
+          </g>
+
           {/* gateway ring + hollow center */}
           <circle r={R_GATEWAY} fill="none" stroke="var(--color-line)" strokeWidth={1.4 * inv} strokeDasharray={`${3 * inv} ${7 * inv}`} />
           {showAgents && (
@@ -312,19 +395,19 @@ export default function CompanyMap() {
                   }}
                 />
                 <text
-                  x={z.labelPos.x}
-                  y={z.labelPos.y}
-                  textAnchor="middle"
-                  fill="var(--color-mut)"
-                  fontSize={(showAgents ? 12.5 : 17) * inv}
+                  fill="var(--color-ink)"
+                  opacity={0.52 * districtLabelFade}
+                  fontSize={Math.min(30, 14 * inv)}
                   fontWeight={600}
-                  letterSpacing="0.08em"
+                  letterSpacing="0.26em"
                   className="pointer-events-none"
                 >
-                  {d.name.toUpperCase()}
+                  <textPath href={`#dl-${d.id}`} startOffset="50%" textAnchor="middle">
+                    {d.name.toUpperCase()}
+                  </textPath>
                 </text>
                 {!showAgents && (sum.working > 0 || sum.blocked > 0) && (
-                  <text x={z.labelPos.x} y={z.labelPos.y + 20 * inv} textAnchor="middle" fontSize={11 * inv} className="pointer-events-none">
+                  <text x={z.labelPos.x} y={z.labelPos.y + 4 * inv} textAnchor="middle" fontSize={11 * inv} className="pointer-events-none">
                     {sum.working > 0 && (
                       <tspan fill="var(--color-task)">{sum.working} active</tspan>
                     )}
@@ -339,7 +422,7 @@ export default function CompanyMap() {
             )
           })}
 
-          {/* inheritance lines: operator → workers */}
+          {/* inheritance tethers: operator → workers (hairline ink; newborns draw on) */}
           {showAgents &&
             renderWorld.agents
               .filter((a) => a.kind === 'worker')
@@ -348,13 +431,22 @@ export default function CompanyMap() {
                 const p0 = op && lay.agentPos.get(op)
                 const p1 = lay.agentPos.get(wk.id)
                 if (!p0 || !p1) return null
+                const birthAge = wk.bornAt != null ? renderTime - wk.bornAt : Infinity
+                const revealing = birthAge >= 0 && birthAge < 380
+                const settle = Math.max(0, Math.min(1, (birthAge - 380) / 1220))
+                const tetherLen = revealing ? Math.hypot(p1.x - p0.x, p1.y - p0.y) : 0
                 return (
                   <line
                     key={`inh-${wk.id}`}
                     x1={p0.x} y1={p0.y} x2={p1.x} y2={p1.y}
-                    stroke="var(--color-line)"
+                    stroke="var(--color-ink)"
                     strokeWidth={1 * inv}
-                    opacity={dimmed(wk.deptId, wk.id) ? 0.08 : 0.6}
+                    opacity={dimmed(wk.deptId, wk.id) ? 0.04 : 0.09 + 0.29 * (1 - settle)}
+                    style={
+                      revealing
+                        ? { strokeDasharray: tetherLen, strokeDashoffset: tetherLen * (1 - easeOut(birthAge / 380)) }
+                        : undefined
+                    }
                   />
                 )
               })}
@@ -375,8 +467,20 @@ export default function CompanyMap() {
             const opacity = isHl ? 1 : inFlight ? 0.8 : inSelected ? 0.45 : fade * 0.5
             const isDim = focus && !inSelected && !isHl
             if (opacity <= 0.02 && !inSelected && !isHl) return null
-            const t = easeInOut(Math.min(1, Math.max(0, age / travel)))
-            const ep = qPoint(p0, ctrl, p1, t)
+
+            // lifecycle within the same total window: the path draws itself toward the
+            // receiver (~18% of travel), then the envelope departs with a small
+            // anticipation, travels, and is absorbed into the node with a ring bloom.
+            const drawMs = travel * 0.18
+            const drawing = age >= 0 && age < drawMs
+            const len = drawing ? edgeLen(e.id, p0, ctrl, p1) : 0
+            const envDur = Math.max(1, travel - drawMs)
+            const envAge = age - drawMs
+            const tt = easeInOut(Math.min(1, Math.max(0, envAge / envDur)))
+            const anticP = envAge >= 0 && envAge < 140 ? Math.sin((envAge / 140) * Math.PI) : 0
+            const absorb = envAge > envDur - 280 ? Math.min(1, (envAge - (envDur - 280)) / 280) : 0
+            const envScale = (1 + 0.16 * anticP) * (1 - 0.55 * easeOut(absorb))
+            const ep = qPoint(p0, ctrl, p1, Math.max(-0.02, tt - 0.015 * anticP))
             return (
               <g key={e.id} opacity={isDim ? 0.06 : 1} style={{ transition: 'opacity 0.35s' }}>
                 <path
@@ -385,8 +489,12 @@ export default function CompanyMap() {
                   stroke={color}
                   strokeWidth={(isHl ? 3 : inFlight ? 2 : 1.4) * inv}
                   opacity={opacity}
-                  className={inFlight ? 'edge-flow' : undefined}
-                  style={{ cursor: 'pointer' }}
+                  className={inFlight && !drawing ? 'edge-flow' : undefined}
+                  style={
+                    drawing
+                      ? { cursor: 'pointer', strokeDasharray: len, strokeDashoffset: len * (1 - easeOut(age / drawMs)) }
+                      : { cursor: 'pointer' }
+                  }
                   onClick={(ev) => {
                     ev.stopPropagation()
                     const st = useStore.getState()
@@ -394,9 +502,10 @@ export default function CompanyMap() {
                     st.setHighlight(e.id)
                   }}
                 />
-                {inFlight && (
+                {inFlight && !drawing && (
                   <g
-                    transform={`translate(${ep.x},${ep.y})`}
+                    transform={`translate(${ep.x},${ep.y}) scale(${envScale})`}
+                    opacity={1 - absorb * absorb}
                     style={{ cursor: 'pointer' }}
                     onClick={(ev) => {
                       ev.stopPropagation()
@@ -412,6 +521,18 @@ export default function CompanyMap() {
                       </text>
                     )}
                   </g>
+                )}
+                {age >= travel && age < travel + 350 && (
+                  <circle
+                    cx={p1.x}
+                    cy={p1.y}
+                    r={9 + 22 * easeOut((age - travel) / 350)}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={1.6 * inv}
+                    opacity={0.35 * (1 - (age - travel) / 350)}
+                    className="pointer-events-none"
+                  />
                 )}
               </g>
             )
@@ -477,15 +598,36 @@ export default function CompanyMap() {
               const status = renderWorld.agentStatus.get(ag.id) ?? 'idle'
               const isOp = ag.kind === 'operator'
               const r = isOp ? 24 : 12
-              const born = ag.bornAt ? Math.min(1, Math.max(0.05, (renderTime - ag.bornAt) / 650)) : 1
+              // spawn ceremony: tether (drawn above) → bloom with overshoot → name types on
+              const birthAge = ag.bornAt != null ? renderTime - ag.bornAt : Infinity
+              const inCeremony = birthAge >= 0 && birthAge < 1600
+              const born = birthAge >= 800 ? 1 : birthAge < 180 ? 0.01 : backOut((birthAge - 180) / 620)
               const statusColor =
                 status === 'working' ? 'var(--color-task)' : status === 'blocked' ? 'var(--color-permission)' : 'var(--color-linebright)'
-              const taskId = renderWorld.agentTask.get(ag.id)
+              let taskId = renderWorld.agentTask.get(ag.id)
+              let arcFade = 1
+              if (isOp && !taskId) {
+                // just-completed task: hold the full arc briefly, then fade it out
+                const last = progress.lastTaskOf.get(ag.id)
+                const lt = last ? progress.byTask.get(last) : undefined
+                if (lt?.endedAt != null && renderTime - lt.endedAt < 900) {
+                  taskId = last
+                  arcFade = Math.max(0, 1 - (renderTime - lt.endedAt) / 900)
+                }
+              }
               const task = taskId ? renderWorld.tasks.get(taskId) : undefined
+              const arc = isOp && taskId ? progress.byTask.get(taskId) : undefined
+              const fs = (isOp ? 12 : 10) * inv
+              const typedN =
+                !inCeremony || birthAge >= 1420
+                  ? ag.name.length
+                  : birthAge < 420
+                    ? 0
+                    : Math.min(ag.name.length, Math.ceil(ag.name.length * ((birthAge - 420) / 1000)))
               return (
                 <g
                   key={ag.id}
-                  transform={`translate(${p.x},${p.y}) scale(${born})`}
+                  transform={`translate(${p.x},${p.y})`}
                   opacity={dimmed(ag.deptId, ag.id) ? 0.12 : 1}
                   style={{ transition: 'opacity 0.35s', cursor: 'pointer' }}
                   onClick={(ev) => {
@@ -495,31 +637,56 @@ export default function CompanyMap() {
                     if (taskId) st.selectTask(taskId)
                   }}
                 >
-                  <circle
-                    r={r}
-                    fill="var(--color-surface)"
-                    stroke={statusColor}
-                    strokeWidth={isOp ? 2 : 1.5}
-                    className={status === 'working' ? 'anim-work' : status === 'idle' ? 'anim-breathe' : undefined}
-                    style={status === 'working' ? { color: 'var(--color-task)' } : undefined}
-                  />
-                  {isOp && <circle r={r + 5} fill="none" stroke={statusColor} strokeWidth={0.8} opacity={0.5} />}
-                  <circle r={isOp ? 4.5 : 2.8} fill={status === 'idle' ? 'var(--color-mut)' : statusColor} />
+                  <g transform={`scale(${born})`}>
+                    <circle
+                      r={r}
+                      fill="var(--color-surface)"
+                      stroke={statusColor}
+                      strokeWidth={isOp ? 2 : 1.5}
+                      className={status === 'working' ? 'anim-work' : status === 'idle' ? 'anim-breathe' : undefined}
+                      style={status === 'working' ? { color: 'var(--color-task)' } : undefined}
+                    />
+                    {isOp && <circle r={r + 5} fill="none" stroke="var(--color-linebright)" strokeWidth={0.9 * inv} />}
+                    {arc && arc.p > 0 && (
+                      <path
+                        d={progressArc(r + 5, arc.p)}
+                        fill="none"
+                        stroke={EDGE_COLOR[arc.kind] ?? 'var(--color-task)'}
+                        strokeWidth={2 * inv}
+                        strokeLinecap="round"
+                        opacity={0.9 * arcFade}
+                        className="pointer-events-none"
+                      />
+                    )}
+                    <circle r={isOp ? 4.5 : 2.8} fill={status === 'idle' ? 'var(--color-mut)' : statusColor} />
+                  </g>
+                  {inCeremony && birthAge >= 250 && birthAge < 850 && (
+                    <circle
+                      r={r + 4 + 30 * easeOut((birthAge - 250) / 600)}
+                      fill="none"
+                      stroke="var(--color-task)"
+                      strokeWidth={1.4 * inv}
+                      opacity={0.35 * (1 - (birthAge - 250) / 600)}
+                      className="pointer-events-none"
+                    />
+                  )}
                   {status === 'blocked' && (
                     <g transform={`translate(${r * 0.75},${-r * 0.75})`}>
                       <circle r={8} fill="var(--color-abyss)" stroke="var(--color-permission)" strokeWidth={1.3} />
                       <path d="M -2.8 -0.6 h5.6 v4 h-5.6 z M -1.7 -0.6 v-1.6 a1.7 1.7 0 0 1 3.4 0 v1.6" fill="none" stroke="var(--color-permission)" strokeWidth={1.2} />
                     </g>
                   )}
-                  {(isOp || showDetail || status !== 'idle') && (
+                  {(isOp || showDetail || status !== 'idle' || inCeremony) && typedN > 0 && (
                     <text
                       y={r + 14 * inv}
-                      textAnchor="middle"
-                      fontSize={(isOp ? 12 : 10) * inv}
+                      textAnchor={typedN < ag.name.length ? 'start' : 'middle'}
+                      x={typedN < ag.name.length ? -ag.name.length * fs * 0.3 : 0}
+                      fontSize={fs}
                       fontWeight={isOp ? 600 : 500}
                       fill={isOp ? 'var(--color-ink)' : 'var(--color-mut)'}
                     >
-                      {ag.name}
+                      {ag.name.slice(0, typedN)}
+                      {typedN < ag.name.length && <tspan opacity={0.55}>▏</tspan>}
                     </text>
                   )}
                   {showDetail && task && status !== 'idle' && (
@@ -579,6 +746,21 @@ export default function CompanyMap() {
               {pl?.expected && <Row k="expected" v={pl.expected} />}
               {pl?.visibility && <Row k="visibility" v={pl.visibility} />}
             </dl>
+            {e.type === 'ArtifactDelivered' && pl?.artifact && (
+              <button
+                className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded border border-line bg-raised px-2 py-1.5 text-left text-[11.5px] text-ink hover:bg-hover"
+                onClick={() => {
+                  useStore.getState().openArtifact(e.id)
+                  setPopover(null)
+                }}
+              >
+                <span className="shrink-0 font-mono text-[10px] uppercase tracking-wide" style={{ color: 'var(--color-artifact)' }}>
+                  {pl.artifact.type}
+                </span>
+                <span className="truncate">{pl.artifact.name}</span>
+                <span className="ml-auto shrink-0 text-[10px] text-dim">open</span>
+              </button>
+            )}
             {e.taskId && (
               <button
                 className="btn btn-primary mt-2 w-full text-xs"

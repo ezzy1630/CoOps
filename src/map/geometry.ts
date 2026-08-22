@@ -129,7 +129,94 @@ export function qPoint(p0: Pt, c: Pt, p1: Pt, t: number): Pt {
   }
 }
 
+/** Numeric arc length of a quadratic bezier — 16 segments is plenty at map scale. */
+export function qLength(p0: Pt, c: Pt, p1: Pt): number {
+  let len = 0
+  let px = p0.x
+  let py = p0.y
+  for (let i = 1; i <= 16; i++) {
+    const p = qPoint(p0, c, p1, i / 16)
+    len += Math.hypot(p.x - px, p.y - py)
+    px = p.x
+    py = p.y
+  }
+  return len
+}
+
 export const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2)
+export const easeOut = (t: number) => 1 - (1 - t) * (1 - t)
+/** Slight-overshoot ease for node blooms (peaks ~1.06 near t≈0.8). */
+export const backOut = (t: number) => {
+  const s = 1.55
+  const u = t - 1
+  return 1 + (s + 1) * u * u * u + s * u * u
+}
+
+/**
+ * Arc path for a district name set on a textPath, at a radius just inside the
+ * district's outer edge. For bottom-half districts the direction is reversed
+ * (and the radius bumped by roughly a cap height) so the text is never upside
+ * down — classic seal lettering.
+ */
+export const R_DISTRICT_LABEL = R_ZONE_OUT - 34
+export function districtLabelArc(z: Zone, flip: boolean): string {
+  const pad = 0.03
+  const r = flip ? R_DISTRICT_LABEL + 15 : R_DISTRICT_LABEL
+  const s = polar(r, flip ? z.a1 - pad : z.a0 + pad)
+  const e = polar(r, flip ? z.a0 + pad : z.a1 - pad)
+  return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 0 ${flip ? 0 : 1} ${e.x.toFixed(2)} ${e.y.toFixed(2)}`
+}
+
+/** Compass-rose ticks on the gateway ring: every 6°, slightly longer every 30°. */
+export const GATEWAY_TICKS: string = (() => {
+  const parts: string[] = []
+  for (let i = 0; i < 60; i++) {
+    const a = (i * 6 * Math.PI) / 180
+    const half = i % 5 === 0 ? 5 : 2.5
+    const p0 = polar(R_GATEWAY - half, a)
+    const p1 = polar(R_GATEWAY + half, a)
+    parts.push(`M ${p0.x.toFixed(2)} ${p0.y.toFixed(2)} L ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`)
+  }
+  return parts.join(' ')
+})()
+
+/** Clockwise arc from 12 o'clock covering `frac` of a full turn (status arcs). */
+export function progressArc(r: number, frac: number): string {
+  const f = Math.min(0.9999, Math.max(0.005, frac))
+  const a0 = -Math.PI / 2
+  const a1 = a0 + f * Math.PI * 2
+  const p0 = polar(r, a0)
+  const p1 = polar(r, a1)
+  const large = f > 0.5 ? 1 : 0
+  return `M ${p0.x} ${p0.y} A ${r} ${r} 0 ${large} 1 ${p1.x} ${p1.y}`
+}
+
+/** World-space bounding box of a set of district sectors (for camera framing). */
+export function zonesBBox(zones: Zone[]): { x: number; y: number; w: number; h: number } {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  const add = (p: Pt) => {
+    if (p.x < minX) minX = p.x
+    if (p.x > maxX) maxX = p.x
+    if (p.y < minY) minY = p.y
+    if (p.y > maxY) maxY = p.y
+  }
+  for (const z of zones) {
+    add(polar(R_ZONE_IN, z.a0))
+    add(polar(R_ZONE_IN, z.a1))
+    add(polar(R_ZONE_OUT, z.a0))
+    add(polar(R_ZONE_OUT, z.a1))
+    // axis-extreme points on the outer arc (angles are within roughly -π..3π/2)
+    for (let q = -2; q <= 4; q++) {
+      const a = (q * Math.PI) / 2
+      if (a > z.a0 && a < z.a1) add(polar(R_ZONE_OUT, a))
+    }
+  }
+  if (minX > maxX) return { x: 0, y: 0, w: 1, h: 1 }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+}
 
 export function fitScale(w: number, h: number): number {
   return Math.min(w, h) / (2 * (R_PERSON + 110))
