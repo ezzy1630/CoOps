@@ -66,7 +66,7 @@ function Avatar({ personId }: { personId: string }) {
   return (
     <span
       className="flex size-7 shrink-0 items-center justify-center rounded-full border border-linebright text-[10px] font-bold"
-      style={{ background: `hsl(${p.hue} var(--av-s) var(--av-l))` }}
+      style={{ background: `hsl(${p.hue} 52% 87%)` }}
     >
       {p.initials}
     </span>

@@ -178,7 +178,7 @@ function PersonaMenu({ personaId }: { personaId?: string }) {
     <div ref={ref} className="relative">
       <button
         className="flex size-8 items-center justify-center rounded-full border border-linebright text-[10px] font-bold hover:border-task/60"
-        style={{ background: person ? `hsl(${person.hue} var(--av-s) var(--av-l))` : 'var(--color-raised)' }}
+        style={{ background: person ? `hsl(${person.hue} 52% 87%)` : 'var(--color-raised)' }}
         onClick={() => setOpen((o) => !o)}
         title={person ? `${person.name} — switch persona` : 'Switch persona'}
       >

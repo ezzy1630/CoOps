@@ -86,8 +86,12 @@ export function handleChat(ctx: BrainCtx, agentId: string, agentDept: string, te
     return
   }
 
-  // intent: create an agent / run the launch
-  if (/launch|summit|new agent|create.*agent|agent for|need an agent|build.*agent/.test(t)) {
+  // intent: create an agent / run the launch.
+  // Specific asks (budget, legal, FAQ…) are checked below and win over a bare
+  // "launch" mention — "ask Finance for the launch budget" is a budget request.
+  const wantsAgent = /new agent|create.*agent|agent for|need an agent|build.*agent|dedicated agent|hire.*agent/.test(t)
+  const wantsLaunch = /launch|summit/.test(t) && !/budget|cost|spend|finance|legal|claim|contract|faq|support|status/.test(t)
+  if (wantsAgent || wantsLaunch) {
     if (ctx.heroStage() !== 'idle') {
       reply(ctx, agentId, 'The Summit launch is already in motion — open Task Focus on “Summit Series launch prep” or hit replay when it completes.')
       return

@@ -11,7 +11,7 @@ export default function Toasts() {
       style={{ right: panel ? PANEL_WIDTH[panel.kind] + 12 : 12 }}
     >
       <AnimatePresence>
-        {toasts.map((t) => (
+        {toasts.slice(-3).map((t) => (
           <motion.div
             key={t.id}
             initial={{ opacity: 0, y: -8, scale: 0.98 }}

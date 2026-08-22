@@ -5,7 +5,8 @@ import { PERSONAS, personById } from '../data/company'
 import { Wordmark } from '../App'
 
 const AMBIENT: CSSProperties = {
-  backgroundImage: 'radial-gradient(circle at 1px 1px, var(--dotgrid) 1px, transparent 0)',
+  backgroundImage:
+    'radial-gradient(circle at 1px 1px, rgb(29 28 23 / 0.08) 1px, transparent 0)',
   backgroundSize: '30px 30px',
 }
 
@@ -53,7 +54,7 @@ export default function PersonaGate() {
             >
               <span
                 className="flex size-12 items-center justify-center rounded-full text-[13px] font-bold"
-                style={{ background: `hsl(${person.hue} var(--av-s) var(--av-l))` }}
+                style={{ background: `hsl(${person.hue} 52% 87%)` }}
               >
                 {person.initials}
               </span>

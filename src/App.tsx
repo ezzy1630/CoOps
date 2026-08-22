@@ -86,9 +86,9 @@ export default function App() {
           {panel && (
             <motion.aside
               key={`${panel.kind}-${panel.id ?? ''}`}
-              initial={{ x: width + 24, opacity: 0.6 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: width + 24, opacity: 0 }}
+              initial={{ x: width + 24 }}
+              animate={{ x: 0 }}
+              exit={{ x: width + 24 }}
               transition={{ type: 'spring', stiffness: 380, damping: 36 }}
               className="absolute top-0 right-0 bottom-0 z-20"
               style={{ width }}

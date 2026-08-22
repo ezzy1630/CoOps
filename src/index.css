@@ -23,11 +23,6 @@
   --color-guard: #6d28d9;
   --color-human: #a16207;
   --color-ok: #1e7a3d;
-
-  /* runtime-swappable bits that aren't plain colors */
-  --dotgrid: rgb(29 28 23 / 0.08); /* map/persona dot texture */
-  --av-s: 52%;                     /* person avatar saturation */
-  --av-l: 87%;                     /* person avatar lightness */
 }
 
 /* ── dark theme: same tokens, warm charcoal — swap, don't redesign ── */
@@ -51,10 +46,6 @@ html.dark {
   --color-guard: #ab8df2;
   --color-human: #d19a3f;
   --color-ok: #63bd82;
-
-  --dotgrid: rgb(236 233 221 / 0.055);
-  --av-s: 38%;
-  --av-l: 32%;
 }
 
 html,

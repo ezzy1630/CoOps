@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { animate } from 'framer-motion'
-import { useStore } from '../store'
+import { PANEL_WIDTH, useStore } from '../store'
 import { BASE_AGENTS, DEPARTMENTS, personById } from '../data/company'
 import { buildWorld, taskParticipants } from '../engine/reducer'
 import { virtualAt } from '../engine/replay'
@@ -33,6 +33,12 @@ export default function CompanyMap() {
   const presence = useStore((s) => s.presence)
   const persona = useStore((s) => s.persona)
   const cameraRequest = useStore((s) => s.cameraRequest)
+  const panel = useStore((s) => s.panel)
+
+  // a side panel covers part of the viewport; center the map in what remains
+  const panelW = panel ? PANEL_WIDTH[panel.kind] : 0
+  const panelWRef = useRef(panelW)
+  panelWRef.current = panelW
 
   // ── measure ──
   useLayoutEffect(() => {
@@ -102,16 +108,17 @@ export default function CompanyMap() {
     if (cameraRequest.seq === 0) return
     const t = cameraRequest.target
     let target: Camera
-    if (t.type === 'fit') target = { cx: 0, cy: 0, k: fitScale(size.w, size.h) }
+    const effW = size.w - panelWRef.current
+    if (t.type === 'fit') target = { cx: 0, cy: 0, k: fitScale(effW, size.h) }
     else if (t.type === 'zoomBy') {
       const c = cameraRef.current
       target = { cx: c.cx, cy: c.cy, k: Math.min(2.8, Math.max(0.3, c.k * t.factor)) }
     } else if (t.type === 'dept') {
       const z = lay.zones.get(t.deptId)
-      target = z ? { cx: z.centroid.x * 0.92, cy: z.centroid.y * 0.92, k: 1.12 } : { cx: 0, cy: 0, k: fitScale(size.w, size.h) }
+      target = z ? { cx: z.centroid.x * 0.92, cy: z.centroid.y * 0.92, k: 1.12 } : { cx: 0, cy: 0, k: fitScale(effW, size.h) }
     } else {
       const p = lay.agentPos.get(t.agentId)
-      target = p ? { cx: p.x, cy: p.y, k: 1.45 } : { cx: 0, cy: 0, k: fitScale(size.w, size.h) }
+      target = p ? { cx: p.x, cy: p.y, k: 1.45 } : { cx: 0, cy: 0, k: fitScale(effW, size.h) }
     }
     animRef.current?.stop()
     const from = { ...cameraRef.current }
@@ -140,7 +147,7 @@ export default function CompanyMap() {
       animRef.current?.stop()
       const { cx, cy, k } = cameraRef.current
       const rect = el.getBoundingClientRect()
-      const px = e.clientX - rect.left - rect.width / 2
+      const px = e.clientX - rect.left - (rect.width - panelWRef.current) / 2
       const py = e.clientY - rect.top - rect.height / 2
       const nk = Math.min(2.8, Math.max(0.3, k * Math.exp(-e.deltaY * 0.0016)))
       const wx = cx + px / k
@@ -227,7 +234,8 @@ export default function CompanyMap() {
     return (op && lay.agentPos.get(op)) || lay.zones.get(dept)?.centroid || { x: 0, y: 0 }
   }
 
-  const screenOf = (p: Pt): Pt => ({ x: (p.x - cx) * k + w / 2, y: (p.y - cy) * k + h / 2 })
+  const centerX = (w - panelW) / 2
+  const screenOf = (p: Pt): Pt => ({ x: (p.x - cx) * k + centerX, y: (p.y - cy) * k + h / 2 })
 
   // approvals → named humans on the map
   const humanBadges = useMemo(() => {
@@ -264,12 +272,12 @@ export default function CompanyMap() {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       style={{
-        backgroundImage: 'radial-gradient(circle at 1px 1px, var(--dotgrid) 1px, transparent 0)',
+        backgroundImage: 'radial-gradient(circle at 1px 1px, rgb(29 28 23 / 0.08) 1px, transparent 0)',
         backgroundSize: '30px 30px',
       }}
     >
       <svg width={w} height={h} className="block">
-        <g transform={`translate(${w / 2},${h / 2}) scale(${k}) translate(${-cx},${-cy})`}>
+        <g transform={`translate(${centerX},${h / 2}) scale(${k}) translate(${-cx},${-cy})`} style={{ transition: 'none' }}>
           {/* gateway ring + hollow center */}
           <circle r={R_GATEWAY} fill="none" stroke="var(--color-line)" strokeWidth={1.4 * inv} strokeDasharray={`${3 * inv} ${7 * inv}`} />
           {showAgents && (
@@ -292,7 +300,7 @@ export default function CompanyMap() {
               <g key={d.id} opacity={dimmed(d.id) ? 0.14 : 1} style={{ transition: 'opacity 0.35s' }}>
                 <path
                   d={z.path}
-                  fill={isHome ? 'color-mix(in srgb, var(--color-ink) 5%, transparent)' : 'color-mix(in srgb, var(--color-ink) 2.5%, transparent)'}
+                  fill={isHome ? 'rgb(29 28 23 / 0.05)' : 'rgb(29 28 23 / 0.025)'}
                   stroke="var(--color-line)"
                   strokeWidth={1.2 * inv}
                   className="cursor-pointer"
@@ -444,7 +452,7 @@ export default function CompanyMap() {
                     stroke="var(--color-human)" strokeWidth={1.5 * inv} className="edge-dotted" opacity={0.75}
                   />
                 )}
-                <circle cx={anchor.x} cy={anchor.y} r={14 * inv} fill={`hsl(${person?.hue ?? 40} var(--av-s) var(--av-l))`} stroke="var(--color-human)" strokeWidth={1.5 * inv} />
+                <circle cx={anchor.x} cy={anchor.y} r={14 * inv} fill={`hsl(${person?.hue ?? 40} 52% 87%)`} stroke="var(--color-human)" strokeWidth={1.5 * inv} />
                 <text x={anchor.x} y={anchor.y + 3.5 * inv} textAnchor="middle" fontSize={9.5 * inv} fontWeight={700} fill="var(--color-ink)">
                   {person?.initials}
                 </text>
@@ -536,7 +544,7 @@ export default function CompanyMap() {
                 const pos = { x: z.presencePos.x - i * 22 * inv, y: z.presencePos.y }
                 return (
                   <g key={`${m.personId}-${m.where}`} transform={`translate(${pos.x},${pos.y})`} opacity={dimmed(m.where) ? 0.1 : 0.95} className="pointer-events-none">
-                    <circle r={9 * inv} fill={`hsl(${person.hue} var(--av-s) var(--av-l))`} stroke="var(--color-linebright)" strokeWidth={1 * inv} />
+                    <circle r={9 * inv} fill={`hsl(${person.hue} 52% 87%)`} stroke="var(--color-linebright)" strokeWidth={1 * inv} />
                     <text y={3 * inv} textAnchor="middle" fontSize={7 * inv} fontWeight={700} fill="var(--color-ink)">
                       {person.initials}
                     </text>
