@@ -16,8 +16,16 @@ export default function ApprovalsPanel() {
   const persona = useStore((s) => s.persona)
   const presence = useStore((s) => s.presence)
   const [oauthId, setOauthId] = useState<string | null>(null)
+  const [filter, setFilter] = useState<ApprovalFilter>('all')
 
   const approvals = [...world.approvals].sort((a, b) => b.ts - a.ts)
+  const visibleApprovals = approvals.filter((approval) => {
+    if (filter === 'mine') return persona?.id === approval.personId
+    if (filter === 'auth') return approval.kind === 'auth'
+    if (filter === 'approval') return approval.kind === 'approval'
+    if (filter === 'blueprint') return approval.kind === 'blueprint'
+    return true
+  })
   const oauthApproval = oauthId ? approvals.find((a) => a.eventId === oauthId) ?? null : null
 
   // if a simulated colleague resolves the request while the flow is open, step aside
@@ -33,24 +41,24 @@ export default function ApprovalsPanel() {
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto overscroll-contain bg-surface">
-      <div className="mx-auto flex w-full max-w-[1600px] min-w-0 flex-1 flex-col px-5 py-6 lg:px-8 lg:py-7">
-        <header className="flex shrink-0 items-end justify-between gap-4 border-b border-line pb-5">
-          <div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-dim">Human queue</div>
-            <div className="mt-1.5 flex items-center gap-2.5">
-              <h2 className="text-[21px] font-semibold tracking-[-0.02em]">Work &amp; approvals</h2>
-              <Chip className={approvals.length > 0 ? HUMAN_TINT : 'bg-raised!'}>{approvals.length}</Chip>
-            </div>
-            <p className="mt-1.5 text-[12px] text-dim">Requests waiting for a named person to unblock them.</p>
+      <div className="mx-auto flex w-full max-w-[1600px] min-w-0 flex-1 flex-col px-5 py-5 lg:px-8 lg:py-6">
+        <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line pb-3">
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-dim">Human queue</span>
+          <h2 className="text-[19px] font-semibold tracking-[-0.02em]">Work &amp; approvals</h2>
+          <Chip className={approvals.length > 0 ? HUMAN_TINT : 'bg-raised!'}>{approvals.length}</Chip>
+          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="mr-0.5 font-mono text-[10px] uppercase tracking-wider text-dim">Show</span>
+            <QueueFilterButton label="All" active={filter === 'all'} onClick={() => setFilter('all')} />
+            <QueueFilterButton label="Assigned to me" active={filter === 'mine'} onClick={() => setFilter('mine')} />
+            <QueueFilterButton label="Accounts" active={filter === 'auth'} onClick={() => setFilter('auth')} />
+            <QueueFilterButton label="Sign-offs" active={filter === 'approval'} onClick={() => setFilter('approval')} />
+            <QueueFilterButton label="New agents" active={filter === 'blueprint'} onClick={() => setFilter('blueprint')} />
           </div>
-          <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-wider text-dim sm:block">
-            {approvals.length === 0 ? 'Queue clear' : `${approvals.length} open request${approvals.length === 1 ? '' : 's'}`}
-          </span>
         </header>
 
-        <div className="mt-5 min-w-0 flex-1">
-          {approvals.length === 0 ? (
-            <EmptyState />
+        <div className="mt-4 min-w-0 flex-1">
+          {visibleApprovals.length === 0 ? (
+            approvals.length === 0 ? <EmptyState /> : <FilteredEmptyState />
           ) : (
             <div className="overflow-x-auto border-y border-line">
               <table className="w-full min-w-[900px] table-fixed border-collapse text-left">
@@ -71,7 +79,7 @@ export default function ApprovalsPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {approvals.map((a) => (
+                  {visibleApprovals.map((a) => (
                     <ApprovalRow
                       key={a.eventId}
                       approval={a}
@@ -79,6 +87,7 @@ export default function ApprovalsPanel() {
                       viewer={presence.find((p) => p.where === `approval:${a.eventId}`)?.personId ?? null}
                       requester={refLabel(a.requestedBy, world.agents)}
                       onConnect={() => setOauthId(a.eventId)}
+                      onOpenMap={() => openApprovalOnMap(a, world)}
                     />
                   ))}
                 </tbody>
@@ -109,6 +118,8 @@ export default function ApprovalsPanel() {
 
 const RESOLVED_TYPES = new Set(['AccountConnected', 'ApprovalGranted', 'BlueprintApproved'])
 
+type ApprovalFilter = 'all' | 'mine' | 'auth' | 'approval' | 'blueprint'
+
 /**
  * Tailwind emits same-property utilities alphabetically, so `border-human` and
  * `bg-human` lose to the shared atoms' `border-line`/`bg-surface`. The human
@@ -124,6 +135,16 @@ const KIND_CHIP: Record<PendingApproval['kind'], { label: string; cls: string }>
   blueprint: { label: 'NEW AGENT', cls: TASK_TINT },
 }
 
+function QueueFilterButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className="inline-flex cursor-pointer" onClick={onClick}>
+      <Chip className={cx('transition-colors', active ? 'border-task/55 bg-task/10 text-task' : 'bg-raised! hover:border-linebright hover:text-ink')}>
+        {label}
+      </Chip>
+    </button>
+  )
+}
+
 function refLabel(r: Ref | undefined, agents: { id: string; name: string }[]): string | null {
   if (!r) return null
   if (r.kind === 'agent') return agents.find((a) => a.id === r.id)?.name ?? r.id
@@ -131,31 +152,73 @@ function refLabel(r: Ref | undefined, agents: { id: string; name: string }[]): s
   return 'Policy gateway'
 }
 
+function openApprovalOnMap(approval: PendingApproval, world: ReturnType<typeof useStore.getState>['world']) {
+  const store = useStore.getState()
+  const requestedBy = approval.requestedBy
+  const requestedAgent = requestedBy?.kind === 'agent' && world.agents.some((agent) => agent.id === requestedBy.id)
+    ? requestedBy.id
+    : null
+
+  if (requestedAgent) {
+    store.requestCamera({ type: 'agent', agentId: requestedAgent })
+    store.openPanel('agent', requestedAgent)
+  } else if (approval.deptId) {
+    store.requestCamera({ type: 'dept', deptId: approval.deptId })
+    store.openPanel('dept', approval.deptId)
+  } else {
+    store.setView('map')
+  }
+}
+
+function CapabilityGlyph() {
+  return (
+    <svg viewBox="0 0 12 12" className="mr-1 inline size-2.5" aria-hidden="true">
+      <rect x="3" y="5" width="6" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1" />
+      <path d="M4.5 5V3.8a1.5 1.5 0 0 1 3 0V5" fill="none" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  )
+}
+
 // ─── Queue row ───────────────────────────────────────────────────────────────
 
 function ApprovalRow({
-  approval, isMine, viewer, requester, onConnect,
+  approval, isMine, viewer, requester, onConnect, onOpenMap,
 }: {
   approval: PendingApproval
   isMine: boolean
   viewer: string | null
   requester: string | null
   onConnect: () => void
+  onOpenMap: () => void
 }) {
   const person = personById.get(approval.personId)
   const dept = approval.deptId ? deptById.get(approval.deptId) : null
   const chip = KIND_CHIP[approval.kind]
   const viewerPerson = viewer ? personById.get(viewer) : null
   const bp = approval.blueprint
+  const deptHue = personById.get(dept?.leadId ?? approval.personId)?.hue
 
   return (
     <>
-      <tr className="anim-fadeup border-b border-line align-top transition-colors hover:bg-hover/35">
-        <td className="px-3 py-3">
-          <Pill className={cx(chip.cls, 'text-[9px]')}>{chip.label}</Pill>
+      <tr
+        tabIndex={0}
+        className="group anim-fadeup cursor-pointer border-b border-line align-top transition-colors hover:bg-hover/35 focus:bg-hover/35 focus:outline-none"
+        onClick={onOpenMap}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onOpenMap()
+          }
+        }}
+        title="Open on map"
+      >
+        <td className="px-3 py-2">
+          <span className="mr-2 inline-block h-5 w-0.5 rounded-full align-middle" style={{ background: deptHue == null ? 'var(--color-linebright)' : `hsl(${deptHue} 55% 50%)` }} aria-hidden />
+          <Pill className={cx(chip.cls, 'text-[9px]')}><CapabilityGlyph />{chip.label}</Pill>
           {dept && <div className="mt-1.5 text-[11px] text-dim">{dept.name}</div>}
         </td>
-        <td className="px-3 py-3">
+        <td className="px-3 py-2">
           <div className="max-w-[34rem] text-[13px] leading-snug font-medium text-ink">{approval.what}</div>
           {requester && (
             <div className="mt-1 text-[11px] text-dim">
@@ -164,7 +227,7 @@ function ApprovalRow({
           )}
           {bp && <div className="mt-1 font-mono text-[10px] text-task">Blueprint review · inheritance limits</div>}
         </td>
-        <td className="px-3 py-3">
+        <td className="px-3 py-2">
           <div className="flex min-w-0 items-center gap-2">
             <span
               className={cx('flex size-7 shrink-0 items-center justify-center rounded-full border border-linebright text-[9px] font-bold', person && 'text-abyss')}
@@ -185,17 +248,17 @@ function ApprovalRow({
             </div>
           )}
         </td>
-        <td className="px-3 py-3 font-mono text-[11px] text-dim tabular-nums">{timeAgo(approval.ts)}</td>
-        <td className="px-3 py-3 text-right">
+        <td className="px-3 py-2 font-mono text-[11px] text-dim tabular-nums">{timeAgo(approval.ts)}</td>
+        <td className="px-3 py-2 text-right">
           <div className="flex flex-wrap justify-end gap-1.5">
             {approval.kind === 'auth' ? (
-              <button className="btn btn-primary h-7 px-2.5 text-[11px]" onClick={onConnect}>
+              <button className="btn btn-primary h-7 px-2.5 text-[11px]" onClick={(event) => { event.stopPropagation(); onConnect() }}>
                 Connect account…
               </button>
             ) : (
               <button
                 className={cx('btn h-7 px-2.5 text-[11px]', approval.kind === 'blueprint' ? 'btn-primary' : 'btn-human')}
-                onClick={() => useStore.getState().approve(approval)}
+                onClick={(event) => { event.stopPropagation(); useStore.getState().approve(approval) }}
               >
                 Approve
               </button>
@@ -203,7 +266,7 @@ function ApprovalRow({
             {approval.taskId && (
               <button
                 className="btn h-7 px-2.5 text-[11px] text-mut"
-                onClick={() => useStore.getState().selectTask(approval.taskId ?? null)}
+                onClick={(event) => { event.stopPropagation(); useStore.getState().selectTask(approval.taskId ?? null) }}
               >
                 Focus on map
               </button>
@@ -212,17 +275,18 @@ function ApprovalRow({
           {bp && (
             <button
               className="mt-2 text-[10px] text-dim underline decoration-linebright underline-offset-2 hover:text-ink"
-              onClick={() => useStore.getState().openPanel('diff')}
+              onClick={(event) => { event.stopPropagation(); useStore.getState().openPanel('diff') }}
             >
               View inheritance
             </button>
           )}
           {!isMine && person && <div className="mt-1.5 text-[10px] text-dim">acting for {person.name} (demo)</div>}
+          <div className="mt-1 text-[10px] text-task opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">Open on map ↗</div>
         </td>
       </tr>
       {bp && (
         <tr className="border-b border-line bg-raised/25">
-          <td colSpan={5} className="px-3 py-3">
+          <td colSpan={5} className="px-3 py-2">
             <div className="grid gap-3 pl-1 text-[11px] text-mut md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)]">
               <Field label="Purpose" value={bp.purpose} />
               <Field label="Trigger" value={bp.trigger} />
@@ -304,6 +368,14 @@ function EmptyState() {
         When an agent hits a wall — a credential, a sign-off — it appears here, addressed to the one
         person who can clear it.
       </p>
+    </div>
+  )
+}
+
+function FilteredEmptyState() {
+  return (
+    <div className="border-y border-line px-4 py-10 text-center text-[11px] text-dim">
+      No open requests match this filter.
     </div>
   )
 }

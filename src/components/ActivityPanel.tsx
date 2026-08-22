@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
-import { DEPARTMENTS, deptById } from '../data/company'
+import { DEPARTMENTS, deptById, personById } from '../data/company'
 import { cx, fmtClock, fmtDay, fmtDuration, fmtUsd } from '../utils'
 import { Chip, Pill, typeLabel } from './ui'
 import type { EventType, WorldEvent } from '../types'
@@ -37,58 +37,44 @@ export default function ActivityPanel() {
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto overscroll-contain bg-surface">
-      <div className="mx-auto flex w-full max-w-[1600px] min-w-0 flex-1 flex-col px-5 py-6 lg:px-8 lg:py-7">
-        <header className="flex shrink-0 items-end justify-between gap-4 border-b border-line pb-5">
-          <div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-dim">System record</div>
-            <h2 className="mt-1.5 text-[21px] font-semibold tracking-[-0.02em]">Activity</h2>
-            <p className="mt-1.5 text-[12px] text-dim">A running account of work, handoffs, and decisions across Everpeak.</p>
-          </div>
-          <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-wider text-dim sm:block">{rows.length} shown</span>
-        </header>
-
-        <div className="mt-5 grid shrink-0 grid-cols-2 gap-px border border-line bg-line sm:grid-cols-4">
-          <Stat label="Active tasks" value={String(active)} tone="text-task" />
-          <Stat label="Blocked" value={String(blocked)} tone={blocked > 0 ? 'text-human' : 'text-mut'} />
-          <Stat label="Events today" value={String(today.length)} tone="text-ink" />
-          <Stat label="Spend today" value={fmtUsd(spend)} tone="text-artifact" />
-        </div>
-
-        <div className="sticky top-0 z-10 -mx-5 mt-5 flex shrink-0 flex-col gap-2 border-y border-line bg-surface/95 px-5 py-3 backdrop-blur-sm lg:-mx-8 lg:px-8">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-dim">Department</span>
+      <div className="mx-auto flex w-full max-w-[1600px] min-w-0 flex-1 flex-col px-5 py-5 lg:px-8 lg:py-6">
+        <header className="sticky top-0 z-10 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface/95 pb-3 backdrop-blur-sm">
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-dim">System record</span>
+          <h2 className="text-[19px] font-semibold tracking-[-0.02em]">Activity</h2>
+          <span className="font-mono text-[10px] tabular-nums text-dim">{rows.length} shown <span className="text-linebright">·</span> {active} active <span className="text-linebright">·</span> {blocked} blocked <span className="text-linebright">·</span> {fmtUsd(spend)} today</span>
+          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="mr-0.5 font-mono text-[10px] uppercase tracking-wider text-dim">Dept</span>
             <FilterChip label="All" active={dept === 'all'} onClick={() => setDept('all')} />
             {DEPARTMENTS.map((d) => (
               <FilterChip key={d.id} label={d.name} active={dept === d.id} onClick={() => setDept(d.id)} />
             ))}
-          </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-dim">Stream</span>
+            <span className="mx-1 h-3 w-px bg-line" />
+            <span className="mr-0.5 font-mono text-[10px] uppercase tracking-wider text-dim">Stream</span>
             {TYPE_FILTERS.map((f) => (
               <FilterChip key={f.key} label={f.label} active={group === f.key} onClick={() => setGroup(f.key)} />
             ))}
           </div>
-        </div>
+        </header>
 
         <div className="mt-0 min-w-0 flex-1 overflow-x-auto border-b border-line">
           {rows.length === 0 ? (
             <div className="px-3 py-14 text-center text-[11px] text-dim">No events match this filter.</div>
           ) : (
-            <table className="w-full min-w-[920px] table-fixed border-collapse text-left">
+            <table className="w-full min-w-[980px] table-fixed border-collapse text-left">
               <colgroup>
                 <col className="w-[9%]" />
                 <col className="w-[14%]" />
-                <col className="w-[42%]" />
+                <col className="w-[39%]" />
                 <col className="w-[17%]" />
-                <col className="w-[18%]" />
+                <col className="w-[21%]" />
               </colgroup>
               <thead className="bg-raised/55">
                 <tr className="border-b border-line">
-                  <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">When</th>
-                  <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Stream</th>
-                  <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Event</th>
-                  <th className="px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Route</th>
-                  <th className="px-3 py-2.5 text-right font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Metrics</th>
+                  <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">When</th>
+                  <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Stream</th>
+                  <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Event</th>
+                  <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Route</th>
+                  <th className="px-3 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-wider text-dim">Metrics</th>
                 </tr>
               </thead>
               <tbody>
@@ -98,6 +84,7 @@ export default function ActivityPanel() {
                     event={e}
                     highlighted={highlightEventId === e.id}
                     onTrace={() => setTraceTaskId(e.taskId ?? null)}
+                    onOpenMap={() => openEventOnMap(e, world)}
                   />
                 ))}
               </tbody>
@@ -153,15 +140,6 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   )
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone: string }) {
-  return (
-    <div className="rounded-lg border border-line bg-raised/60 px-2 py-1.5">
-      <div className="truncate font-mono text-[10px] uppercase tracking-wider text-dim">{label}</div>
-      <div className={cx('mt-0.5 text-[15px] leading-none font-semibold tabular-nums', tone)}>{value}</div>
-    </div>
-  )
-}
-
 // ─── Event colors ────────────────────────────────────────────────────────────
 
 function typeColor(t: EventType): string {
@@ -188,6 +166,7 @@ function typeColor(t: EventType): string {
 
 function TypeChip({ type }: { type: EventType }) {
   const c = typeColor(type)
+  const capability = type === 'AuthRequired' || type === 'PermissionRequest' || type === 'ApprovalGranted' || type === 'AccountConnected' || type === 'BlueprintProposed' || type === 'BlueprintApproved'
   return (
     <Pill
       className="shrink-0 whitespace-nowrap"
@@ -197,9 +176,36 @@ function TypeChip({ type }: { type: EventType }) {
         background: `color-mix(in srgb, ${c} 10%, transparent)`,
       }}
     >
+      {capability && <CapabilityGlyph />}
       {typeLabel(type)}
     </Pill>
   )
+}
+
+function openEventOnMap(event: WorldEvent, world: ReturnType<typeof useStore.getState>['world']) {
+  const store = useStore.getState()
+  const source = event.from
+  const target = event.to
+  const sourceAgent = source?.kind === 'agent' && world.agents.some((agent) => agent.id === source.id)
+    ? source.id
+    : null
+  const targetAgent = target?.kind === 'agent' && world.agents.some((agent) => agent.id === target.id)
+    ? target.id
+    : null
+  const agentId = sourceAgent ?? targetAgent
+
+  if (agentId) {
+    store.requestCamera({ type: 'agent', agentId })
+    store.openPanel('agent', agentId)
+  } else {
+    const deptId = event.deptFrom ?? event.deptTo
+    if (deptId) {
+      store.requestCamera({ type: 'dept', deptId })
+      store.openPanel('dept', deptId)
+    } else {
+      store.setView('map')
+    }
+  }
 }
 
 // ─── Feed row ────────────────────────────────────────────────────────────────
@@ -213,10 +219,21 @@ function DocGlyph() {
   )
 }
 
-function Row({ event: e, highlighted, onTrace }: { event: WorldEvent; highlighted: boolean; onTrace: () => void }) {
+function CapabilityGlyph() {
+  return (
+    <svg viewBox="0 0 12 12" className="size-2.5 shrink-0" aria-hidden="true">
+      <rect x="3" y="5" width="6" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1" />
+      <path d="M4.5 5V3.8a1.5 1.5 0 0 1 3 0V5" fill="none" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  )
+}
+
+function Row({ event: e, highlighted, onTrace, onOpenMap }: { event: WorldEvent; highlighted: boolean; onTrace: () => void; onOpenMap: () => void }) {
   const isToday = new Date(e.ts).toDateString() === new Date().toDateString()
   const guard = e.type === 'GuardrailBlock'
   const isArtifact = e.type === 'ArtifactDelivered'
+  const rowDept = e.deptFrom ?? e.deptTo
+  const rowHue = personById.get(rowDept ? deptById.get(rowDept)?.leadId ?? '' : '')?.hue
   const route = e.deptFrom && e.deptTo && e.deptFrom !== e.deptTo
     ? `${deptById.get(e.deptFrom)?.name ?? e.deptFrom} → ${deptById.get(e.deptTo)?.name ?? e.deptTo}`
     : null
@@ -224,38 +241,50 @@ function Row({ event: e, highlighted, onTrace }: { event: WorldEvent; highlighte
   return (
     <tr
       data-event-id={e.id}
+      tabIndex={0}
       onMouseEnter={() => useStore.getState().setHighlight(e.id)}
       onMouseLeave={() => useStore.getState().setHighlight(null)}
-      onClick={() => {
-        if (isArtifact) useStore.getState().openArtifact(e.id)
-        else if (e.taskId) useStore.getState().selectTask(e.taskId)
+      onClick={onOpenMap}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onOpenMap()
+        }
       }}
-      title={isArtifact ? 'Open the delivered document' : undefined}
+      title="Open on map"
       className={cx(
-        'border-b border-line/60 align-middle transition-colors',
-        (e.taskId || isArtifact) && 'cursor-pointer',
+        'group cursor-pointer border-b border-line/60 align-middle transition-colors focus:bg-hover focus:outline-none',
         highlighted ? 'bg-hover' : isArtifact ? 'hover:bg-artifact/8' : 'hover:bg-raised/60',
       )}
       style={guard ? { borderLeft: '2px solid color-mix(in srgb, var(--color-guard) 60%, transparent)' } : { borderLeft: '2px solid transparent' }}
     >
-      <td className="px-3 py-2 font-mono text-[10px] whitespace-nowrap text-dim tabular-nums">
+      <td className="px-3 py-1.5 font-mono text-[10px] whitespace-nowrap text-dim tabular-nums">
         {isToday ? fmtClock(e.ts) : `${fmtDay(e.ts)} ${fmtClock(e.ts)}`}
       </td>
-      <td className="px-3 py-2"><TypeChip type={e.type} /></td>
-      <td className="max-w-0 px-3 py-2">
+      <td className="px-3 py-1.5"><TypeChip type={e.type} /></td>
+      <td className="max-w-0 px-3 py-1.5">
+        <span className="mr-2 inline-block h-4 w-0.5 rounded-full align-middle" style={{ background: rowHue == null ? 'var(--color-linebright)' : `hsl(${rowHue} 55% 50%)` }} aria-hidden />
         <div className="truncate text-[12px] text-ink" title={e.detail ?? e.title}>{e.title}</div>
         {e.detail && <div className="mt-0.5 truncate text-[10px] text-dim">{e.detail}</div>}
       </td>
-      <td className="px-3 py-2 text-[10px] text-dim">{route ?? '—'}</td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-1.5 text-[10px] text-dim">{route ?? '—'}</td>
+      <td className="px-3 py-1.5">
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {isArtifact && (
-            <Pill
-              className={cx(META, 'gap-1 border-artifact/45! bg-artifact/8! text-artifact')}
+            <button
+              type="button"
+              className="inline-flex shrink-0 cursor-pointer"
               title="Open the delivered document"
+              onClick={(event) => {
+                event.stopPropagation()
+                useStore.getState().openArtifact(e.id)
+              }}
             >
-              <DocGlyph /> open
-            </Pill>
+              <Pill className={cx(META, 'gap-1 border-artifact/45! bg-artifact/8! text-artifact')}>
+                <DocGlyph /> open document
+              </Pill>
+            </button>
           )}
           {e.payload?.costUsd != null && <Pill className={cx(META, 'text-mut')}>{fmtUsd(e.payload.costUsd)}</Pill>}
           {e.payload?.latencyMs != null && <Pill className={cx(META, 'text-mut')}>{fmtDuration(e.payload.latencyMs)}</Pill>}
@@ -264,14 +293,15 @@ function Row({ event: e, highlighted, onTrace }: { event: WorldEvent; highlighte
               type="button"
               className="inline-flex shrink-0 cursor-pointer"
               title="Open the trace waterfall for this task"
-              onClick={(ev) => {
-                ev.stopPropagation()
+              onClick={(event) => {
+                event.stopPropagation()
                 onTrace()
               }}
             >
               <Pill className={cx(META, 'text-mut transition-colors hover:border-task/50 hover:text-task')}>trace</Pill>
             </button>
           )}
+          <span className="pointer-events-none text-[10px] text-task opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">Open on map ↗</span>
         </div>
       </td>
     </tr>
