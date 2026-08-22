@@ -15,6 +15,8 @@ export default function MapOverlays() {
   const world = useStore((s) => s.world)
   const panel = useStore((s) => s.panel)
   const log = useStore((s) => s.log)
+  // the classic camera doesn't exist over the valley — its controls would be dead
+  const mapStyle = useStore((s) => s.mapStyle)
 
   const task = selectedTaskId ? world.tasks.get(selectedTaskId) : null
   const heroTask = [...world.tasks.values()].find((candidate) => candidate.title.startsWith('Summit Series launch'))
@@ -45,7 +47,7 @@ export default function MapOverlays() {
         aria-label="Map status bar"
       >
         <Legend />
-        <ZoomControls />
+        {mapStyle === 'classic' && <ZoomControls />}
         <PulseSparkline />
         <div className="min-w-0 flex-1" />
         {!replay && (
