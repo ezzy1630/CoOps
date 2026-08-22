@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { PANEL_WIDTH, useStore, type PresenceMark } from '../../store'
 import { BASE_AGENTS, deptById, personById } from '../../data/company'
 import { buildWorld, taskParticipants } from '../../engine/reducer'
@@ -39,15 +39,76 @@ const shortName = (name: string): string => {
   return s.length > 16 ? s.slice(0, 15).trimEnd() + '…' : s
 }
 
-const truncText = (s: string, n: number): string =>
-  s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s
-
 /** Palette hexes arrive as "#rrggbb"; alpha tints stay derived from them. */
 function hexA(hex: string, alpha: number): string {
   const m = /^#([0-9a-f]{6})$/i.exec(hex)
   if (!m) return hex
   const n = parseInt(m[1], 16)
   return `rgb(${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255} / ${alpha})`
+}
+
+/**
+ * A spoken line over its speaker. Collapsed it clamps to three lines with an
+ * ellipsis; clicking pins it open into a scrollable pane, and hovering holds
+ * it past the speech window so a long answer isn't lost mid-read. Rendered as
+ * anchor + inner scroller + tail sibling so the tail survives scrolling.
+ */
+function SpeechBubble({
+  art, text, active, fallback,
+}: {
+  art: PixelArt
+  text: string
+  /** true while the line is fresh on the clock */
+  active: boolean
+  /** rendered instead when the bubble is retired (the status emote) */
+  fallback: ReactNode
+}) {
+  const [pinned, setPinned] = useState(false)
+  const [hover, setHover] = useState(false)
+  // a new line replaces whatever reading state the old one had
+  useEffect(() => setPinned(false), [text])
+  useEffect(() => {
+    if (!active && !hover) setPinned(false)
+  }, [active, hover])
+  const visible = active || pinned || hover
+  if (!visible) return <>{fallback}</>
+  return (
+    <div
+      className="absolute"
+      style={{ left: 0, top: -(CELL_PX + 12), transform: 'translate(-50%, -100%)', width: 190 }}
+      onClick={(e) => {
+        e.stopPropagation()
+        setPinned((p) => !p)
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <div
+        className={`whitespace-normal rounded-sm border px-1.5 py-1 text-left leading-snug ${pinned ? 'speech-bubble-scroll cursor-auto' : ''}`}
+        style={{
+          maxHeight: pinned ? 108 : undefined,
+          overflowY: pinned ? 'auto' : 'hidden',
+          background: art.palette.paper,
+          color: art.palette.ink,
+          borderColor: hexA(art.palette.outline, 0.5),
+          boxShadow: `2px 2px 0 ${hexA(art.palette.outline, 0.18)}`,
+          scrollbarWidth: 'thin',
+        }}
+      >
+        <span className={`font-mono text-[8px] ${pinned ? '' : 'line-clamp-3'}`}>{text}</span>
+      </div>
+      {!pinned && (
+        <div
+          className="absolute left-1/2 -bottom-[3px] size-[6px] -translate-x-1/2 rotate-45"
+          style={{
+            background: art.palette.paper,
+            borderRight: `1px solid ${hexA(art.palette.outline, 0.5)}`,
+            borderBottom: `1px solid ${hexA(art.palette.outline, 0.5)}`,
+          }}
+        />
+      )}
+    </div>
+  )
 }
 
 export default function PixelMap() {
@@ -346,7 +407,6 @@ function Scene({
         const ownerHue = ag.kind === 'operator' ? personById.get(ag.ownerId)?.hue : undefined
         const emote = emoteFor(world.agentStatus.get(ag.id) ?? 'idle', acts.get(ag.id), renderTime, EMOTE_FRESH_MS)
         const sp = speech.get(ag.id)
-        const speaking = sp != null && renderTime - sp.ts < SPEECH_MS
         const isDim = dimmed(ag.deptId, ag.id)
         return (
           <div key={ag.id} className="absolute" style={{ left: pt.x, top: pt.y, zIndex: z, ...dim(isDim) }}>
@@ -363,37 +423,22 @@ function Scene({
                 }}
               />
             )}
-            {speaking ? (
-              <div
-                className="pointer-events-none absolute whitespace-normal rounded-sm border px-1.5 py-1 text-left leading-snug"
-                style={{
-                  left: 0,
-                  top: -(CELL_PX + 12),
-                  transform: 'translate(-50%, -100%)',
-                  maxWidth: 190,
-                  background: art.palette.paper,
-                  color: art.palette.ink,
-                  borderColor: hexA(art.palette.outline, 0.5),
-                  boxShadow: `2px 2px 0 ${hexA(art.palette.outline, 0.18)}`,
-                }}
-              >
-                <span className="font-mono text-[8px]">{truncText(sp!.text, 84)}</span>
-                <div
-                  className="absolute -bottom-[3px] left-1/2 size-[6px] -translate-x-1/2 rotate-45"
-                  style={{
-                    background: art.palette.paper,
-                    borderRight: `1px solid ${hexA(art.palette.outline, 0.5)}`,
-                    borderBottom: `1px solid ${hexA(art.palette.outline, 0.5)}`,
-                  }}
-                />
-              </div>
-            ) : emote ? (
-              <img
-                src={art.emotes.files[emote]}
-                alt=""
-                draggable={false}
-                className="pixelated pointer-events-none absolute select-none"
-                style={{ left: 0, top: -(CELL_PX + EMOTE_PX + 4), transform: 'translateX(-50%)', width: EMOTE_PX, height: EMOTE_PX }}
+            {sp ? (
+              <SpeechBubble
+                art={art}
+                text={sp.text}
+                active={renderTime - sp.ts < SPEECH_MS}
+                fallback={
+                  emote ? (
+                    <img
+                      src={art.emotes.files[emote]}
+                      alt=""
+                      draggable={false}
+                      className="pixelated pointer-events-none absolute select-none"
+                      style={{ left: 0, top: -(CELL_PX + EMOTE_PX + 4), transform: 'translateX(-50%)', width: EMOTE_PX, height: EMOTE_PX }}
+                    />
+                  ) : null
+                }
               />
             ) : null}
             <div
