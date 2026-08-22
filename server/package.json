@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "test": "npm run build && node --test dist/test/"
+    "start": "node dist/server/src/index.js",
+    "test": "npm run build && node --test \"dist/server/src/test/*.test.js\""
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
