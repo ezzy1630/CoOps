@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { deptById, personById, TOOLS } from '../data/company'
 import { cx, timeAgo } from '../utils'
+import { Chip, Pill } from './ui'
 import type { PendingApproval, Ref, WorldEvent } from '../types'
 
 /**
@@ -34,14 +35,7 @@ export default function ApprovalsPanel() {
     <div className="flex h-full flex-col">
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
         <h2 className="text-[13px] font-semibold">Work &amp; Approvals</h2>
-        <span
-          className={cx(
-            PILL, 'text-[11px]',
-            approvals.length > 0 ? 'border-human/45 bg-human/10 text-human' : 'border-line bg-raised text-mut',
-          )}
-        >
-          {approvals.length}
-        </span>
+        <Chip className={approvals.length > 0 ? HUMAN_TINT : 'bg-raised!'}>{approvals.length}</Chip>
         <div className="flex-1" />
         <button
           className="rounded px-1.5 py-0.5 text-[13px] text-dim hover:bg-hover hover:text-ink"
@@ -54,13 +48,7 @@ export default function ApprovalsPanel() {
 
       <div className="flex-1 overflow-y-auto overscroll-contain">
         {approvals.length === 0 ? (
-          <div className="flex min-h-56 flex-col items-center justify-center gap-2 px-8 py-14 text-center">
-            <span className="mb-1 size-2 rounded-full bg-artifact/70 anim-breathe" />
-            <p className="text-[13px] text-ink">Nothing is waiting on a human.</p>
-            <p className="max-w-[19rem] text-[11px] leading-relaxed text-dim">
-              When an agent gets blocked, the card lands here — routed to the one person who can unblock it.
-            </p>
-          </div>
+          <EmptyState />
         ) : (
           <div className="flex flex-col gap-2.5 p-3">
             {approvals.map((a) => (
@@ -95,13 +83,19 @@ export default function ApprovalsPanel() {
 
 const RESOLVED_TYPES = new Set(['AccountConnected', 'ApprovalGranted', 'BlueprintApproved'])
 
-/** chip base without a size/color, so per-use utilities never fight `.chip` */
-const PILL = 'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-medium'
+/**
+ * Tailwind emits same-property utilities alphabetically, so `border-human` and
+ * `bg-human` lose to the shared atoms' `border-line`/`bg-surface`. The human
+ * tint has to be marked important to repaint a Chip/Pill; the task tint sorts
+ * after them and wins on its own.
+ */
+const HUMAN_TINT = 'border-human/45! bg-human/10! text-human!'
+const TASK_TINT = 'border-task/45 bg-task/10 text-task'
 
 const KIND_CHIP: Record<PendingApproval['kind'], { label: string; cls: string }> = {
-  auth: { label: 'CONNECT ACCOUNT', cls: 'border-human/45 bg-human/10 text-human' },
-  approval: { label: 'APPROVAL', cls: 'border-human/45 bg-human/10 text-human' },
-  blueprint: { label: 'NEW AGENT', cls: 'border-task/45 bg-task/10 text-task' },
+  auth: { label: 'CONNECT ACCOUNT', cls: HUMAN_TINT },
+  approval: { label: 'APPROVAL', cls: HUMAN_TINT },
+  blueprint: { label: 'NEW AGENT', cls: TASK_TINT },
 }
 
 function refLabel(r: Ref | undefined, agents: { id: string; name: string }[]): string | null {
@@ -131,7 +125,7 @@ function ApprovalCard({
   return (
     <article className="anim-fadeup rounded-xl border border-line bg-raised/60 p-3">
       <div className="flex items-center gap-2">
-        <span className={cx(PILL, 'font-mono text-[10px] tracking-wider', chip.cls)}>{chip.label}</span>
+        <Pill className={chip.cls}>{chip.label}</Pill>
         {dept && <span className="text-[11px] text-mut">{dept.name}</span>}
         <div className="flex-1" />
         <span className="font-mono text-[10px] text-dim">{timeAgo(approval.ts)}</span>
@@ -169,7 +163,7 @@ function ApprovalCard({
       {/* the named human this is routed to */}
       <div className="mt-2.5 flex items-center gap-2.5 rounded-lg border border-line bg-raised/60 px-2.5 py-2">
         <span
-          className="flex size-8 shrink-0 items-center justify-center rounded-full border border-linebright text-[10px] font-bold"
+          className={cx('flex size-8 shrink-0 items-center justify-center rounded-full border border-linebright text-[10px] font-bold', person && 'text-abyss')}
           style={{ background: person ? `hsl(${person.hue} 52% 87%)` : 'var(--color-raised)' }}
         >
           {person?.initials}
@@ -177,9 +171,7 @@ function ApprovalCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="truncate text-[13px] font-medium">{person?.name ?? approval.personId}</span>
-            {isMine && (
-              <span className={cx(PILL, 'shrink-0 border-task/45 bg-task/10 text-[10px] text-task')}>assigned to you</span>
-            )}
+            {isMine && <Chip className={cx('shrink-0 text-[10px]', TASK_TINT)}>assigned to you</Chip>}
           </div>
           <span className="block truncate text-[11px] text-dim">{person?.role}</span>
         </div>
@@ -217,6 +209,69 @@ function ApprovalCard({
         <p className="mt-1.5 text-[10px] text-dim">acting for {person.name} (demo)</p>
       )}
     </article>
+  )
+}
+
+// ─── Empty state ─────────────────────────────────────────────────────────────
+
+/** Generic stands-ins for the capability diagram's person and agent chips. */
+function AgentMark() {
+  return (
+    <span
+      aria-hidden
+      className="flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-linebright bg-surface"
+    >
+      <span className="size-1.5 rounded-[1px] bg-task/70" />
+    </span>
+  )
+}
+
+function PersonMark() {
+  return (
+    <span
+      aria-hidden
+      className="flex size-4 shrink-0 items-center justify-center rounded-full border border-linebright bg-surface"
+    >
+      <span className="size-1.5 rounded-full bg-human/70" />
+    </span>
+  )
+}
+
+/**
+ * Idle, but not blank: the same person → capability → agent grammar the OAuth
+ * flow ends on, drawn generically to explain what this panel is *for*.
+ */
+function EmptyState() {
+  return (
+    <div className="flex min-h-56 flex-col items-center justify-center px-8 py-16 text-center">
+      <div className="flex items-center justify-center gap-1">
+        <span className="flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-raised px-2 py-1.5">
+          <AgentMark />
+          <span className="text-[10.5px] font-medium text-ink">Any agent</span>
+        </span>
+
+        <ScopeArrow label="hits a wall" />
+
+        <span className="shrink-0 rounded-md border border-human/45 bg-human/10 px-2 py-1.5">
+          <span className="block font-mono text-[8.5px] tracking-wide text-human">
+            credential · sign-off
+          </span>
+        </span>
+
+        <ScopeArrow label="routed to" />
+
+        <span className="flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-raised px-2 py-1.5">
+          <PersonMark />
+          <span className="text-[10.5px] font-medium text-ink">one named human</span>
+        </span>
+      </div>
+
+      <p className="mt-6 text-[13px] font-medium text-ink">Nothing is waiting on a human.</p>
+      <p className="mt-1.5 max-w-[23rem] text-[11.5px] leading-relaxed text-dim">
+        When an agent hits a wall — a credential, a sign-off — it appears here, addressed to the one
+        person who can clear it.
+      </p>
+    </div>
   )
 }
 
@@ -323,7 +378,7 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
               onClick={() => setStep(2)}
             >
               <span
-                className="flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                className={cx('flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', person && 'text-abyss')}
                 style={{ background: person ? `hsl(${person.hue} 52% 87%)` : 'var(--color-raised)' }}
               >
                 {person?.initials}

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useStore } from '../store'
 import { LAUNCH_AGENT_ID, deptById, personById, toolById } from '../data/company'
 import { cx, fmtUsd, timeAgo } from '../utils'
+import { Chip, typeLabel } from './ui'
 import type { AgentStatus, EventType, PendingApproval, WorldEvent } from '../types'
 
 // ─── Web Speech API (absent from lib.dom in this TS version) ─────────────────
@@ -42,34 +43,6 @@ function useNow(intervalMs = 20_000) {
     return () => clearInterval(t)
   }, [intervalMs])
   return now
-}
-
-/**
- * Chip built from utilities rather than the .chip class: .chip lives outside a
- * cascade layer, so a layered `text-task` could not repaint it.
- */
-function Chip({
-  tone, size = 'md', className, children, title,
-}: {
-  tone?: string
-  size?: 'sm' | 'md'
-  className?: string
-  children: ReactNode
-  title?: string
-}) {
-  return (
-    <span
-      title={title}
-      className={cx(
-        'inline-flex items-center gap-1 rounded-md border bg-raised px-1.5 py-0.5 font-medium',
-        size === 'sm' ? 'text-[10px]' : 'text-[11px]',
-        tone ?? 'border-line text-mut',
-        className,
-      )}
-    >
-      {children}
-    </span>
-  )
 }
 
 function StatusDot({ status, className }: { status: AgentStatus; className?: string }) {
@@ -121,7 +94,10 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
   const log = useStore((s) => s.log)
   const chatPending = useStore((s) => s.chatPending)
   const highlightEventId = useStore((s) => s.highlightEventId)
-  const [tab, setTab] = useState<'chat' | 'timeline'>('chat')
+  // workers don't hold conversations — their life is the record, so open there
+  const [tab, setTab] = useState<'chat' | 'timeline'>(() =>
+    world.agents.find((a) => a.id === agentId)?.kind === 'operator' ? 'chat' : 'timeline',
+  )
   const now = useNow()
 
   const agent = world.agents.find((a) => a.id === agentId)
@@ -263,7 +239,7 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
               return (
                 <Chip
                   key={id}
-                  tone={needsAuth ? 'border-permission/40 text-permission' : undefined}
+                  className={cx(needsAuth && 'border-permission/40 text-permission')}
                   title={needsAuth ? 'Owner must connect this account' : t?.kind}
                 >
                   {t?.name ?? id}
@@ -313,7 +289,7 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
         <TimelineList events={timeline} highlightEventId={highlightEventId} now={now} />
       )}
 
-      <Composer agentId={agentId} deptName={deptName} />
+      <Composer agentId={agentId} />
     </div>
   )
 }
@@ -395,10 +371,13 @@ function Thinking({ agentName }: { agentName: string }) {
 
 /** The blueprint as a formal spec sheet: header band, hairline-ruled sections, sign-off. */
 function BlueprintCard({ approval, now }: { approval: PendingApproval; now: number }) {
+  const personaId = useStore((s) => s.persona?.id)
   const bp = approval.blueprint
   if (!bp) return null
   const owner = personById.get(bp.ownerId)
   const deptName = deptById.get(bp.deptId)?.name ?? bp.deptId
+  // same consent note the approval cards carry: you are signing in someone's name
+  const actingFor = owner && personaId !== bp.ownerId ? owner.name : null
   return (
     <div className="anim-fadeup overflow-hidden rounded-md border border-linebright bg-surface">
       {/* header band */}
@@ -491,6 +470,9 @@ function BlueprintCard({ approval, now }: { approval: PendingApproval; now: numb
           {owner ? `${owner.name} signs this off` : deptName}
           <span className="block font-mono text-[9.5px]">{timeAgo(approval.ts, now)}</span>
         </span>
+        {actingFor && (
+          <span className="w-full font-mono text-[9.5px] text-dim">acting for {actingFor} (demo)</span>
+        )}
       </div>
     </div>
   )
@@ -535,9 +517,6 @@ function railTone(e: WorldEvent): RailTone {
     return { dot: 'bg-task', ring: 'border-task/40', label: 'text-dim' }
   return { dot: 'bg-linebright', ring: 'border-linebright', label: 'text-dim' }
 }
-
-/** "TaskCompleted" → "TASK COMPLETED" for the mono meta line. */
-const typeLabel = (t: EventType) => t.replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase()
 
 function DocGlyph({ className }: { className?: string }) {
   return (
@@ -703,7 +682,10 @@ function MicGlyph() {
   )
 }
 
-function Composer({ agentId, deptName }: { agentId: string; deptName: string }) {
+/** The scripted ask, parked in the hint row where it has room to be read. */
+const SUGGESTION = 'I need an agent for the Summit Series launch'
+
+function Composer({ agentId }: { agentId: string }) {
   const [text, setText] = useState('')
   const [interim, setInterim] = useState('')
   const [listening, setListening] = useState(false)
@@ -783,7 +765,7 @@ function Composer({ agentId, deptName }: { agentId: string; deptName: string }) 
               send(shown)
             }
           }}
-          placeholder={`Ask the ${deptName} Agent — or say "I need an agent for the Summit launch"`}
+          placeholder="Ask for work, a status, or a new agent…"
           className="min-w-0 flex-1 bg-transparent py-1 text-[13px] text-ink placeholder:text-dim focus:outline-none"
         />
         <button
@@ -820,6 +802,14 @@ function Composer({ agentId, deptName }: { agentId: string; deptName: string }) 
           <>
             <span className="kbd">↵</span>
             <span>to send</span>
+            <span aria-hidden className="text-linebright">·</span>
+            <button
+              className="min-w-0 truncate font-mono text-[10px] text-dim hover:text-mut"
+              title="Use this prompt"
+              onClick={() => setText(SUGGESTION)}
+            >
+              try: “{SUGGESTION}”
+            </button>
           </>
         )}
       </div>

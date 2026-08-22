@@ -88,7 +88,7 @@ export default function Header() {
             <div
               key={m.personId}
               title={`${p.name} — viewing ${deptById.get(m.where)?.name ?? m.where}`}
-              className="flex size-6 items-center justify-center rounded-full border border-linebright text-[9px] font-bold"
+              className="flex size-6 items-center justify-center rounded-full border border-linebright text-[9px] font-bold text-abyss"
               style={{ background: `hsl(${p.hue} 52% 87%)` }}
             >
               {p.initials}
@@ -147,7 +147,7 @@ export default function Header() {
   )
 }
 
-/** Quiet events-per-minute pulse: 12 one-minute buckets over the trailing 12 min. */
+/** Quiet events-per-minute pulse: 12 one-minute bars over the trailing 12 min. */
 function PulseSparkline() {
   const logLen = useStore((s) => s.log.length)
   const [tick, setTick] = useState(0)
@@ -156,7 +156,7 @@ function PulseSparkline() {
     return () => clearInterval(t)
   }, [])
 
-  const { points, perMin } = useMemo(() => {
+  const { bars, perMin, quiet } = useMemo(() => {
     const log = useStore.getState().log
     const now = Date.now()
     const buckets = new Array<number>(12).fill(0)
@@ -170,24 +170,33 @@ function PulseSparkline() {
       if (age < 60_000) perMin++
     }
     const max = Math.max(1, ...buckets)
-    const points = buckets
-      .map((v, i) => `${(1 + (i * 62) / 11).toFixed(1)},${(15 - (v / max) * 13).toFixed(1)}`)
-      .join(' ')
-    return { points, perMin }
+    // 12 bars of 4.4 with 1px gaps land exactly on the 64px track; an empty
+    // minute keeps a 1px tick so the baseline reads as an axis, not as data
+    const bars = buckets.map((v, i) => {
+      const h = v === 0 ? 1 : Math.max(2, (v / max) * 13)
+      return { x: i * 5.4, y: 16 - h, h, o: v === 0 ? 0.2 : 0.45 }
+    })
+    // nothing in the trailing minute and nothing but noise behind it: say nothing
+    const quiet = perMin < 1 && buckets.every((v) => v <= 1)
+    return { bars, perMin, quiet }
   }, [logLen, tick])
+
+  if (quiet) return null
 
   return (
     <div className="flex items-center gap-2" title="Company activity — events per minute, trailing 12 min">
-      <svg width="64" height="16" viewBox="0 0 64 16" aria-hidden className="text-ink">
-        <polyline
-          points={points}
-          fill="none"
-          stroke="currentColor"
-          strokeOpacity="0.35"
-          strokeWidth="1"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <svg width="64" height="16" viewBox="0 0 64 16" aria-hidden>
+        {bars.map((b, i) => (
+          <rect
+            key={i}
+            x={b.x}
+            y={b.y}
+            width="4.4"
+            height={b.h}
+            fill="var(--color-task)"
+            fillOpacity={b.o}
+          />
+        ))}
       </svg>
       <span className="font-mono text-[10px] tabular-nums text-dim">{perMin} ev/min</span>
     </div>
@@ -226,7 +235,10 @@ function PersonaMenu({ personaId }: { personaId?: string }) {
   return (
     <div ref={ref} className="relative">
       <button
-        className="flex size-8 items-center justify-center rounded-full border border-linebright text-[10px] font-bold hover:border-task/60"
+        className={cx(
+          'flex size-8 items-center justify-center rounded-full border border-linebright text-[10px] font-bold hover:border-task/60',
+          person && 'text-abyss',
+        )}
         style={{ background: person ? `hsl(${person.hue} 52% 87%)` : 'var(--color-raised)' }}
         onClick={() => setOpen((o) => !o)}
         title={person ? `${person.name} — switch persona` : 'Switch persona'}
@@ -251,7 +263,7 @@ function PersonaMenu({ personaId }: { personaId?: string }) {
                 }}
               >
                 <span
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                  className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-abyss"
                   style={{ background: `hsl(${pp.hue} 52% 87%)` }}
                 >
                   {pp.initials}
