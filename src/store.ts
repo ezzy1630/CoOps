@@ -13,6 +13,7 @@ import { between, pick } from './engine/rng'
 import { heroInterviewAuto, isHeroEvent, type EngineApi } from './data/hero'
 import { handleChat, type BrainCtx } from './engine/mockBrain'
 import { buildReplayMapping, replayDuration, type ReplayKnot } from './engine/replay'
+import { backendUrl, connectLive, liveEnabled } from './live'
 
 // ─── Module-level engine internals (not reactive) ───────────────────────────
 
@@ -24,6 +25,7 @@ let ambientAt = 0
 let presenceAt = 0
 let engineStarted = false
 let engineStartedAt = 0
+let disconnectLive: (() => void) | null = null
 /** For the first minute the company runs hot: judges arrive to a moving map. */
 const WARMUP_MS = 60_000
 
@@ -296,6 +298,14 @@ export const useStore = create<Store>()((set, get) => {
 
     startEngine() {
       if (engineStarted) return
+      if (liveEnabled()) {
+        engineStarted = true
+        disconnectLive = connectLive((e) => {
+          const log = [...get().log, e].sort(sortByTs)
+          set({ log, world: rebuild(log) })
+        })
+        return
+      }
       engineStarted = true
       const t0 = Date.now()
       engineStartedAt = t0
@@ -330,6 +340,22 @@ export const useStore = create<Store>()((set, get) => {
 
     approve(approval, asPersonId) {
       const by = asPersonId ?? approval.personId
+      if (liveEnabled()) {
+        void fetch(`${backendUrl()}/approvals/${approval.eventId}/decision`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ personId: by }),
+        }).catch(() => get().toast('Backend unreachable', `Could not reach ${backendUrl()}`, 'block'))
+        set({ presence: get().presence.filter((p) => p.where !== `approval:${approval.eventId}`) })
+        get().toast(
+          approval.kind === 'auth' ? `${approval.what} — connected`
+            : approval.kind === 'blueprint' ? `${approval.blueprint?.name ?? 'Agent'} — blueprint approved`
+              : `${approval.what} — approved`,
+          approval.kind === 'auth' ? 'The run resumes from its checkpoint.' : undefined,
+          'human',
+        )
+        return
+      }
       const person = personById.get(by)
       const typeMap = { auth: 'AccountConnected', approval: 'ApprovalGranted', blueprint: 'BlueprintApproved' } as const
       const titleMap = {
@@ -369,6 +395,10 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     runHeroAuto() {
+      if (liveEnabled()) {
+        get().toast('Hero demo runs in simulation mode', 'Reload without ?backend=live to rehearse the scripted launch.')
+        return
+      }
       const stage = get().heroStage
       if (stage !== 'idle') {
         get().toast(
@@ -391,6 +421,13 @@ export const useStore = create<Store>()((set, get) => {
 
     sendChat(agentId, text) {
       const personaId = get().persona?.id ?? 'maya'
+      if (liveEnabled()) {
+        void fetch(`${backendUrl()}/chat`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ agentId, text, personId: personaId }),
+        }).catch(() => get().toast('Backend unreachable', `Could not reach ${backendUrl()}`, 'block'))
+      }
       get().emit({
         id: `chat_${Date.now()}_${Math.round(Math.random() * 1e6)}`,
         type: 'Chat',
@@ -400,6 +437,7 @@ export const useStore = create<Store>()((set, get) => {
         payload: { text },
       })
       set({ chatPending: { ...get().chatPending, [agentId]: true } })
+      if (liveEnabled()) return
       const agent = get().world.agents.find((a) => a.id === agentId)
       handleChat(brainCtx(), agentId, agent?.deptId ?? 'marketing', text)
     },
