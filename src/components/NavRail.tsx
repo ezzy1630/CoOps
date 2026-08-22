@@ -21,6 +21,15 @@ export default function NavRail() {
   const approvals = useStore((s) => s.world.approvals.length)
   const persona = useStore((s) => s.persona)
   const theme = useStore((s) => s.theme)
+  const mapActivity = useStore((s) => {
+    if ([...s.world.agentStatus.values()].some((status) => status === 'working')) return true
+    const now = Date.now()
+    return s.log.some((event) => {
+      if (!event.edge || !event.deptFrom || !event.deptTo) return false
+      const age = now - event.ts
+      return age >= 0 && age < (event.travelMs ?? 2400)
+    })
+  })
 
   return (
     <aside
@@ -44,6 +53,7 @@ export default function NavRail() {
               key={item.view}
               type="button"
               aria-current={active ? 'page' : undefined}
+              title={item.view === 'map' && mapActivity ? 'Map, live work in flight' : undefined}
               className={cx(
                 'group relative flex h-[58px] w-full flex-col items-center justify-center gap-1 rounded-md border border-transparent text-[11px] text-mut transition-colors',
                 'hover:bg-hover hover:text-ink',
@@ -54,6 +64,16 @@ export default function NavRail() {
               {active && <span className="absolute inset-y-2 left-0 w-0.5 rounded-r bg-task" aria-hidden />}
               <span className={cx('relative text-dim transition-colors group-hover:text-ink', active && 'text-task')}>
                 <NavIcon name={item.icon} />
+                {item.view === 'map' && (
+                  <span
+                    className={cx(
+                      'pointer-events-none absolute -top-1.5 -right-2 size-1.5 rounded-full bg-task',
+                      mapActivity ? 'scale-100 opacity-100' : 'scale-50 opacity-0',
+                    )}
+                    style={{ transition: 'transform 180ms ease-out, opacity 180ms ease-out' }}
+                    aria-hidden
+                  />
+                )}
                 {item.view === 'approvals' && approvals > 0 && (
                   <span className="absolute -top-2 -right-3 flex min-w-4 items-center justify-center rounded-full bg-human px-1 text-[9px] font-semibold leading-4 text-surface">
                     {approvals > 99 ? '99+' : approvals}
@@ -193,9 +213,9 @@ function NavIcon({ name }: { name: NavIconName }) {
   if (name === 'approvals') {
     return (
       <svg {...common}>
-        <rect x="4.5" y="2.5" width="11" height="15" rx="1.5" />
-        <path d="M7.5 6.5h5M7.5 10h5M7.5 13.5h2.5" />
-        <path d="m12.5 13 1 1 2-2" />
+        <rect x="3.5" y="7" width="13" height="10" rx="2" />
+        <path d="M6 7V5a4 4 0 0 1 8 0v2" />
+        <path d="m7.5 12 1.5 1.5 3.5-3.5" />
       </svg>
     )
   }

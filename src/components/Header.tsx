@@ -10,6 +10,21 @@ const PAGE_LABELS = {
   documents: 'Documents',
 } as const
 
+const DEPT_HUES: Record<string, number> = {
+  marketing: 214,
+  finance: 38,
+  legal: 278,
+  support: 161,
+  operations: 188,
+  hr: 22,
+}
+
+interface Crumb {
+  label: string
+  onClick?: () => void
+  hue?: number
+}
+
 export default function Header() {
   const persona = useStore((s) => s.persona)
   const panel = useStore((s) => s.panel)
@@ -19,7 +34,7 @@ export default function Header() {
   const replay = useStore((s) => s.replay)
   const view = useStore((s) => s.view)
 
-  const crumbs: { label: string; onClick?: () => void }[] =
+  const crumbs: Crumb[] =
     view === 'map'
       ? [
           { label: 'Map' },
@@ -43,6 +58,7 @@ export default function Header() {
   if (deptId) {
     crumbs.push({
       label: deptById.get(deptId)?.name ?? deptId,
+      hue: DEPT_HUES[deptId],
       onClick: () => {
         const st = useStore.getState()
         st.openPanel('dept', deptId)
@@ -63,17 +79,27 @@ export default function Header() {
 
   return (
     <header className="z-30 flex h-14 shrink-0 items-center gap-4 border-b border-line bg-surface px-5">
-      <nav className="flex min-w-0 max-w-[310px] items-center gap-1 text-[13px]" aria-label="Breadcrumb">
+      <nav className="flex min-w-0 max-w-[310px] items-center gap-1" aria-label="Breadcrumb">
         {crumbs.map((crumb, index) => (
           <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-1">
             {index > 0 && <ChevronIcon />}
+            {crumb.hue !== undefined && (
+              <span
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ background: `hsl(${crumb.hue} 66% 58%)` }}
+                title={`${crumb.label} department`}
+                aria-hidden
+              />
+            )}
             <button
               type="button"
               onClick={crumb.onClick}
               className={cx(
                 'max-w-52 truncate rounded px-1.5 py-1 text-left',
+                index === crumbs.length - 1
+                  ? 'text-[12px] font-medium tracking-tight'
+                  : 'font-mono text-[10px] uppercase tracking-[0.12em]',
                 crumb.onClick ? 'text-mut hover:bg-hover hover:text-ink' : 'text-ink',
-                index === crumbs.length - 1 && 'font-medium',
               )}
             >
               {crumb.label}
@@ -82,15 +108,15 @@ export default function Header() {
         ))}
       </nav>
 
-      <div className="flex min-w-0 flex-1 justify-center">
+      <div className="ml-auto flex shrink-0 items-center gap-3">
         <button
           type="button"
-          className="flex h-9 w-full max-w-[430px] items-center gap-2 rounded-md border border-linebright bg-bg px-3 text-left text-[12px] text-dim transition-colors hover:border-task/50 hover:text-mut"
+          className="flex h-8 w-[190px] items-center gap-2 rounded-md border border-linebright bg-bg px-2.5 text-left text-[11px] text-dim transition-colors hover:border-task/50 hover:text-mut"
           onClick={() => useStore.getState().setPaletteOpen(true)}
           aria-label="Search agents, tasks, documents, and approvals"
         >
           <SearchIcon />
-          <span className="min-w-0 flex-1 truncate">Search agents, tasks, documents, approvals...</span>
+          <span className="min-w-0 flex-1 truncate font-mono uppercase tracking-[0.08em]">Search</span>
           <span className="kbd shrink-0">⌘K</span>
         </button>
       </div>
