@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type {
-  PendingApproval, Person, TaskId, World, WorldEvent,
+  MapStyle, PendingApproval, Person, TaskId, World, WorldEvent,
 } from './types'
 import { BASE_AGENTS, personById } from './data/company'
 import { buildWorld } from './engine/reducer'
@@ -86,6 +86,16 @@ const initialTheme = (): Theme => {
 const theme0 = initialTheme()
 applyTheme(theme0)
 
+// ─── Map-style bootstrap (applied beside the theme, before first paint) ──────
+
+const applyMapStyle = (m: MapStyle) => document.documentElement.classList.toggle('fun-mode', m === 'fun')
+
+const initialMapStyle = (): MapStyle =>
+  localStorage.getItem('coops_map_style') === 'fun' ? 'fun' : 'classic'
+
+const mapStyle0 = initialMapStyle()
+applyMapStyle(mapStyle0)
+
 interface Store {
   // sim
   log: WorldEvent[]
@@ -109,6 +119,7 @@ interface Store {
   toasts: Toast[]
   cameraRequest: CameraRequest
   theme: Theme
+  mapStyle: MapStyle
 
   // engine
   startEngine(): void
@@ -134,6 +145,7 @@ interface Store {
   exitReplay(): void
   setPaletteOpen(open: boolean): void
   toggleTheme(): void
+  setMapStyle(style: MapStyle): void
   setFirstRunStep(step: number | null): void
   requestCamera(target: CameraTarget, opts?: { gentle?: boolean }): void
   toast(title: string, detail?: string, kind?: Toast['kind']): void
@@ -295,6 +307,7 @@ export const useStore = create<Store>()((set, get) => {
     toasts: [],
     cameraRequest: { seq: 0, target: { type: 'fit' } },
     theme: theme0,
+    mapStyle: mapStyle0,
 
     startEngine() {
       if (engineStarted) return
@@ -522,6 +535,11 @@ export const useStore = create<Store>()((set, get) => {
       localStorage.setItem('coops_theme', t)
       applyTheme(t)
       set({ theme: t })
+    },
+    setMapStyle(style) {
+      localStorage.setItem('coops_map_style', style)
+      applyMapStyle(style)
+      set({ mapStyle: style })
     },
     setFirstRunStep(step) {
       if (step === null) localStorage.setItem('coops_onboarded', '1')

@@ -198,3 +198,8 @@ export interface Persona {
   description: string
   entry: 'department' | 'admin' | 'approver'
 }
+
+// ─── Map presentation ────────────────────────────────────────────────────────
+
+/** Which visualization renders the live company: drafting-table or pixel-art valley. */
+export type MapStyle = 'classic' | 'fun'

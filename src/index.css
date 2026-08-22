@@ -256,3 +256,40 @@ input[type="range"].scrub:focus-visible::-moz-range-thumb {
   outline: 1px solid var(--color-task);
   outline-offset: 1px;
 }
+
+/* ── Valley mode (mapStyle 'fun') — additive only, never touches the tokens
+   above. The --color-fun-* values mirror public/pixel/manifest.json → .palette
+   so in-world chrome (signs, chips) shares the sprites' own ink. ── */
+html.fun-mode {
+  --color-fun-outline: #2e1f2c;
+  --color-fun-ink: #46303e;
+  --color-fun-paper: #f2e7cd;
+  --color-fun-task: #4a80cb;
+  --color-fun-artifact: #48954e;
+  --color-fun-permission: #bd8430;
+  --color-fun-escalation: #d15a49;
+  --color-fun-guard: #8a63c9;
+  --color-fun-human: #e3ae52;
+}
+
+/* nearest-neighbour upscale for sprite <img>s and background strips */
+.pixelated {
+  image-rendering: pixelated;
+}
+
+/* Two-frame idle bob for villagers: flips the avatar strip between the
+   down-facing contact pose (column 0) and its passing pose (column 1). The
+   frame positions arrive as element custom props because the shift depends on
+   SPRITE_SCALE; steps(1,end) makes each half a hard cut, not a slide. */
+@keyframes sprite-bob {
+  0%, 100% { background-position-x: var(--bob-from, 0px); }
+  50% { background-position-x: var(--bob-to, -48px); }
+}
+.sprite-bob {
+  animation: sprite-bob 1.1s steps(1, end) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sprite-bob {
+    animation: none;
+  }
+}

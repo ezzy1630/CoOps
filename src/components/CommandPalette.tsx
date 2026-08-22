@@ -112,6 +112,20 @@ export default function CommandPalette() {
         sub: 'Flip the whole map between warm paper and warm charcoal',
         action: () => st().toggleTheme(),
       },
+      {
+        key: 'act:style-blueprint',
+        group: 'Actions',
+        title: 'View: Blueprint map',
+        sub: 'The classic drafting-table visualization',
+        action: () => st().setMapStyle('classic'),
+      },
+      {
+        key: 'act:style-valley',
+        group: 'Actions',
+        title: 'View: Valley map',
+        sub: 'Pixel-art village rendering of the same company',
+        action: () => st().setMapStyle('fun'),
+      },
     )
 
     for (const d of DEPARTMENTS) {

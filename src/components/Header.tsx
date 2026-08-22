@@ -13,6 +13,7 @@ export default function Header() {
   const presence = useStore((s) => s.presence)
   const replay = useStore((s) => s.replay)
   const view = useStore((s) => s.view)
+  const mapStyle = useStore((s) => s.mapStyle)
 
   const crumbs: Crumb[] = view === 'map'
     ? [{ label: COMPANY.name }]
@@ -49,6 +50,30 @@ export default function Header() {
             if (!person) return null
             return <span key={mark.personId} title={`${person.name}, viewing ${deptById.get(mark.where)?.name ?? mark.where}`} className="flex size-5 items-center justify-center border border-surface bg-raised text-[7px] font-semibold text-mut">{person.initials}</span>
           })}
+        </div>
+        <div className="flex shrink-0 items-center border border-line" role="group" aria-label="Map view style">
+          <button
+            type="button"
+            aria-pressed={mapStyle === 'classic'}
+            onClick={() => useStore.getState().setMapStyle('classic')}
+            className={cx(
+              'h-6 cursor-pointer px-2 text-[10px] transition-colors',
+              mapStyle === 'classic' ? 'bg-raised font-medium text-ink' : 'text-mut hover:text-ink',
+            )}
+          >
+            Blueprint
+          </button>
+          <button
+            type="button"
+            aria-pressed={mapStyle === 'fun'}
+            onClick={() => useStore.getState().setMapStyle('fun')}
+            className={cx(
+              'h-6 cursor-pointer border-l border-line px-2 text-[10px] transition-colors',
+              mapStyle === 'fun' ? 'bg-raised font-medium text-ink' : 'text-mut hover:text-ink',
+            )}
+          >
+            Valley
+          </button>
         </div>
         <button type="button" className="flex h-6 items-center gap-2 border border-line px-2 text-[10px] text-mut hover:border-linebright hover:text-ink"
           onClick={() => useStore.getState().setPaletteOpen(true)} aria-label="Open command palette">
