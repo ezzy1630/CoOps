@@ -22,6 +22,7 @@ export interface ExchangeSpecResolved {
 
 export interface ExchangeOutcome {
   summary: string
+  source: string
 }
 
 export type ExchangeExecutor = (spec: ExchangeSpecResolved) => Promise<ExchangeOutcome>
@@ -125,7 +126,13 @@ async function performExchange(ctx: BrainCtx, executor: ExchangeExecutor, spec: 
     from: operator, to: requester,
     deptFrom: spec.toDept, deptTo: spec.fromDept,
     title: `Delivered: ${spec.artifact.name}`,
-    payload: { artifact: spec.artifact },
+    payload: {
+      artifact: {
+        ...spec.artifact,
+        content: outcome.summary,
+        source: outcome.source,
+      },
+    },
   })
   ctx.emit({
     type: 'TaskCompleted', taskId,

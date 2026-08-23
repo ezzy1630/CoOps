@@ -22,14 +22,17 @@ const mockExecutor: ExchangeExecutor = async (spec) => {
     case 'budget':
       return {
         summary: `“${spec.title}” complete: committed vs. actual reconciled and the position summarized in “${spec.artifact.name}”.`,
+        source: 'offline demo fixture',
       }
     case 'legal':
       return {
         summary: `“${spec.title}” complete: compliance review finished, findings captured in “${spec.artifact.name}”.`,
+        source: 'offline demo fixture',
       }
     case 'faq':
       return {
         summary: `“${spec.title}” complete: customer-ready Q&A drafted in “${spec.artifact.name}”.`,
+        source: 'offline demo fixture',
       }
   }
 }
