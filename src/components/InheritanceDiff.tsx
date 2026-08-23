@@ -20,7 +20,7 @@ export default function InheritanceDiff() {
             <span aria-hidden className="h-3.5 w-0.5 shrink-0 rounded-full" style={{ background: `hsl(${MARKETING_HUE} 56% 52%)` }} />
             <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Configuration inheritance</h2>
           </div>
-          <p className="truncate text-[12.5px] text-dim">Summit Launch Agent — Marketing / Everpeak baseline</p>
+          <p className="truncate text-[12.5px] text-dim">Summit Launch Agent · Marketing / Everpeak baseline</p>
         </div>
         <div className="flex-1" />
         <button
@@ -86,7 +86,7 @@ const SECTIONS: Section[] = [
     rows: [
       {
         name: 'Model Armor policy',
-        chain: ['strict — prompt injection, tool poisoning, PII'],
+        chain: ['strict: prompt injection, tool poisoning, PII'],
         source: 'baseline',
         state: 'inherited',
       },
@@ -97,13 +97,13 @@ const SECTIONS: Section[] = [
   {
     label: 'Model policy',
     rows: [
-      { name: 'Reasoning model', chain: ['gemini-3.5-pro'], source: 'baseline', state: 'inherited' },
+      { name: 'Reasoning model', chain: ['gemini-3.7-flash'], source: 'baseline', state: 'inherited' },
       {
         name: 'Drafting model',
-        chain: ['gemini-3.5-pro', 'gemini-3.5-flash'],
-        source: 'dept',
-        state: 'overridden',
-        note: 'Marketing runs high-volume drafts — cost',
+        chain: ['gemini-3.7-flash'],
+        source: 'baseline',
+        state: 'inherited',
+        note: 'One production model across operator and worker turns',
       },
       { name: 'Temperature ceiling', chain: ['1.0', '0.6'], source: 'local', state: 'overridden' },
     ],
@@ -130,7 +130,7 @@ const SECTIONS: Section[] = [
         chain: ['company', 'marketing', 'launch-2026 partition'],
         source: 'local',
         state: 'narrowed',
-        note: 'Narrowed twice — dept, then worker',
+        note: 'Narrowed twice: department, then worker',
       },
       {
         name: 'Cross-dept sharing',
@@ -145,10 +145,10 @@ const SECTIONS: Section[] = [
     rows: [
       { name: 'Google Drive', chain: ['granted'], source: 'dept', state: 'inherited' },
       { name: 'Google Sheets', chain: ['granted'], source: 'dept', state: 'inherited' },
-      { name: 'QuickBooks', chain: ['not requested — denied by default'], source: 'baseline', state: 'denied' },
+      { name: 'QuickBooks', chain: ['not requested; denied by default'], source: 'baseline', state: 'denied' },
       {
         name: 'Payment initiation',
-        chain: ['denied — cannot be broadened'],
+        chain: ['denied; cannot be broadened'],
         source: 'baseline',
         state: 'denied',
         note: 'Only Dana Whitfield can grant this, in person',
@@ -163,7 +163,7 @@ const SECTIONS: Section[] = [
         chain: ['department lead', 'Maya Chen'],
         source: 'local',
         state: 'narrowed',
-        note: 'Named on the blueprint — not a role, a person',
+        note: 'Named on the blueprint: a person, not a role',
       },
       { name: 'Blueprint changes', chain: ['human approval required'], source: 'baseline', state: 'inherited' },
     ],

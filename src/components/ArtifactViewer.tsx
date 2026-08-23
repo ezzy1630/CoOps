@@ -6,6 +6,8 @@ import { buildArtifactDoc } from '../data/artifactContent'
 import type { ArtifactDoc, DocBlock } from '../data/artifactContent'
 import { cx } from '../utils'
 
+const cleanText = (text: string): string => text.replaceAll('—', ',').replaceAll('–', ' to ')
+
 // Global document viewer for delivered artifacts. Opened from anywhere via
 // useStore().openArtifact(eventId) where eventId is an ArtifactDelivered event
 // id. Escape is handled globally in App; backdrop click and × close it here.
@@ -14,6 +16,7 @@ export default function ArtifactViewer() {
   const log = useStore((s) => s.log)
   const world = useStore((s) => s.world)
   const close = useStore((s) => s.closeArtifact)
+  const executionMode = useStore((s) => s.executionMode)
 
   const ev = eventId ? log.find((e) => e.id === eventId) : undefined
   const doc = ev
@@ -58,23 +61,23 @@ export default function ArtifactViewer() {
                     Everpeak Outfitters
                   </div>
                   <div className="flex shrink-0 items-baseline gap-2">
-                    {!doc.live && (
+                    {ev.payload?.simulated === true && (
                       <span className="rounded border border-line px-1.5 py-0.5 font-mono text-[9px] tracking-wider text-mut uppercase">
-                        Sample
+                        Rehearsal
                       </span>
                     )}
                     <span className="font-mono text-[10px] tracking-[0.14em] text-mut uppercase">
-                      {doc.label}
+                      {cleanText(doc.label)}
                     </span>
                   </div>
                 </div>
                 <div className="mt-3 border-t border-linebright" />
-                <h1 className="mt-5 text-[23px] leading-snug font-semibold tracking-[-0.015em] text-ink">{doc.title}</h1>
+                <h1 className="mt-5 text-[23px] leading-snug font-semibold tracking-[-0.015em] text-ink">{cleanText(doc.title)}</h1>
                 <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-mono text-[10.5px] text-mut">
                   {doc.meta.map((m, i) => (
                     <span key={i} className="inline-flex items-baseline gap-2">
                       {i > 0 && <span className="text-dim">·</span>}
-                      <span>{m}</span>
+                      <span>{cleanText(m)}</span>
                     </span>
                   ))}
                 </div>
@@ -99,9 +102,12 @@ export default function ArtifactViewer() {
                   </span>
                   <button
                     className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-line px-2 py-1 font-mono text-[10.5px] text-mut transition-colors hover:border-linebright hover:bg-raised hover:text-ink"
-                    onClick={() =>
-                      useStore.getState().toast('Open in Drive', 'Demo build — the Drive copy is simulated.')
-                    }
+                    onClick={() => useStore.getState().toast(
+                      executionMode === 'live' ? 'Drive link unavailable' : 'Rehearsal artifact',
+                      executionMode === 'live'
+                        ? 'The event contains the delivered content but not a browser URL.'
+                        : 'This artifact belongs to the local scripted dataset. No Drive file was created.',
+                    )}
                   >
                     Open in Drive ↗
                   </button>
@@ -121,10 +127,10 @@ export default function ArtifactViewer() {
 function Block({ block: b }: { block: DocBlock }) {
   switch (b.kind) {
     case 'para':
-      return <p className="text-[13.5px] leading-relaxed text-ink/90">{b.text}</p>
+      return <p className="text-[13.5px] leading-relaxed text-ink/90">{cleanText(b.text)}</p>
 
     case 'heading':
-      return <h2 className="pt-1 font-mono text-[10px] tracking-[0.16em] text-mut uppercase">{b.text}</h2>
+      return <h2 className="pt-1 font-mono text-[10px] tracking-[0.16em] text-mut uppercase">{cleanText(b.text)}</h2>
 
     case 'fields':
       return (
@@ -147,8 +153,8 @@ function Block({ block: b }: { block: DocBlock }) {
                 {String(i + 1).padStart(2, '0')}
               </span>
               <div className="min-w-0">
-                <p className="text-[13.5px] leading-snug font-semibold text-ink">{it.q}</p>
-                <p className="mt-1 text-[13.5px] leading-relaxed text-mut">{it.a}</p>
+                <p className="text-[13.5px] leading-snug font-semibold text-ink">{cleanText(it.q)}</p>
+                <p className="mt-1 text-[13.5px] leading-relaxed text-mut">{cleanText(it.a)}</p>
               </div>
             </div>
           ))}
@@ -173,10 +179,10 @@ function Block({ block: b }: { block: DocBlock }) {
                 <p className="text-[13.5px] leading-snug text-ink">
                   {it.verdict === 'redlined' ? (
                     <span className="text-escalation line-through decoration-escalation/70 decoration-[1.5px]">
-                      “{it.claim}”
+                      “{cleanText(it.claim)}”
                     </span>
                   ) : (
-                    <>“{it.claim}”</>
+                    <>“{cleanText(it.claim)}”</>
                   )}
                 </p>
                 <span
@@ -191,9 +197,9 @@ function Block({ block: b }: { block: DocBlock }) {
                 </span>
               </div>
               {it.replacement && (
-                <p className="mt-1.5 text-[13.5px] leading-snug text-artifact">→ “{it.replacement}”</p>
+                <p className="mt-1.5 text-[13.5px] leading-snug text-artifact">→ “{cleanText(it.replacement)}”</p>
               )}
-              <p className="mt-1.5 text-[11.5px] leading-snug text-mut italic">{it.note}</p>
+              <p className="mt-1.5 text-[11.5px] leading-snug text-mut italic">{cleanText(it.note)}</p>
             </div>
           ))}
         </div>
@@ -212,8 +218,8 @@ function Block({ block: b }: { block: DocBlock }) {
                 )}
               </span>
               <span className="min-w-0 text-[13.5px] leading-snug text-ink">
-                {it.text}
-                {it.note && <span className="ml-1.5 font-mono text-[10.5px] text-dim">— {it.note}</span>}
+                {cleanText(it.text)}
+                {it.note && <span className="ml-1.5 font-mono text-[10.5px] text-dim">· {cleanText(it.note)}</span>}
               </span>
             </div>
           ))}
@@ -224,17 +230,17 @@ function Block({ block: b }: { block: DocBlock }) {
       return (
         <div className="border border-line">
           <div className="border-b border-line bg-raised/60 px-3.5 py-1.5 font-mono text-[10px] tracking-wider text-mut uppercase">
-            {b.label}
+            {cleanText(b.label)}
           </div>
           <div className="px-4 py-3">
             {b.subject && (
               <p className="text-[13px] leading-snug text-ink">
                 <span className="font-mono text-[10px] text-dim uppercase">Subject&nbsp;&nbsp;</span>
-                <span className="font-semibold">{b.subject}</span>
+                <span className="font-semibold">{cleanText(b.subject)}</span>
               </p>
             )}
             <p className={cx('text-[13px] leading-relaxed whitespace-pre-line text-ink/90', b.subject && 'mt-2')}>
-              {b.body}
+              {cleanText(b.body)}
             </p>
           </div>
         </div>
@@ -250,15 +256,15 @@ function Block({ block: b }: { block: DocBlock }) {
             }) 60%, transparent)`,
           }}
         >
-          {b.text}
+          {cleanText(b.text)}
         </p>
       )
 
     case 'sign':
       return (
         <div className="pt-1">
-          <p className="text-[13px] font-medium text-ink">{b.name}</p>
-          <p className="mt-0.5 font-mono text-[10px] text-dim">{b.role}</p>
+          <p className="text-[13px] font-medium text-ink">{cleanText(b.name)}</p>
+          <p className="mt-0.5 font-mono text-[10px] text-dim">{cleanText(b.role)}</p>
         </div>
       )
   }
@@ -267,8 +273,8 @@ function Block({ block: b }: { block: DocBlock }) {
 function FieldRow({ k, v }: { k: string; v: string }) {
   return (
     <>
-      <div className="pt-[2px] font-mono text-[10px] tracking-wider text-dim uppercase">{k}</div>
-      <div className="min-w-0 text-[13px] leading-snug text-ink">{v}</div>
+      <div className="pt-[2px] font-mono text-[10px] tracking-wider text-dim uppercase">{cleanText(k)}</div>
+      <div className="min-w-0 text-[13px] leading-snug text-ink">{cleanText(v)}</div>
     </>
   )
 }
@@ -291,7 +297,7 @@ function TableBlock({ b }: { b: Extract<ArtifactDoc['blocks'][number], { kind: '
                   i > 0 && 'pl-4',
                 )}
               >
-                {col}
+                {cleanText(col)}
               </th>
             ))}
           </tr>
@@ -304,7 +310,7 @@ function TableBlock({ b }: { b: Extract<ArtifactDoc['blocks'][number], { kind: '
                   key={ci}
                   className={cx('border-b border-line/70 py-1.5 text-ink', cellCls(ci), ci > 0 && 'pl-4')}
                 >
-                  {cell}
+                  {cleanText(cell)}
                 </td>
               ))}
             </tr>
@@ -324,7 +330,7 @@ function TableBlock({ b }: { b: Extract<ArtifactDoc['blocks'][number], { kind: '
                       fr.strong ? 'border-t border-linebright font-semibold text-ink' : 'text-mut',
                     )}
                   >
-                    {cell}
+                    {cleanText(cell)}
                   </td>
                 ))}
               </tr>
@@ -332,7 +338,7 @@ function TableBlock({ b }: { b: Extract<ArtifactDoc['blocks'][number], { kind: '
           </tfoot>
         )}
       </table>
-      {b.note && <p className="mt-2 font-mono text-[10.5px] leading-snug text-dim">{b.note}</p>}
+      {b.note && <p className="mt-2 font-mono text-[10.5px] leading-snug text-dim">{cleanText(b.note)}</p>}
     </div>
   )
 }

@@ -87,14 +87,14 @@ export const LAUNCH_AGENT_DEF: AgentDef = {
 }
 
 export const INTERVIEW_QUESTIONS = [
-  'Happy to set that up. First — what outcome should this agent own? Describe it as a finish line, not a to-do list.',
-  'Got it. What should trigger it — a schedule, an event in one of our systems, or someone asking?',
+  'Happy to set that up. First, what outcome should this agent own? Describe it as a finish line, not a to-do list.',
+  'Got it. What should trigger it: a schedule, an event in one of our systems, or someone asking?',
   'Which systems will it touch, and which departments will it need to pull in?',
   'Last one: who approves its work, and what hard limits should I write into it?',
 ]
 
 export const AUTO_ANSWERS = [
-  'Run the Summit Series launch end to end — from the brief to live on site.',
+  'Run the Summit Series launch end to end, from the brief to live on site.',
   'It kicks off when I drop the launch brief in our Drive.',
   'Drive and Sheets here in Marketing. It will need Finance for the budget, Legal for claims, and Support for FAQs.',
   'I approve its artifacts. Cap model spend at $25 a day, and nothing goes external without my sign-off.',
@@ -118,7 +118,7 @@ export function heroInterviewAuto(api: EngineApi, personId: string) {
     s.then(2100, chat(op, 'agent', personId, INTERVIEW_QUESTIONS[i]))
     s.then(2600, chat(op, 'person', personId, AUTO_ANSWERS[i]))
   }
-  s.then(2000, chat(op, 'agent', personId, 'That’s everything I need. Here’s the blueprint — review the inherited config and approve when ready.'))
+  s.then(2000, chat(op, 'agent', personId, 'That’s everything I need. Here’s the blueprint. Review the inherited config and approve when ready.'))
   const bp = blueprintEvent(personId)
   s.then(900, bp)
   claimSteps(s.steps)
@@ -156,7 +156,7 @@ export function heroActB(api: EngineApi, personId: string) {
     detail: 'Worker profile created in the shared runtime under Marketing.',
     payload: { agent: LAUNCH_AGENT_DEF },
   })))
-  s.then(1400, chat('op-marketing', 'agent', personId, 'Summit Launch Agent is live under Marketing. Drop the brief whenever you’re ready — I’ll route it.'))
+  s.then(1400, chat('op-marketing', 'agent', personId, 'Summit Launch Agent is live under Marketing. Drop the brief whenever you’re ready and I’ll route it.'))
   s.then(2600, chat('op-marketing', 'person', personId, 'Brief is in the Drive folder. Go.'))
   s.then(1200, sim(ev({
     type: 'TaskRequest', taskId,
@@ -172,7 +172,7 @@ export function heroActB(api: EngineApi, personId: string) {
   s.then(1800, sim(ev({
     type: 'StatusUpdate', taskId,
     from: agentRef(w), to: personRef(personId), deptFrom: 'marketing', deptTo: 'marketing',
-    title: 'Brief parsed — three workstreams',
+    title: 'Brief parsed: three workstreams',
     detail: 'Finance budget confirmation, Legal claims check, Support FAQ prep. Running them in parallel.',
   })))
 
@@ -190,7 +190,7 @@ export function heroActB(api: EngineApi, personId: string) {
     type: 'TaskRequest', taskId, edge: 'task', travelMs: 2600,
     from: agentRef(w), to: agentRef('op-legal'),
     deptFrom: 'marketing', deptTo: 'legal',
-    title: 'Claims check — Summit Series copy',
+    title: 'Claims check: Summit Series copy',
     detail: '“Warmest jacket we’ve ever made” and 3 other claims need review.',
     payload: { objective: 'Review 4 marketing claims for compliance', expected: 'Claims review memo', deadline: 'EOD', sharedContext: 'claims list only' },
   })))
@@ -198,7 +198,7 @@ export function heroActB(api: EngineApi, personId: string) {
     type: 'TaskRequest', taskId, edge: 'task', travelMs: 2600,
     from: agentRef(w), to: agentRef('op-support'),
     deptFrom: 'marketing', deptTo: 'support',
-    title: 'FAQ prep — Summit Series',
+    title: 'FAQ prep: Summit Series',
     detail: 'Draft launch-day FAQs: sizing, warmth ratings, care, availability.',
     payload: { objective: 'Draft 12 launch FAQs', expected: 'FAQ draft', deadline: 'EOD', sharedContext: 'product spec sheet' },
   })))
@@ -207,7 +207,7 @@ export function heroActB(api: EngineApi, personId: string) {
   s.then(2400, sim(ev({
     type: 'TaskAccepted', taskId,
     from: agentRef('op-finance'), to: agentRef(w), deptFrom: 'finance', deptTo: 'marketing',
-    title: 'Budget confirmation — accepted',
+    title: 'Budget confirmation accepted',
   })))
   s.then(1300, sim(ev({
     type: 'DelegatedTo', taskId,
@@ -230,7 +230,7 @@ export function heroActB(api: EngineApi, personId: string) {
   s.then(1400, sim(ev({
     type: 'TaskAccepted', taskId,
     from: agentRef('op-legal'), to: agentRef(w), deptFrom: 'legal', deptTo: 'marketing',
-    title: 'Claims check — accepted',
+    title: 'Claims check accepted',
   })))
   s.then(1500, sim(ev({
     type: 'DelegatedTo', taskId,
@@ -248,14 +248,14 @@ export function heroActB(api: EngineApi, personId: string) {
     from: agentRef('op-legal'), to: agentRef(w), deptFrom: 'legal', deptTo: 'marketing',
     title: 'Delivered: Claims review memo',
     detail: '3 claims cleared; “warmest ever” needs a qualifier. Suggested wording included.',
-    payload: { artifact: { name: 'Claims review memo — Summit Series', type: 'Memo' } },
+    payload: { artifact: { name: 'Claims review memo: Summit Series', type: 'Memo' } },
   })))
 
   // Support: accept → deliver
   s.then(1800, sim(ev({
     type: 'TaskAccepted', taskId,
     from: agentRef('op-support'), to: agentRef(w), deptFrom: 'support', deptTo: 'marketing',
-    title: 'FAQ prep — accepted',
+    title: 'FAQ prep accepted',
   })))
   s.then(2000, sim(ev({
     type: 'DelegatedTo', taskId,
@@ -290,7 +290,7 @@ export function heroActC(api: EngineApi, personId: string, taskId: string) {
     type: 'ToolCall', taskId,
     from: agentRef('w-budget'), deptFrom: 'finance', deptTo: 'finance',
     title: 'QuickBooks: pulled Q3 launch actuals',
-    detail: 'Scoped capability grant — read-only, launch cost centers only.',
+    detail: 'Scoped capability grant: read-only, launch cost centers only.',
     payload: { tool: 'QuickBooks', action: 'report.read', latencyMs: 1240 },
   })))
   s.then(2600, sim(ev({
@@ -304,14 +304,14 @@ export function heroActC(api: EngineApi, personId: string, taskId: string) {
     type: 'ToolCall', taskId,
     from: agentRef(w), deptFrom: 'marketing', deptTo: 'marketing',
     title: 'Drive: created “Summit Series Launch”',
-    detail: 'Folder with budget, claims memo, and FAQ draft — shared with the launch group.',
+    detail: 'Folder with budget, claims memo, and FAQ draft, shared with the launch group.',
     payload: { tool: 'Google Drive', action: 'folder.create', latencyMs: 640 },
   })))
   s.then(1900, sim(ev({
     type: 'ToolCall', taskId,
     from: agentRef(w), deptFrom: 'marketing', deptTo: 'marketing',
     title: 'Sheets: updated launch budget tracker',
-    detail: 'Confirmed lines written to “Summit — budget tracker”, tab Q3.',
+    detail: 'Confirmed lines written to “Summit budget tracker”, tab Q3.',
     payload: { tool: 'Google Sheets', action: 'values.update', latencyMs: 810 },
   })))
   s.then(2100, sim(ev({
@@ -323,14 +323,14 @@ export function heroActC(api: EngineApi, personId: string, taskId: string) {
   s.then(1600, sim(ev({
     type: 'TaskCompleted', taskId,
     from: agentRef(w), deptFrom: 'marketing', deptTo: 'marketing',
-    title: 'Summit Series launch prep — complete',
+    title: 'Summit Series launch prep complete',
     detail: 'Budget confirmed · claims cleared · FAQs drafted · workspace ready.',
   })))
   // curtain call: ease back out to the whole company
   cameraCue(api, s.length + 1100, { type: 'fit' })
   s.then(1000, chat('op-marketing', 'agent', personId,
-    'Launch prep is done. Budget confirmed by Finance, claims cleared by Legal (one wording fix), FAQs drafted by Support. Everything’s in the Summit Series Launch folder — replay the task to see the whole path.'))
+    'Launch prep is done. Budget confirmed by Finance, claims cleared by Legal (one wording fix), FAQs drafted by Support. Everything’s in the Summit Series Launch folder. Replay the task to see the whole path.'))
   claimSteps(s.steps)
   api.schedule(s.steps)
-  api.toast('Checkpoint resumed', 'Dana connected QuickBooks — Finance is finishing the budget confirmation.')
+  api.toast('Checkpoint resumed', 'Dana connected QuickBooks. Finance is finishing the budget confirmation.')
 }

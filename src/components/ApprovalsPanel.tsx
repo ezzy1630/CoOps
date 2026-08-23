@@ -122,7 +122,7 @@ function DenyButton({ approval }: { approval: PendingApproval }) {
   return (
     <button
       className="btn h-7 px-2.5 text-[12px] text-mut"
-      title="Deny this request — the task is closed as failed"
+      title="Deny this request; the task is closed as failed"
       onClick={(event) => { event.stopPropagation(); useStore.getState().deny(approval) }}
     >
       {approval.kind === 'blueprint' ? 'Reject' : 'Deny'}
@@ -301,7 +301,7 @@ function ApprovalRow({
               View inheritance
             </button>
           )}
-          {!isMine && person && <div className="mt-1.5 text-[10.5px] text-dim">acting for {person.name} (demo)</div>}
+          {!isMine && person && <div className="mt-1.5 text-[10.5px] text-dim">acting for {person.name} (rehearsal)</div>}
           <div className="mt-1 text-[10.5px] text-task opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">Open on map ↗</div>
         </td>
       </tr>
@@ -386,7 +386,7 @@ function EmptyState() {
 
       <p className="mt-6 text-[14px] font-medium text-ink">Nothing is waiting on a human.</p>
       <p className="mt-1.5 max-w-[25rem] text-[12px] leading-relaxed text-dim">
-        When an agent hits a wall — a credential, a sign-off — it appears here, addressed to the one
+        When an agent hits a wall, such as a credential or sign-off, it appears here, addressed to the one
         person who can clear it.
       </p>
     </div>
@@ -426,7 +426,7 @@ function ResolvedRow({ event }: { event: WorldEvent }) {
 
 const SCOPES = [
   'View Q3 report data (read-only)',
-  'Act as a scoped service capability — CoOps never sees your password',
+  'Act as a scoped service capability; CoOps never sees your password',
 ]
 
 let googleAuthEnabled: boolean | null = null
@@ -518,7 +518,7 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
         <div className="flex items-center gap-2 border-b border-line px-4 py-3">
           {mode === 'redirect' && <GoogleGlyph />}
           <span className="text-[13px] font-medium">
-            {mode === 'sandbox' ? 'Simulated connection — sandbox' : mode === 'redirect' ? 'Sign in with Google' : 'Connect account'}
+            {mode === 'sandbox' ? 'Simulated connection: sandbox' : mode === 'redirect' ? 'Sign in with Google' : 'Connect account'}
           </span>
           <div className="flex-1" />
           <button
@@ -532,21 +532,21 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
 
         {mode === 'checking' && (
           <div className="flex flex-col items-center gap-3 px-4 py-10">
-            <span className="size-6 animate-spin rounded-full border-2 border-line border-t-task" />
+            <span className="h-6 w-0.5 bg-task" aria-hidden />
             <span className="text-[11px] text-dim">Checking sign-in options…</span>
           </div>
         )}
 
         {mode === 'redirect' && (
           <div className="flex flex-col items-center gap-3 px-4 py-10">
-            <span className="size-6 animate-spin rounded-full border-2 border-line border-t-task" />
+            <span className="h-6 w-0.5 bg-task" aria-hidden />
             <span className="text-[13px] text-mut">Redirecting to Google sign-in…</span>
           </div>
         )}
 
         {mode === 'sandbox' && (
           <div className="border-b border-human/45 bg-human/10 px-4 py-2 text-[11px] leading-relaxed text-human">
-            No Google credentials configured on the backend. This dialog demonstrates the flow locally; nothing is verified.
+            No Google credentials are configured on the backend. This rehearsal dialog stays local; nothing is verified.
           </div>
         )}
 
@@ -603,7 +603,7 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
 
         {mode === 'sandbox' && step === 3 && !connected && (
           <div className="flex flex-col items-center gap-3 px-4 py-10">
-            <span className="size-6 animate-spin rounded-full border-2 border-line border-t-task" />
+            <span className="h-6 w-0.5 bg-task" aria-hidden />
             <span className="text-[13px] text-mut">Connecting {approval.what}…</span>
             <span className="text-[11px] text-dim">Issuing a scoped capability to the agent</span>
           </div>
@@ -669,7 +669,7 @@ function CapabilityDiagram({ approval }: { approval: PendingApproval }) {
         </span>
       </div>
       <p className="mx-auto mt-3 max-w-72 text-center text-[10.5px] leading-relaxed text-dim">
-        The credential never leaves the vault — the agent holds a scoped, revocable capability.
+        The credential never leaves the vault. The agent holds a scoped, revocable capability.
       </p>
     </div>
   )

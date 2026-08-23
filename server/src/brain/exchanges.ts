@@ -111,7 +111,7 @@ async function performExchange(
     type: 'TaskAccepted', taskId,
     from: operator, to: requester,
     deptFrom: spec.toDept, deptTo: spec.fromDept,
-    title: `${spec.title} — accepted`,
+    title: `${spec.title}: accepted`,
     detail: `Queued in ${spec.toDept}`,
   })
   ctx.emit({
@@ -152,7 +152,7 @@ async function performExchange(
     type: 'TaskCompleted', taskId,
     from: requester,
     deptFrom: spec.fromDept, deptTo: spec.fromDept,
-    title: `${spec.title} — complete`,
+    title: `${spec.title}: complete`,
   })
 }
 

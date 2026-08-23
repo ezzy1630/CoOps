@@ -9,8 +9,9 @@ import type { WorkspaceToolAdapter } from '../tools/types.js'
 import { runExchange } from './exchanges.js'
 import type { ExchangeExecutor } from './exchanges.js'
 import type { BrainAdapter, BrainCtx } from './types.js'
+import { DEFAULT_GEMINI_MODEL } from '../config.js'
 
-const REFUSAL = 'That request was blocked by policy — rephrase or contact your department lead.'
+const REFUSAL = 'That request was blocked by policy. Rephrase it or contact your department lead.'
 
 const EXCHANGE_KINDS = ['budget', 'legal', 'faq'] as const
 
@@ -85,7 +86,7 @@ export function createGeminiBrain(opts: {
 }): BrainAdapter {
   const workspaceTools = opts.workspaceTools ?? createDryRunTools()
   const ai = new GoogleGenAI({ apiKey: opts.apiKey })
-  const model = opts.model ?? process.env.COOPS_GEMINI_MODEL ?? 'gemini-2.0-flash'
+  const model = opts.model ?? process.env.COOPS_GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL
 
   const geminiExecutor: ExchangeExecutor = async (spec) => {
     const workerRole = `${spec.workerId} owning “${spec.title}”`
@@ -112,7 +113,7 @@ export function createGeminiBrain(opts: {
         await runTurn(ctx, ai, model, opts.guardrail, opts.memory, workspaceTools, geminiExecutor, agentId, deptId, text, personId)
       } catch (err) {
         console.error(`[gemini-brain] turn failed for agent ${agentId} in ${deptId}:`, err)
-        const reply = `I hit an internal error handling that request. Please try again.\n${String((err as Error | undefined)?.message ?? err)}`
+        const reply = publicGeminiError(err)
         ctx.emit({
           type: 'Chat', from: { kind: 'agent', id: agentId }, to: { kind: 'person', id: personId },
           title: reply, payload: { text: reply },
@@ -120,6 +121,17 @@ export function createGeminiBrain(opts: {
       }
     },
   }
+}
+
+/** Keep provider diagnostics in server logs; the UI gets an actionable category only. */
+export function publicGeminiError(error: unknown): string {
+  const message = String((error as Error | undefined)?.message ?? error)
+  const detail = /SERVICE_DISABLED|has not been used in project/i.test(message)
+    ? 'The Gemini API is not enabled for this backend project.'
+    : /PERMISSION_DENIED|403/.test(message)
+      ? 'The backend is not authorized to call the configured Gemini model.'
+      : 'The configured Gemini model did not return a response.'
+  return `${detail} Check the backend logs, correct the provider configuration, and retry.`
 }
 
 async function runTurn(
@@ -232,8 +244,8 @@ async function runTurn(
       contents.push({ role: 'model', parts: [{ functionCall: call }] })
       contents.push(functionResponse(call.name, dispatched ? 'exchange dispatched' : 'handled locally'))
       replied = await say(dispatched
-        ? `On it — dispatching the ${kind} request to the peer department now. Watch the map for the task edge.`
-        : 'That sits inside our own department — handling it locally.')
+        ? `On it. I’m dispatching the ${kind} request to the peer department now. Watch the map for the task edge.`
+        : 'That sits inside our own department, so I’m handling it locally.')
       continue
     }
 
@@ -261,7 +273,7 @@ async function runTurn(
       })
       contents.push({ role: 'model', parts: [{ functionCall: call }] })
       contents.push(functionResponse(call.name, 'blueprint proposed'))
-      replied = await say(`I drafted a blueprint for “${blueprint.name}” — open Work & Approvals to review and approve it.`)
+      replied = await say(`I drafted a blueprint for “${blueprint.name}”. Open Work & Approvals to review and approve it.`)
       continue
     }
 
@@ -287,7 +299,7 @@ async function runTurn(
         payload: { tool, action, latencyMs },
       })
       contents.push(functionResponse(call.name, result.detail))
-      replied = await say(`Recorded ${tool}.${action} as a dry-run write — no external system was touched.`)
+      replied = await say(`Recorded ${tool}.${action} as a dry-run write. No external system was touched.`)
       continue
     }
 
@@ -295,7 +307,7 @@ async function runTurn(
     contents.push(functionResponse(call.name, 'error: unknown tool'))
   }
 
-  if (!replied) await say('Done for now — tell me if you want anything else.')
+  if (!replied) await say('Done for now. Tell me if you want anything else.')
 }
 
 function emitBlocked(ctx: BrainCtx, deptId: string, guardrail: GuardrailAdapter, category?: string): void {

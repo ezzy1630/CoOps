@@ -75,7 +75,7 @@ export function handleChat(ctx: BrainCtx, agentId: string, agentDept: string, te
     } else {
       ctx.setInterview(null)
       ctx.setHeroStage('blueprint')
-      reply(ctx, agentId, 'That’s everything I need. Here’s the blueprint — review the inherited config and approve when ready.')
+      reply(ctx, agentId, 'That’s everything I need. Here’s the blueprint. Review the inherited config and approve when ready.')
       const bp = blueprintEvent(ctx.personaId())
       ctx.schedule([{ at: 2200, e: bp }])
       ctx.onBlueprintApproved(bp.id)
@@ -95,11 +95,11 @@ export function handleChat(ctx: BrainCtx, agentId: string, agentDept: string, te
   const wantsLaunch = /launch|summit/.test(t) && !/budget|cost|spend|finance|legal|claim|contract|faq|support|status/.test(t)
   if (wantsAgent || wantsLaunch) {
     if (ctx.heroStage() !== 'idle') {
-      reply(ctx, agentId, 'The Summit launch is already in motion — open Task Focus on “Summit Series launch prep” or hit replay when it completes.')
+      reply(ctx, agentId, 'The Summit launch is already in motion. Open Task Focus on “Summit Series launch prep” or replay it when it completes.')
       return
     }
     if (agentId !== 'op-marketing') {
-      reply(ctx, agentId, `That sounds like a Marketing job — I’d route it to the Marketing Agent. Jump over with ⌘K, or ask me for ${agentDept} work.`)
+      reply(ctx, agentId, `That sounds like a Marketing job. I’d route it to the Marketing Agent. Jump over with ⌘K, or ask me for ${agentDept} work.`)
       return
     }
     ctx.setHeroStage('interview')
@@ -111,22 +111,22 @@ export function handleChat(ctx: BrainCtx, agentId: string, agentDept: string, te
   if (/budget|cost|spend|finance/.test(t)) {
     const id = miniExchange(ctx, agentDept, 'finance', 'budget')
     reply(ctx, agentId, id
-      ? 'On it — asking the Finance Agent for the Q3 budget position. Watch the edge on the map; the artifact lands back here.'
-      : 'That’s our own ledger — pulling it now.')
+      ? 'On it. I’m asking the Finance Agent for the Q3 budget position. Watch the edge on the map; the artifact lands back here.'
+      : 'That’s our own ledger. I’m pulling it now.')
     return
   }
   if (/legal|claim|contract|compliance|policy/.test(t)) {
     const id = miniExchange(ctx, agentDept, 'legal', 'legal')
     reply(ctx, agentId, id
-      ? 'Routing a claims check to the Legal Agent with scoped context — request and artifact only, no internal chatter crosses over.'
-      : 'Reviewing locally — Legal is my department.')
+      ? 'Routing a claims check to the Legal Agent with scoped context. Only the request and artifact cross over.'
+      : 'Reviewing locally. Legal is my department.')
     return
   }
   if (/faq|support|customer|help.?center|ticket/.test(t)) {
     const id = miniExchange(ctx, agentDept, 'support', 'faq')
     reply(ctx, agentId, id
       ? 'Asked the Support Agent to prep FAQs. Their FAQ Agent will draft; we get the artifact back.'
-      : 'Drafting FAQs now — that’s us.')
+      : 'Drafting FAQs now. That’s us.')
     return
   }
   if (/status|progress|going on|update|working on/.test(t)) {
@@ -136,14 +136,14 @@ export function handleChat(ctx: BrainCtx, agentId: string, agentDept: string, te
     )
     const dept = deptById.get(agentDept)?.name ?? agentDept
     reply(ctx, agentId, active.length === 0
-      ? `${dept} is quiet right now — queue is clear. Ambient jobs run on schedule.`
+      ? `${dept} is quiet right now. The queue is clear and scheduled jobs continue to run.`
       : `${dept} has ${active.length} live ${active.length === 1 ? 'task' : 'tasks'}: ${active.slice(0, 3).map((x) => `“${x.title}” (${x.status.replace('_', ' ')})`).join(' · ')}. Click one on the map to focus it.`)
     return
   }
   if (/hello|hey|hi|who are you|what can you/.test(t)) {
     const dept = deptById.get(agentDept)?.name ?? agentDept
-    reply(ctx, agentId, `I’m the ${dept} Agent — I run ${dept.toLowerCase()}’s work, pull in other departments when needed, and can draft a new agent for any recurring job. Ask me for a budget check, a legal review, FAQ prep… or “I need an agent for the product launch.”`)
+    reply(ctx, agentId, `I’m the ${dept} Agent. I run ${dept.toLowerCase()}’s work, pull in other departments when needed, and can draft a new agent for any recurring job. Ask me for a budget check, a legal review, FAQ prep… or “I need an agent for the product launch.”`)
     return
   }
-  reply(ctx, agentId, 'I can take that as a task, pull in another department, or draft a dedicated agent for it. Try “ask Finance for the Q3 launch budget” — or “I need an agent for the Summit launch.”')
+  reply(ctx, agentId, 'I can take that as a task, pull in another department, or draft a dedicated agent for it. Try “ask Finance for the Q3 launch budget” or “I need an agent for the Summit launch.”')
 }

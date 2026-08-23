@@ -6,7 +6,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import type { WorldEvent } from '../../../src/types.js'
+import type { RuntimeInfo, WorldEvent } from '../../../src/types.js'
 import { Bus } from '../bus.js'
 import type { Config } from '../config.js'
 import { startHttp } from '../http.js'
@@ -14,6 +14,7 @@ import { OrgRegistry } from '../org.js'
 import { EventStore } from '../store.js'
 import { workerIdFromName } from '../ids.js'
 import { Scheduler } from '../runtime/scheduler.js'
+import { publicGeminiError } from '../brain/gemini.js'
 
 interface Frame {
   id: string
@@ -143,6 +144,35 @@ test('healthz reports ok and event count matching the store', async t => {
   const all = s.store.all()
   assert.equal(all.length, 1)
   assert.equal(all[0]?.id, seeded.id)
+})
+
+test('runtime reports the effective providers without exposing credentials', async t => {
+  const dir = await tempDir()
+  const s = await startStack(dir)
+  t.after(() => closeServer(s.server))
+
+  const res = await requestJson('GET', `${s.base}/runtime`)
+  assert.equal(res.status, 200)
+  const runtime = res.json as RuntimeInfo
+  assert.equal(runtime.execution, 'live')
+  assert.equal(runtime.brain, 'mock')
+  assert.equal(runtime.model, null)
+  assert.equal(runtime.memory, 'jsonl')
+  assert.equal(runtime.guardrail, 'heuristic')
+  assert.equal(runtime.workspace, 'dry-run')
+  assert.equal(runtime.a2a, 'disabled')
+  assert.equal(runtime.revision, 'local')
+  assert.match(runtime.runId, /^run_/)
+  assert.equal(Number.isNaN(Date.parse(runtime.startedAt)), false)
+  assert.equal('geminiApiKey' in runtime, false)
+})
+
+test('Gemini failures shown to users redact provider internals', () => {
+  const error = new Error('403 SERVICE_DISABLED for projects/123456 with key secret-value')
+  const message = publicGeminiError(error)
+  assert.equal(message, 'The Gemini API is not enabled for this backend project. Check the backend logs, correct the provider configuration, and retry.')
+  assert.equal(message.includes('123456'), false)
+  assert.equal(message.includes('secret-value'), false)
 })
 
 test('chat flow: post returns 202 with Chat event, SSE delivers exact id frame', async t => {

@@ -76,7 +76,7 @@ export default function App() {
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <Wordmark />
         <p className="max-w-sm text-[14px] leading-relaxed text-mut">
-          CoOps is a live map of a whole company — it needs a desktop screen.
+          CoOps is a live map of a whole company, so it needs a desktop screen.
           Open it on a laptop or larger to explore Everpeak Outfitters.
         </p>
       </div>

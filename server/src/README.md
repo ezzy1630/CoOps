@@ -1,6 +1,6 @@
 # CoOps server
 
-Node.js HTTP+SSE backend for the CoOps company-agent simulator. An append-only
+Node.js HTTP+SSE backend for CoOps. An append-only
 world-event log (`EventStore`) feeds a pub/sub `Bus` that streams every event to
 connected clients over Server-Sent Events.
 
@@ -12,6 +12,12 @@ Routes:
 - `POST /approvals/:eventId/decision` — `{ personId, decision?: "approve" | "deny" }` resolves an auth / approval / blueprint request
 - `POST /dev/emit` — `{event}` seeds an arbitrary event (only when dev emit is enabled)
 - `GET /healthz` — liveness + event count
+- `GET /runtime` — effective model, providers, revision, and run identity
+- `GET /presence` — connected people
+- `GET /org` — active organization registry
+- `GET /auth/google/start` — start Google Drive and Sheets OAuth when configured
+- `GET /auth/google/callback` — finish Google OAuth
 
-Env vars: `PORT` (default 8080), `COOPS_DATA_DIR`, `COOPS_ALLOW_DEV_EMIT=1`,
-`GEMINI_API_KEY`. `GEMINI_API_KEY` enables a real LLM agent adapter planned for a later phase.
+`GEMINI_API_KEY` enables the Gemini brain using `gemini-3.7-flash` by default.
+Without a key, the server runs and reports its deterministic mock brain. See
+`docs/deploy.md` for the complete environment and provider matrix.

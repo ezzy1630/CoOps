@@ -1,6 +1,8 @@
 import { resolve } from 'node:path'
 import type { GoogleOAuthConfig } from './auth/google.js'
 
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.7-flash'
+
 export interface Config {
   port: number
   dataDir: string
@@ -9,6 +11,7 @@ export interface Config {
   enableA2a?: boolean
   brainMode?: 'mock' | 'gemini' | 'auto'
   geminiApiKey?: string
+  geminiModel?: string
   firestore?: { projectId?: string }
   modelArmor?: { project: string; location: string; templateId: string }
   googleOAuth?: GoogleOAuthConfig
@@ -32,6 +35,7 @@ export function loadConfig(): Config {
     allowDevEmit: process.env.COOPS_ALLOW_DEV_EMIT === '1',
     enableA2a: process.env.COOPS_ENABLE_A2A === '1',
     geminiApiKey: process.env.GEMINI_API_KEY,
+    geminiModel: process.env.COOPS_GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL,
     ...(project ? { firestore: { projectId: project } } : {}),
     brainMode,
     ...(maProject && maLocation && maTemplate

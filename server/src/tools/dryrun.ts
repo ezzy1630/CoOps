@@ -15,7 +15,7 @@ export function createDryRunTools(): WorkspaceToolAdapter {
       }
       return {
         ok: true,
-        detail: `dry-run: ${name}.${act} recorded — no external system touched`,
+        detail: `dry-run: ${name}.${act} recorded; no external system touched`,
       }
     },
   }

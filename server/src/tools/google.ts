@@ -17,9 +17,9 @@ export function createWorkspaceTools(deps: WorkspaceToolsDeps): WorkspaceToolAda
   async function driveAudit(action: string): Promise<ToolResult> {
     const token = deps.getAccessToken ? await deps.getAccessToken() : null
     if (!token) {
-      return { ok: true, detail: `dry-run: gdrive.${action} recorded — no Google credentials connected` }
+      return { ok: true, detail: `dry-run: gdrive.${action} recorded; no Google credentials connected` }
     }
-    const name = `CoOps audit — ${action}`
+    const name = `CoOps audit: ${action}`
     try {
       const drive = google.drive({ version: 'v3', headers: { Authorization: `Bearer ${token}` } })
       const created = await drive.files.create({
@@ -44,7 +44,7 @@ export function createWorkspaceTools(deps: WorkspaceToolsDeps): WorkspaceToolAda
     }
     const token = deps.getAccessToken ? await deps.getAccessToken() : null
     if (!token) {
-      return { ok: true, detail: `dry-run: gsheets.${action} recorded — no Google credentials connected` }
+      return { ok: true, detail: `dry-run: gsheets.${action} recorded; no Google credentials connected` }
     }
     try {
       const sheets = google.sheets({ version: 'v4', headers: { Authorization: `Bearer ${token}` } })
@@ -71,7 +71,7 @@ export function createWorkspaceTools(deps: WorkspaceToolsDeps): WorkspaceToolAda
         return { ok: false, detail: 'empty action' }
       }
       if (DRY_RUN_TOOLS.has(name)) {
-        return { ok: true, detail: `dry-run: ${name}.${act} recorded — no connector configured for this deployment` }
+        return { ok: true, detail: `dry-run: ${name}.${act} recorded; no connector configured for this deployment` }
       }
       return name === 'gdrive' ? driveAudit(act) : sheetsAudit(act)
     },

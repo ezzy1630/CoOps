@@ -7,6 +7,23 @@ export type TaskId = string
 export type ToolId = string
 export type EventId = string
 
+export type ExecutionMode = 'live' | 'rehearsal'
+export type LiveConnection = 'idle' | 'connecting' | 'connected' | 'disconnected'
+
+/** Server-reported execution facts shown verbatim in the runtime inspector. */
+export interface RuntimeInfo {
+  execution: 'live'
+  brain: 'gemini' | 'mock'
+  model: string | null
+  memory: 'firestore' | 'jsonl'
+  guardrail: 'model-armor' | 'heuristic'
+  workspace: 'google-workspace' | 'dry-run'
+  a2a: 'disabled' | 'open' | 'authenticated'
+  revision: string
+  runId: string
+  startedAt: string
+}
+
 export interface Ref {
   kind: 'agent' | 'person' | 'system'
   id: string

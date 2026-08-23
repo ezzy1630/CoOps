@@ -164,7 +164,7 @@ const VENDOR_LINES: Record<string, [string, string]> = {
 
 function paymentDoc(c: Ctx): ArtifactDoc {
   const inv = c.name.match(/#(\d+)/)?.[1] ?? String(8000 + (c.h % 1900))
-  const vendor = c.task?.title.match(/—\s*(.+)$/)?.[1] ?? 'the vendor'
+  const vendor = c.task?.title.match(/(?:—|:)\s*(.+)$/)?.[1] ?? 'the vendor'
   const lines = VENDOR_LINES[vendor] ?? ['Materials per purchase order', 'Packaging & handling']
   const a1 = int(c.rng, 2800, 13500) + int(c.rng, 0, 99) / 100
   const a2 = int(c.rng, 900, 5200) + int(c.rng, 0, 99) / 100
@@ -389,7 +389,7 @@ const PRODUCT_SKUS: Record<string, string> = {
 }
 
 function restockDoc(c: Ctx): ArtifactDoc {
-  const product = c.task?.title.match(/Stock check — (.+?) backorders/)?.[1] ?? 'the requested product'
+  const product = c.task?.title.match(/Stock check(?: —|:) (.+?) backorders/)?.[1] ?? 'the requested product'
   const sku = PRODUCT_SKUS[product] ?? `EP-SKU-${(c.h % 900) + 100}`
   const backorders = int(c.rng, 40, 140)
   const inbound = int(c.rng, 200, 480)
@@ -447,7 +447,7 @@ const ROLE_KITS: Record<string, { text: string; done: boolean; note?: string }[]
 }
 
 function equipmentDoc(c: Ctx): ArtifactDoc {
-  const role = c.task?.title.match(/new hire — (.+)$/)?.[1] ?? 'new team member'
+  const role = c.task?.title.match(/new hire(?: —|:) (.+)$/)?.[1] ?? 'new team member'
   const kit = ROLE_KITS[role] ?? [
     { text: 'Role equipment per the standard kit list', done: true },
     { text: 'Department tool access requested', done: true },

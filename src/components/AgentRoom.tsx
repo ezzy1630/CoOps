@@ -66,7 +66,7 @@ function Avatar({ personId }: { personId: string }) {
   if (!p) return null
   return (
     <span
-      title={`${p.name} — ${p.role}`}
+      title={`${p.name}, ${p.role}`}
       className="flex size-6 shrink-0 items-center justify-center rounded-full border border-linebright text-[10px] font-bold"
       style={{ background: `hsl(${p.hue} 52% 87%)` }}
     >
@@ -353,7 +353,7 @@ function MessageGroup({ group, agentName, now }: { group: ThreadGroup; agentName
         {first && (
           <span className="flex shrink-0 items-baseline gap-1.5">
             {group.msgs.some((m) => m.payload?.simulated === true) && (
-              <span className="rounded-sm border border-linebright bg-surface px-1 py-px font-mono text-[9px] uppercase tracking-wider text-mut">SIM</span>
+              <span className="border border-permission/50 bg-surface px-1 py-px font-mono text-[8.5px] uppercase tracking-wider text-permission">REHEARSAL</span>
             )}
             <span className="font-mono text-[10.5px] text-dim tabular-nums">{timeAgo(first.ts, now)}</span>
           </span>
@@ -412,7 +412,7 @@ function BlueprintCard({ approval, now }: { approval: PendingApproval; now: numb
         <SpecSection label="Objective">
           <p>{bp.purpose}</p>
           <p className="mt-1.5 font-mono text-[10.5px] text-dim">
-            <span className="uppercase tracking-[0.08em]">trigger</span> — {bp.trigger}
+            <span className="uppercase tracking-[0.08em]">trigger</span>: {bp.trigger}
           </p>
         </SpecSection>
 
@@ -487,7 +487,7 @@ function BlueprintCard({ approval, now }: { approval: PendingApproval; now: numb
           <span className="block font-mono text-[10px]">{timeAgo(approval.ts, now)}</span>
         </span>
         {actingFor && (
-          <span className="w-full font-mono text-[10px] text-dim">acting for {actingFor} (demo)</span>
+          <span className="w-full font-mono text-[10px] text-dim">acting for {actingFor} (rehearsal)</span>
         )}
       </div>
     </div>
@@ -679,7 +679,7 @@ function EventDetail({ e }: { e: WorldEvent }) {
         {pl?.costUsd != null && <Row k="cost" v={fmtUsd(pl.costUsd)} />}
         {pl?.latencyMs != null && <Row k="latency" v={`${pl.latencyMs} ms`} />}
         {e.blockedOn && (
-          <Row k="blocked on" v={`${e.blockedOn.what} — ${blockedPerson?.name ?? e.blockedOn.personId}`} />
+          <Row k="blocked on" v={`${e.blockedOn.what}: ${blockedPerson?.name ?? e.blockedOn.personId}`} />
         )}
       </dl>
     </div>
@@ -813,7 +813,7 @@ function Composer({ agentId }: { agentId: string }) {
       </div>
       <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-dim">
         {listening ? (
-          <span className="text-task">Listening — speak now</span>
+          <span className="text-task">Listening. Speak now.</span>
         ) : (
           <>
             <span className="kbd">↵</span>

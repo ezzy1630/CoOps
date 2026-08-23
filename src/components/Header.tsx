@@ -2,6 +2,7 @@ import { useStore } from '../store'
 import { COMPANY, deptById, personById } from '../data/company'
 import { virtualAt } from '../engine/replay'
 import { cx } from '../utils'
+import RuntimeStatus from './RuntimeStatus'
 
 const PAGE_LABELS = { approvals: 'Approvals', activity: 'Activity', agents: 'Agents', documents: 'Documents' } as const
 interface Crumb { label: string; onClick?: () => void; hue?: number }
@@ -45,6 +46,7 @@ export default function Header() {
       </nav>
       <div className="ml-auto flex shrink-0 items-center gap-3">
         {replay && <span className="font-mono text-[10px] tabular-nums text-task">Replay {new Date(virtualAt(replay.knots, replay.wallMs)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+        <RuntimeStatus />
         <div className="flex -space-x-1" aria-label="People viewing the company">
           {roaming.map((mark) => {
             const person = personById.get(mark.personId)

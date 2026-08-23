@@ -1,7 +1,7 @@
 import http from 'node:http'
 import express from 'express'
 import type { NextFunction, Request, Response } from 'express'
-import type { Config } from './config.js'
+import { DEFAULT_GEMINI_MODEL, type Config } from './config.js'
 import { newId } from './ids.js'
 import type { EventStore } from './store.js'
 import type { Bus } from './bus.js'
@@ -10,11 +10,18 @@ import { mountA2a } from './a2a/mount.js'
 import { PresenceRegistry } from './presence.js'
 import { createGoogleOAuth } from './auth/google.js'
 import type { GoogleOAuth } from './auth/google.js'
-import type { WorldEvent } from '../../src/types.js'
+import type { RuntimeInfo, WorldEvent } from '../../src/types.js'
 
 type Appendable = Omit<WorldEvent, 'id' | 'ts'> & Partial<Pick<WorldEvent, 'id' | 'ts'>>
 
-export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEvent>, org: OrgRegistry, oauth?: GoogleOAuth): Promise<{ server: http.Server }> {
+export async function startHttp(
+  cfg: Config,
+  store: EventStore,
+  bus: Bus<WorldEvent>,
+  org: OrgRegistry,
+  oauth?: GoogleOAuth,
+  runtime?: RuntimeInfo,
+): Promise<{ server: http.Server }> {
   const app = express()
   const presence = new PresenceRegistry()
   const google = oauth ?? createGoogleOAuth()
@@ -41,6 +48,7 @@ export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEv
 
   app.get('/events', (req, res) => streamEvents(store, bus, sinceOf(req), personIdOf(req), presence, res))
   app.get('/healthz', (_req, res) => send(res, 200, { ok: true, events: store.all().length }))
+  app.get('/runtime', (_req, res) => send(res, 200, runtime ?? fallbackRuntime(cfg, google)))
   app.get('/presence', (_req, res) => send(res, 200, presence.list()))
   app.get('/org', (_req, res) => send(res, 200, org.list()))
 
@@ -73,6 +81,22 @@ export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEv
     server.listen(cfg.port, () => resolve())
   })
   return { server }
+}
+
+function fallbackRuntime(cfg: Config, google: GoogleOAuth): RuntimeInfo {
+  const brain = cfg.geminiApiKey ? 'gemini' : 'mock'
+  return {
+    execution: 'live',
+    brain,
+    model: brain === 'gemini' ? (cfg.geminiModel ?? DEFAULT_GEMINI_MODEL) : null,
+    memory: cfg.firestore ? 'firestore' : 'jsonl',
+    guardrail: cfg.modelArmor ? 'model-armor' : 'heuristic',
+    workspace: google.enabled ? 'google-workspace' : 'dry-run',
+    a2a: !cfg.enableA2a ? 'disabled' : cfg.a2aToken ? 'authenticated' : 'open',
+    revision: 'local',
+    runId: newId('run'),
+    startedAt: new Date().toISOString(),
+  }
 }
 
 function sinceOf(req: Request): string | null {
@@ -129,6 +153,9 @@ function streamEvents(store: EventStore, bus: Bus<WorldEvent>, since: string | n
     connection: 'keep-alive',
     'access-control-allow-origin': '*',
   })
+  // Send a frame immediately so proxies flush the stream and the browser can
+  // distinguish an open live connection from a request still in flight.
+  res.write(':connected\n\n')
 
   const events = store.all()
   const sinceIdx = since ? events.findIndex(e => e.id === since) : -1
@@ -204,8 +231,8 @@ async function postDecision(store: EventStore, eventId: string, body: unknown, r
       deptFrom: orig.deptFrom ?? orig.deptTo,
       deptTo: orig.deptTo ?? orig.deptFrom,
       title: kind === 'blueprint'
-        ? `New agent: ${orig.payload?.blueprint?.name ?? what} — rejected`
-        : `${what} — denied`,
+        ? `New agent: ${orig.payload?.blueprint?.name ?? what}: rejected`
+        : `${what}: denied`,
       detail: `Denied by ${b.personId}.`,
       payload: { reason: eventId },
       id: newId('res'),
@@ -220,7 +247,7 @@ async function postDecision(store: EventStore, eventId: string, body: unknown, r
     to: orig.from,
     deptFrom: orig.deptFrom ?? orig.deptTo,
     deptTo: orig.deptTo ?? orig.deptFrom,
-    title: `${what} — approved`,
+    title: `${what}: approved`,
     detail: `Approved by ${b.personId}`,
     payload: { reason: eventId },
     id: newId('res'),
@@ -260,7 +287,7 @@ async function getGoogleCallback(oauth: GoogleOAuth, store: EventStore, req: Req
 }
 
 const GOOGLE_CALLBACK_OK_PAGE =
-  '<!doctype html><html><body><script>window.close()</script><p>Google account connected — return to CoOps.</p></body></html>'
+  '<!doctype html><html><body><script>window.close()</script><p>Google account connected. Return to CoOps.</p></body></html>'
 
 function googleFailurePage(category: string): string {
   return `<!doctype html><html><body><p>Connection failed (${category}).</p></body></html>`

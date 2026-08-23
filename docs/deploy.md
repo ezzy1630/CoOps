@@ -4,13 +4,17 @@
 
 ```sh
 npm install            # frontend
+npm --prefix server install
 npm run dev            # vite on :5173
 npm run server         # event server on :8080
 ```
 
-Open http://localhost:5173/?backend=live — the map folds the same reducer over
-the server's SSE stream instead of the built-in simulator. Without
-`?backend=live` nothing changes.
+Open http://localhost:5173. Live is the default and the map folds the reducer
+over the server's SSE stream. Use `?mode=rehearsal` only when you intentionally
+want the labeled local fixture dataset. Live mode never substitutes rehearsal
+events when the backend is unavailable. Vite proxies backend routes to port
+8080 in development. Set `VITE_BACKEND_URL` when the deployed frontend and
+backend do not share an origin.
 
 ## Environment
 
@@ -21,18 +25,32 @@ the server's SSE stream instead of the built-in simulator. Without
 | `COOPS_ALLOW_DEV_EMIT` | off | `1` enables `POST /dev/emit` (demo/test seeding) |
 | `COOPS_ENABLE_A2A` | off | `1` mounts A2A protocol routes under `/a2a/<dept>/` |
 | `GEMINI_API_KEY` | empty | AI Studio key; activates the Gemini brain |
-| `COOPS_GEMINI_MODEL` | `gemini-2.0-flash` | Model for function-calling turns |
+| `COOPS_GEMINI_MODEL` | `gemini-3.7-flash` | Model for function-calling turns |
+| `COOPS_BRAIN` | `auto` | `auto`, `gemini`, or `mock`; `gemini` fails closed without an API key |
+| `COOPS_FIRESTORE_PROJECT` | empty | Uses Firestore for department memory instead of JSONL |
+| `COOPS_MODELARMOR_PROJECT` | empty | Model Armor project; requires all three Model Armor variables |
+| `COOPS_MODELARMOR_LOCATION` | empty | Model Armor location |
+| `COOPS_MODELARMOR_TEMPLATE` | empty | Model Armor template ID |
+| `COOPS_GOOGLE_CLIENT_ID` | empty | Google OAuth client ID; requires all three OAuth variables |
+| `COOPS_GOOGLE_CLIENT_SECRET` | empty | Google OAuth client secret |
+| `COOPS_GOOGLE_REDIRECT_URI` | empty | OAuth callback URL, ending in `/auth/google/callback` |
+| `COOPS_SHEETS_ID` | empty | Default spreadsheet for Sheets append operations |
+| `COOPS_A2A_TOKEN` | empty | Bearer token protecting A2A routes |
+| `COOPS_A2A_PRINCIPAL` | `a2a-peer` | Caller identity recorded on authenticated A2A requests |
 
 ## What runs at each capability level
 
 | Level | Requires | Active behavior |
 |---|---|---|
-| Deterministic | nothing | MockBrain: interviews, exchanges, blueprints, spawns |
-| Gemini | `GEMINI_API_KEY` | Function-calling operator turns, department memory, guardrail inspection, dry-run workspace writes |
-| A2A | `COOPS_ENABLE_A2A=1` | Agent cards + `SendMessage` per operator (v1.0 + legacy 0.3) |
+| Live local | nothing | Server event stream, MockBrain fixture, JSONL memory, heuristic guardrail, audited dry-run tools |
+| Gemini | `GEMINI_API_KEY` | Gemini 3.7 Flash function-calling operator turns and generated exchange artifacts |
+| Google Cloud | Firestore and Model Armor variables | Firestore department memory and Model Armor inspection |
+| Workspace | Google OAuth variables | Scoped Drive uploads and Sheets appends after a user grant; other tools stay dry-run |
+| A2A | `COOPS_ENABLE_A2A=1` | Agent cards and `SendMessage` per operator; add `COOPS_A2A_TOKEN` outside local development |
 
-Any Gemini error falls back to MockBrain for that message, so the demo path
-never breaks.
+Gemini errors surface as errors in the agent room. They never fall back to a
+scripted response. `GET /runtime` is the source of truth for the effective
+brain and providers shown by the frontend runtime inspector.
 
 ## Cloud Run
 
@@ -41,19 +59,21 @@ gcloud builds submit --tag us-central1-docker.pkg.dev/PROJECT/coops/coops-server
 gcloud run deploy coops-server \
   --image us-central1-docker.pkg.dev/PROJECT/coops/coops-server \
   --region us-central1 --allow-unauthenticated \
-  --set-env-vars COOPS_ENABLE_A2A=1,GEMINI_API_KEY=KEY
+  --set-env-vars COOPS_BRAIN=gemini,COOPS_GEMINI_MODEL=gemini-3.7-flash
 ```
 
-Cloud Run injects `PORT`; the container listens on it. Mount a volume or use
-Cloud SQL/Firestore later for `/data` persistence across revisions.
+Store `GEMINI_API_KEY`, Google OAuth secrets, and any A2A token in Secret
+Manager rather than the command line. Cloud Run injects `PORT`; the container
+listens on it. Set `COOPS_FIRESTORE_PROJECT` for durable memory across
+revisions. The runtime inspector reports Cloud Run's injected `K_REVISION`.
 
-## Dormant adapters (implement behind these seams when access exists)
+## Provider fallbacks
 
-| Planned component | Seam to implement | Local default |
+| Component | Configured provider | Local default |
 |---|---|---|
-| Model Armor guardrails | `server/src/guardrail/types.ts` | heuristic filter (`heuristic.ts`) |
-| Memory Bank / Firestore | `server/src/memory/types.ts` | dept-scoped JSONL (`jsonl.ts`) |
-| Real Google Workspace writes + OAuth | `server/src/tools/types.ts` | dry-run recorder (`dryrun.ts`) |
+| Guardrails | Model Armor | heuristic filter (`heuristic.ts`) |
+| Memory | Firestore | department-scoped JSONL (`jsonl.ts`) |
+| Google Drive and Sheets | OAuth-backed adapters | audited dry-run records (`dryrun.ts`) |
 
-Each real implementation replaces the local one without touching call sites —
-that is the integration rule from idea.md in practice.
+Every fallback is named in `/runtime` and visible in the app. A fallback is a
+real server mode, not a claim that an external provider ran.

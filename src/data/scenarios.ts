@@ -54,7 +54,7 @@ export function exchange(spec: ExchangeSpec, pace = 1): { script: Script; taskId
     type: 'TaskAccepted', taskId,
     from: agentRef(spec.toOp), to: requester,
     deptFrom: spec.toDept, deptTo: spec.fromDept,
-    title: `${spec.title} — accepted`,
+    title: `${spec.title}: accepted`,
     detail: `Queued in ${spec.toDept}`,
   })))
   if (spec.worker) {
@@ -89,7 +89,7 @@ export function exchange(spec: ExchangeSpec, pace = 1): { script: Script; taskId
       type: 'ApprovalGranted', taskId,
       from: personRef(spec.permission.personId), to: agentRef(spec.worker ?? spec.toOp),
       deptFrom: spec.toDept, deptTo: spec.toDept,
-      title: `${spec.permission.what} — approved`,
+      title: `${spec.permission.what}: approved`,
       payload: { reason: permEv.id },
     })))
   }
@@ -99,7 +99,7 @@ export function exchange(spec: ExchangeSpec, pace = 1): { script: Script; taskId
       from: agentRef(spec.toOp), to: agentRef(spec.fromOp),
       deptFrom: spec.toDept, deptTo: spec.fromDept,
       title: `Escalated: ${spec.title}`,
-      detail: 'Outside my authority — needs your department lead.',
+      detail: 'Outside my authority. This needs your department lead.',
     })))
   }
   s.then(p(3200), sim(ev({
@@ -123,7 +123,7 @@ export function exchange(spec: ExchangeSpec, pace = 1): { script: Script; taskId
       type: 'TaskFailed', taskId,
       from: systemRef('gateway'),
       deptFrom: spec.toDept, deptTo: spec.fromDept,
-      title: `${spec.title} — failed`,
+      title: `${spec.title}: failed`,
       detail: 'Blocked by policy before delivery; the task is closed as failed.',
       payload: { reason: spec.fail.category },
     })))
@@ -140,7 +140,7 @@ export function exchange(spec: ExchangeSpec, pace = 1): { script: Script; taskId
     type: 'TaskCompleted', taskId,
     from: requester,
     deptFrom: spec.fromDept, deptTo: spec.fromDept,
-    title: `${spec.title} — complete`,
+    title: `${spec.title}: complete`,
   })))
   return { script: s, taskId }
 }
@@ -154,7 +154,7 @@ const TEMPLATES: ((rng: Rng) => ExchangeSpec)[] = [
     return {
       fromDept: 'operations', toDept: 'finance', fromOp: 'op-operations', toOp: 'op-finance',
       worker: 'w-invoice', localWorker: 'w-vendor',
-      title: `Confirm vendor payment — ${vendor}`,
+      title: `Confirm vendor payment: ${vendor}`,
       objective: `Verify invoice #${inv} cleared before the shipment releases.`,
       artifact: { name: `Payment confirmation #${inv}`, type: 'Receipt' },
     }
@@ -169,7 +169,7 @@ const TEMPLATES: ((rng: Rng) => ExchangeSpec)[] = [
     return {
       fromDept: 'marketing', toDept: 'legal', fromOp: 'op-marketing', toOp: 'op-legal',
       worker: 'w-contract', localWorker: 'w-social',
-      title: `Quick claims check — ${claim[0]}`,
+      title: `Quick claims check: ${claim[0]}`,
       objective: `Review ${claim[1]} for consumer-claims compliance.`,
       artifact: { name: 'Claims review note', type: 'Memo' },
     }
@@ -179,7 +179,7 @@ const TEMPLATES: ((rng: Rng) => ExchangeSpec)[] = [
     return {
       fromDept: 'support', toDept: 'operations', fromOp: 'op-support', toOp: 'op-operations',
       worker: 'w-inventory', localWorker: 'w-triage',
-      title: `Stock check — ${product} backorders`,
+      title: `Stock check: ${product} backorders`,
       objective: `Customers asking about the restock date for the ${product}.`,
       artifact: { name: 'Restock ETA report', type: 'Report' },
     }
@@ -189,7 +189,7 @@ const TEMPLATES: ((rng: Rng) => ExchangeSpec)[] = [
     return {
       fromDept: 'hr', toDept: 'operations', fromOp: 'op-hr', toOp: 'op-operations',
       worker: 'w-vendor', localWorker: 'w-onboard',
-      title: `Equipment for new hire — ${role}`,
+      title: `Equipment for new hire: ${role}`,
       objective: `Order the standard kit for the new ${role} starting Monday.`,
       artifact: { name: 'Equipment order confirmation', type: 'Order' },
     }
@@ -198,7 +198,7 @@ const TEMPLATES: ((rng: Rng) => ExchangeSpec)[] = [
     fromDept: 'support', toDept: 'legal', fromOp: 'op-support', toOp: 'op-legal',
     worker: 'w-contract',
     localWorker: 'w-triage',
-    title: 'Refund dispute — damaged tent claim',
+    title: 'Refund dispute: damaged tent claim',
     objective: 'Customer disputes refund denial on a storm-damaged Basecamp 2 tent.',
     artifact: { name: 'Dispute recommendation', type: 'Memo' },
     escalate: true,
@@ -213,7 +213,7 @@ const TEMPLATES: ((rng: Rng) => ExchangeSpec)[] = [
   (_rng) => ({
     fromDept: 'marketing', toDept: 'support', fromOp: 'op-marketing', toOp: 'op-support',
     worker: 'w-faq', localWorker: 'w-copy',
-    title: 'FAQ refresh — sizing guide update',
+    title: 'FAQ refresh: sizing guide update',
     objective: 'New sizing chart shipped; refresh the top five fit questions.',
     artifact: { name: 'Updated fit FAQ', type: 'Article' },
     permission: { what: 'Help-center publish', personId: 'nina' },
@@ -221,7 +221,7 @@ const TEMPLATES: ((rng: Rng) => ExchangeSpec)[] = [
   (_rng) => ({
     fromDept: 'operations', toDept: 'support', fromOp: 'op-operations', toOp: 'op-support',
     worker: 'w-faq', localWorker: 'w-inventory',
-    title: 'Notify customers — carrier delay',
+    title: 'Notify customers: carrier delay',
     objective: 'Pacific storms delayed 60 shipments; draft the proactive notice.',
     artifact: { name: 'Delay notice draft', type: 'Email' },
     fail: {
@@ -253,7 +253,7 @@ export function standingApproval(now: number): WorldEvent[] {
       id: 'seed_scope_task', ts: now - 66 * 60_000, type: 'TaskRequest', taskId,
       from: agentRef('op-finance'), to: agentRef('w-invoice'),
       deptFrom: 'finance', deptTo: 'finance',
-      title: 'Quarterly tool-scope review — Finance',
+      title: 'Quarterly tool-scope review: Finance',
       detail: 'Re-check every capability the Finance agents hold and renew the ones still in use.',
       payload: {
         objective: 'Renew the read-only capabilities Finance agents still need; let the rest lapse.',
@@ -265,7 +265,7 @@ export function standingApproval(now: number): WorldEvent[] {
       edge: 'permission', travelMs: 2400,
       from: agentRef('w-invoice'), to: personRef('dana'),
       deptFrom: 'finance', deptTo: 'finance',
-      title: 'Quarterly scope renewal — read-only',
+      title: 'Quarterly scope renewal: read-only',
       detail: 'The Invoice Triage Agent’s Bill.com capability lapses Friday. Renewing keeps invoice matching running; the scope stays read-only, and the credential stays in the vault.',
       blockedOn: { what: 'Renew Bill.com read-only scope', personId: 'dana', kind: 'auth' },
     },
@@ -281,13 +281,13 @@ export function standingApprovalFollowUp(): Step[] {
     type: 'ToolCall', taskId,
     from: agentRef('w-invoice'), deptFrom: 'finance', deptTo: 'finance',
     title: 'Bill.com: capability renewed',
-    detail: 'Read-only scope re-issued for 90 days — invoice matching resumes.',
+    detail: 'Read-only scope re-issued for 90 days. Invoice matching resumes.',
     payload: { tool: 'Bill.com', action: 'scope.renew', latencyMs: 420 },
   })))
   s.then(2600, sim(ev({
     type: 'TaskCompleted', taskId,
     from: agentRef('w-invoice'), deptFrom: 'finance', deptTo: 'finance',
-    title: 'Quarterly tool-scope review — complete',
+    title: 'Quarterly tool-scope review complete',
     detail: 'One capability renewed; two unused ones left to lapse.',
   })))
   return s.steps
