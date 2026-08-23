@@ -1,13 +1,17 @@
 import type { HTMLAttributes } from 'react'
 import { cx } from '../utils'
 
-/** Compact inline control or count. It stays quiet next to the record it qualifies. */
+/**
+ * Compact inline control or count. Quiet by default: no border, no fill.
+ * The border is transparent so semantic tints (border-task/40 etc.) can
+ * colorize it into a soft ring without re-introducing box-in-box chrome.
+ */
 export function Chip({ className, ...rest }: HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       {...rest}
       className={cx(
-        'inline-flex items-center gap-1 border border-line px-1.5 py-0.5 text-[10px] font-medium text-mut',
+        'inline-flex items-center gap-1 rounded-sm border border-transparent px-1.5 py-0.5 text-[11px] leading-4 font-medium whitespace-nowrap text-mut',
         className,
       )}
     />
@@ -20,7 +24,7 @@ export function Pill({ className, ...rest }: HTMLAttributes<HTMLSpanElement>) {
     <span
       {...rest}
       className={cx(
-        'inline-flex items-center gap-1 font-mono text-[9.5px] text-mut',
+        'inline-flex items-center gap-1 rounded-sm border border-transparent px-1 py-0.5 font-mono text-[10px] tracking-wide text-mut',
         className,
       )}
     />

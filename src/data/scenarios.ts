@@ -23,6 +23,9 @@ export interface ExchangeSpec {
   escalate?: boolean
   permission?: { what: string; personId: string }
   guardrail?: string
+  /** Terminal failure: the chain ends in GuardrailBlock + TaskFailed instead of
+   * an artifact, so the failure UI stays demonstrable in ambient traffic. */
+  fail?: { reason: string; category: string }
 }
 
 /** Builds the full event chain for one governed cross-department task. */
@@ -107,6 +110,25 @@ export function exchange(spec: ExchangeSpec, pace = 1): { script: Script; taskId
     detail: `Working on ${spec.artifact.name.toLowerCase()}`,
     payload: { latencyMs: Math.round(400 + 2200 * ((taskNum * 37) % 100) / 100) },
   })))
+  if (spec.fail) {
+    s.then(p(2600), sim(ev({
+      type: 'GuardrailBlock', taskId,
+      from: systemRef('gateway'),
+      deptFrom: spec.toDept, deptTo: spec.fromDept,
+      title: 'Local regex rules blocked content',
+      detail: spec.fail.reason,
+      payload: { reason: spec.fail.category },
+    })))
+    s.then(p(2200), sim(ev({
+      type: 'TaskFailed', taskId,
+      from: systemRef('gateway'),
+      deptFrom: spec.toDept, deptTo: spec.fromDept,
+      title: `${spec.title} — failed`,
+      detail: 'Blocked by policy before delivery; the task is closed as failed.',
+      payload: { reason: spec.fail.category },
+    })))
+    return { script: s, taskId }
+  }
   s.then(p(4200), sim(ev({
     type: 'ArtifactDelivered', taskId, edge: 'artifact', travelMs: 2400,
     from: agentRef(spec.toOp), to: requester,
@@ -202,7 +224,10 @@ const TEMPLATES: ((rng: Rng) => ExchangeSpec)[] = [
     title: 'Notify customers — carrier delay',
     objective: 'Pacific storms delayed 60 shipments; draft the proactive notice.',
     artifact: { name: 'Delay notice draft', type: 'Email' },
-    guardrail: 'Prompt-injection attempt in a forwarded carrier email was stripped before reaching the agent.',
+    fail: {
+      reason: 'A prompt-injection attempt in the forwarded carrier email was caught before the notice step.',
+      category: 'prompt_injection',
+    },
   }),
 ]
 

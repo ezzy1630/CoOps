@@ -60,7 +60,7 @@ All PNGs are 8-bit RGBA. Sizes are pinned by the manifest schema.
 
 | File                              | Size      | Contents                                                        |
 | --------------------------------- | --------- | --------------------------------------------------------------- |
-| `background.png`                  | 960×600   | Mottled grass, dirt paths door→plaza (~14px), cobble plaza r=90 at (480,330) with calm earth core r<58 (kept clear for the HTML sign overlay), pond, fences, trees ×8 (2 sizes), bushes, flower patches, rocks |
+| `background.png`                  | 960×600   | Mottled grass, street grid of dirt roads — North/South Streets (y=165/415), West/East Lanes (x=150/810), x=480 avenues + Hall Walk to the hall door — stone plaza square (380..580 × 190..370) with central fountain at (480,280), pond, fences, trees ×8 (2 sizes), bushes, flower patches, rocks |
 | `buildings/marketing.png`         | 96×84     | Poster & print stall: striped scalloped awning, poster window, arch door |
 | `buildings/finance.png`           | 120×100   | Stone bank: ashlar walls, gold-trimmed pediment, pilasters, arched double door |
 | `buildings/legal.png`             | 112×96    | Courthouse: pediment + frieze, four columns, fanlight doorway, broad steps |
