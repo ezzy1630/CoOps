@@ -4,13 +4,12 @@ import type { World } from '../types'
 import { agentRef, ev, personRef } from './build'
 import { deptById } from '../data/company'
 import { exchange, type ExchangeSpec } from '../data/scenarios'
-import {
-  AUTO_ANSWERS, INTERVIEW_QUESTIONS, blueprintEvent, heroActB, type EngineApi,
-} from '../data/hero'
+import type { EngineApi } from './rehearsals'
 
 export interface BrainCtx extends EngineApi {
   world(): World
   personaId(): string
+  /** Transitional store surface; removed with the registry-driven store commit. */
   interview(): { step: number } | null
   setInterview(v: { step: number } | null): void
   heroStage(): string
@@ -64,47 +63,10 @@ function miniExchange(ctx: BrainCtx, fromDept: string, toDept: string, kind: 'bu
 /** Handles a judge's free-typed (or spoken) message to an agent. */
 export function handleChat(ctx: BrainCtx, agentId: string, agentDept: string, text: string) {
   const t = text.toLowerCase()
-  const iv = ctx.interview()
 
-  // mid-interview: whatever they type is the answer; ask the next question
-  if (iv && agentId === 'op-marketing') {
-    const next = iv.step + 1
-    if (next < INTERVIEW_QUESTIONS.length) {
-      ctx.setInterview({ step: next })
-      reply(ctx, agentId, INTERVIEW_QUESTIONS[next])
-    } else {
-      ctx.setInterview(null)
-      ctx.setHeroStage('blueprint')
-      reply(ctx, agentId, 'That’s everything I need. Here’s the blueprint. Review the inherited config and approve when ready.')
-      const bp = blueprintEvent(ctx.personaId())
-      ctx.schedule([{ at: 2200, e: bp }])
-      ctx.onBlueprintApproved(bp.id)
-      ctx.onResolve(bp.id, () => {
-        ctx.setHeroStage('running')
-        heroActB(ctx, ctx.personaId())
-      })
-      ctx.autoResolve(bp.id, 45_000, ctx.personaId())
-    }
-    return
-  }
-
-  // intent: create an agent / run the launch.
-  // Specific asks (budget, legal, FAQ…) are checked below and win over a bare
-  // "launch" mention — "ask Finance for the launch budget" is a budget request.
   const wantsAgent = /new agent|create.*agent|agent for|need an agent|build.*agent|dedicated agent|hire.*agent/.test(t)
-  const wantsLaunch = /launch|summit/.test(t) && !/budget|cost|spend|finance|legal|claim|contract|faq|support|status/.test(t)
-  if (wantsAgent || wantsLaunch) {
-    if (ctx.heroStage() !== 'idle') {
-      reply(ctx, agentId, 'The Summit launch is already in motion. Open Task Focus on “Summit Series launch prep” or replay it when it completes.')
-      return
-    }
-    if (agentId !== 'op-marketing') {
-      reply(ctx, agentId, `That sounds like a Marketing job. I’d route it to the Marketing Agent. Jump over with ⌘K, or ask me for ${agentDept} work.`)
-      return
-    }
-    ctx.setHeroStage('interview')
-    ctx.setInterview({ step: 0 })
-    reply(ctx, agentId, INTERVIEW_QUESTIONS[0])
+  if (wantsAgent) {
+    reply(ctx, agentId, 'This local rehearsal has no scripted agent-builder for that request. Use live mode for a general blueprint interview, or ask me for budget, legal, FAQ, or status work here.')
     return
   }
 
@@ -142,8 +104,8 @@ export function handleChat(ctx: BrainCtx, agentId: string, agentDept: string, te
   }
   if (/hello|hey|hi|who are you|what can you/.test(t)) {
     const dept = deptById.get(agentDept)?.name ?? agentDept
-    reply(ctx, agentId, `I’m the ${dept} Agent. I run ${dept.toLowerCase()}’s work, pull in other departments when needed, and can draft a new agent for any recurring job. Ask me for a budget check, a legal review, FAQ prep… or “I need an agent for the product launch.”`)
+    reply(ctx, agentId, `I’m the ${dept} Agent. I run ${dept.toLowerCase()}’s work and pull in other departments when needed. Ask me for a budget check, a legal review, FAQ preparation, or a status update.`)
     return
   }
-  reply(ctx, agentId, 'I can take that as a task, pull in another department, or draft a dedicated agent for it. Try “ask Finance for the Q3 launch budget” or “I need an agent for the Summit launch.”')
+  reply(ctx, agentId, 'I can take that as a task or pull in another department. Try “ask Finance for the Q3 budget,” “review these claims,” “prepare FAQs,” or “show me status.”')
 }
