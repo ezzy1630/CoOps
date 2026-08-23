@@ -7,6 +7,7 @@ import { Scheduler } from './runtime/scheduler.js'
 import { createMockBrain } from './brain/mock.js'
 import { createGeminiBrain } from './brain/gemini.js'
 import { createHeuristicGuardrail } from './guardrail/heuristic.js'
+import { createModelArmorGuardrail } from './guardrail/modelarmor.js'
 import { openJsonlMemory } from './memory/jsonl.js'
 import { openFirestoreMemory } from './memory/firestore.js'
 import { workerIdFromName } from './ids.js'
@@ -46,7 +47,7 @@ function worldTasks(events: WorldEvent[]): { id: string; title: string; status: 
 
 const interviews = new Map<string, number | null>()
 const scheduler = new Scheduler(e => store.append(e))
-const guardrail = createHeuristicGuardrail()
+const guardrail = cfg.modelArmor ? createModelArmorGuardrail(cfg.modelArmor) : createHeuristicGuardrail()
 const memory = cfg.firestore
   ? openFirestoreMemory({ projectId: cfg.firestore.projectId })
   : openJsonlMemory(cfg.dataDir)

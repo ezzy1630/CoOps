@@ -23,6 +23,7 @@ export const RULES: readonly Rule[] = [
 
 export function createHeuristicGuardrail(): GuardrailAdapter {
   return {
+    name: 'Local regex rules',
     inspect(text) {
       const t = text.trim()
       if (!t) return { blocked: false }

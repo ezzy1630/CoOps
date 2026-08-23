@@ -103,7 +103,7 @@ export function createGeminiBrain(opts: {
       config: { systemInstruction },
     })
     const text = res.text ?? ''
-    if (opts.guardrail.inspect(text).blocked) throw new Error('exchange output blocked by guardrail')
+    if ((await opts.guardrail.inspect(text)).blocked) throw new Error('exchange output blocked by guardrail')
     return { summary: text }
   }
 
@@ -134,9 +134,9 @@ async function runTurn(
   text: string,
   personId: string,
 ): Promise<void> {
-  const incoming = guardrail.inspect(text)
+  const incoming = await guardrail.inspect(text)
   if (incoming.blocked) {
-    emitBlocked(ctx, deptId, incoming.category)
+    emitBlocked(ctx, deptId, guardrail, incoming.category)
     finishWithRefusal(ctx, agentId, personId)
     return
   }
@@ -175,9 +175,9 @@ async function runTurn(
   let turnTaskId: string | null = null
 
   const say = async (raw: string): Promise<boolean> => {
-    const verdict = guardrail.inspect(raw)
+    const verdict = await guardrail.inspect(raw)
     if (verdict.blocked) {
-      emitBlocked(ctx, deptId, verdict.category)
+      emitBlocked(ctx, deptId, guardrail, verdict.category)
       if (turnTaskId) {
         ctx.cancelTask(turnTaskId)
         emitExchangeAborted(ctx, turnTaskId, deptId, verdict.category)
@@ -297,13 +297,13 @@ async function runTurn(
   if (!replied) await say('Done for now — tell me if you want anything else.')
 }
 
-function emitBlocked(ctx: BrainCtx, deptId: string, category?: string): void {
+function emitBlocked(ctx: BrainCtx, deptId: string, guardrail: GuardrailAdapter, category?: string): void {
   const reason = category ?? 'unclassified'
   const e: Omit<WorldEvent, 'id' | 'ts'> = {
     type: 'GuardrailBlock',
     from: { kind: 'system', id: 'gateway' },
     deptFrom: deptId,
-    title: 'Model Armor blocked content',
+    title: `${guardrail.name} blocked content`,
     detail: `category: ${reason}`,
     payload: { reason },
   }
