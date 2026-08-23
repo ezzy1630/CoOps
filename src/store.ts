@@ -10,8 +10,20 @@ import {
   SEED_APPROVAL_EVENT_ID, SEED_APPROVAL_TASK_ID,
 } from './data/scenarios'
 import { between, pick } from './engine/rng'
-import { heroInterviewAuto, isHeroEvent, type EngineApi } from './data/hero'
 import { handleChat, type BrainCtx } from './engine/mockBrain'
+import {
+  activeRehearsals,
+  dispatchRehearsalChat,
+  eventBelongsTo,
+  getRehearsal,
+  notifyRehearsals,
+  presentRehearsal,
+  rehearsals,
+  startRehearsal,
+  type EngineApi,
+  type RehearsalChatApi,
+  type RehearsalSnapshot,
+} from './engine/rehearsals'
 import { buildReplayMapping, replayDuration, type ReplayKnot } from './engine/replay'
 import {
   backendUrl,
@@ -80,8 +92,6 @@ export interface ReplayState {
 
 export interface PresenceMark { personId: string; where: string } // deptId | `approval:${eventId}`
 
-export type HeroStage = 'idle' | 'interview' | 'blueprint' | 'running' | 'done'
-
 export type Theme = 'light' | 'dark'
 
 // ─── Theme bootstrap (applied once, before first paint of any component) ─────
@@ -114,8 +124,6 @@ interface Store {
   log: WorldEvent[]
   scheduled: WorldEvent[]
   world: World
-  heroStage: HeroStage
-  interview: { step: number } | null
   chatPending: Record<string, boolean>
   presence: PresenceMark[]
   executionMode: ExecutionMode
@@ -144,7 +152,7 @@ interface Store {
   schedule(steps: Step[], baseDelayMs?: number): void
   approve(approval: PendingApproval, asPersonId?: string): void
   deny(approval: PendingApproval, asPersonId?: string): void
-  runHeroAuto(): void
+  runRehearsal(id?: string): void
   sendChat(agentId: string, text: string): void
   retryLive(): void
   switchExecutionMode(mode: ExecutionMode): void
@@ -188,7 +196,13 @@ export const useStore = create<Store>()((set, get) => {
     requestCamera: (target) => get().requestCamera(target, { gentle: true }),
   }
 
-  const brainCtx = (): BrainCtx => ({
+  const snapshot = (): RehearsalSnapshot => ({
+    log: get().log,
+    scheduled: get().scheduled,
+    world: get().world,
+  })
+
+  const brainCtx = (): BrainCtx & RehearsalChatApi => ({
     ...api,
     emit: (e) => {
       notifySimulated()
@@ -207,11 +221,7 @@ export const useStore = create<Store>()((set, get) => {
     },
     world: () => get().world,
     personaId: () => get().persona?.id ?? 'maya',
-    interview: () => get().interview,
-    setInterview: (v) => set({ interview: v }),
-    heroStage: () => get().heroStage,
-    setHeroStage: (s) => set({ heroStage: s }),
-    onBlueprintApproved: () => {},
+    snapshot,
   })
 
   const rebuild = (log: WorldEvent[]) => buildWorld(BASE_AGENTS, DEPARTMENTS, log, Number.MAX_SAFE_INTEGER)
@@ -260,19 +270,15 @@ export const useStore = create<Store>()((set, get) => {
         if (e.type === 'Chat' && e.from?.kind === 'agent') chatPending[e.from.id] = false
       }
       set({ log, scheduled: rest, world: rebuild(log), chatPending })
-      if (due.some((e) => e.type === 'TaskCompleted' && e.title.startsWith('Summit Series launch'))) {
-        set({ heroStage: 'done' })
-        get().toast('Launch prep complete', 'Budget confirmed, claims cleared, FAQs drafted. Hit “Replay the launch” to watch the whole path again.')
-      }
+      notifyRehearsals(due, api)
       if (s.entered) {
-        // While the scripted demo holds the stage, the toast lane belongs to the
+        // While an authored rehearsal holds the stage, the toast lane belongs to it.
         // story. Ambient events still commit and still animate on the map — they
         // just stop narrating over the beat (an ambient "Model Armor blocked
         // content" landing next to the demo's own guardrail beat read as a bug).
-        const stage = get().heroStage
-        const scripted = stage === 'interview' || stage === 'blueprint' || stage === 'running'
+        const active = activeRehearsals(snapshot())
         for (const e of due) {
-          if (scripted && !isHeroEvent(e)) continue
+          if (active.length > 0 && !active.some((definition) => eventBelongsTo(e, definition))) continue
           if (e.type === 'AuthRequired' && e.blockedOn) {
             const p = personById.get(e.blockedOn.personId)
             get().toast(`Blocked: ${e.blockedOn.what}`, `Only ${p?.name ?? 'its owner'} can unblock this. The map shows the dotted line.`, 'human')
@@ -312,8 +318,8 @@ export const useStore = create<Store>()((set, get) => {
     // 3. ambient life — hot for the first minute (arrivals must see a moving
     //    map), then it settles; and held entirely during the demo's quiet beats
     if (!liveEnabled()) {
-      const heroStage = get().heroStage
-      if (heroStage === 'interview' || heroStage === 'blueprint') {
+      const holdAmbient = rehearsals.some((definition) => presentRehearsal(definition, snapshot()).holdAmbient)
+      if (holdAmbient) {
         // the interview and the blueprint are conversations: no new work starts
         ambientAt = Math.max(ambientAt, now + 1500)
       } else if (now >= ambientAt) {
@@ -404,8 +410,6 @@ export const useStore = create<Store>()((set, get) => {
     log: [],
     scheduled: [],
     world: rebuild([]),
-    heroStage: 'idle',
-    interview: null,
     chatPending: {},
     presence: [],
     executionMode: executionMode(),
@@ -506,12 +510,15 @@ export const useStore = create<Store>()((set, get) => {
           deptTo: approval.deptId,
           title: titleMap[approval.kind],
           detail: detailMap[approval.kind],
-          payload: { reason: approval.eventId },
+          payload: {
+            reason: approval.eventId,
+            rehearsalId: approval.rehearsalId,
+            ...(approval.rehearsalId ? { simulated: true } : {}),
+          },
         },
       })
       // presence mark for this approval is done
       set({ presence: get().presence.filter((p) => p.where !== `approval:${approval.eventId}`) })
-      if (approval.kind === 'blueprint') set({ heroStage: 'running' })
       const fn = continuations.get(approval.eventId)
       if (fn) {
         continuations.delete(approval.eventId)
@@ -541,38 +548,41 @@ export const useStore = create<Store>()((set, get) => {
         deptTo: approval.deptId,
         title,
         detail: `Denied by ${person?.name ?? by}. The task is closed as failed.`,
-        payload: { reason: approval.eventId },
+        payload: {
+          reason: approval.eventId,
+          rehearsalId: approval.rehearsalId,
+          ...(approval.rehearsalId ? { simulated: true } : {}),
+        },
       })
       set({ presence: get().presence.filter((p) => p.where !== `approval:${approval.eventId}`) })
+      continuations.delete(approval.eventId)
       autoResolves = autoResolves.filter((ar) => ar.eventId !== approval.eventId)
       get().toast(title, 'The task is closed as failed.', 'human')
     },
 
-    runHeroAuto() {
+    runRehearsal(id) {
+      const definition = getRehearsal(id)
+      if (!definition) return
       if (liveEnabled()) {
-        get().sendChat('op-marketing', 'I need a dedicated agent to run the Summit Series launch.')
-        get().openPanel('agent', 'op-marketing')
-        get().toast('Live launch started', 'The request was sent to the Marketing Agent. Follow the live conversation in the Agent Room.')
+        if (!definition.live) return
+        get().sendChat(definition.live.agentId, definition.live.prompt)
+        get().openPanel('agent', definition.live.agentId)
+        get().toast(definition.live.startedTitle, definition.live.startedDetail)
         return
       }
-      const stage = get().heroStage
-      if (stage !== 'idle') {
+      const presentation = presentRehearsal(definition, snapshot())
+      if (presentation.state !== 'idle') {
         get().toast(
-          stage === 'done' ? 'Launch rehearsal complete' : 'Launch rehearsal already running',
-          stage === 'done' ? 'Select the launch task and replay it to watch the path again.' : 'Watch the map, or open the Marketing Agent to follow along.',
+          presentation.state === 'complete' ? 'Rehearsal complete' : 'Rehearsal already running',
+          presentation.state === 'complete'
+            ? 'Select its task and replay the path.'
+            : 'Watch the map or open the coordinating agent to follow along.',
         )
         return
       }
-      set({ heroStage: 'interview' })
-      heroInterviewAuto(
-        {
-          ...api,
-          onResolve: (id, fn) => continuations.set(id, () => { set({ heroStage: 'running' }); fn() }),
-        },
-        'maya',
-      )
-      get().openPanel('agent', 'op-marketing')
-      get().toast('Launch rehearsal started', 'Maya is asking the Marketing Agent for a launch agent. The scripted interview runs in the Agent Room.')
+      startRehearsal(definition, api, definition.ownerId)
+      if (definition.live?.agentId) get().openPanel('agent', definition.live.agentId)
+      get().toast('Rehearsal started', definition.command.rehearsal.description)
     },
 
     sendChat(agentId, text) {
@@ -600,17 +610,26 @@ export const useStore = create<Store>()((set, get) => {
         })
         return
       }
+      const agent = get().world.agents.find((candidate) => candidate.id === agentId)
+      const ctx = brainCtx()
+      const rehearsalId = dispatchRehearsalChat(ctx, {
+        agentId,
+        agentDept: agent?.deptId ?? 'marketing',
+        text,
+      })
       get().emit({
         id: `chat_${Date.now()}_${Math.round(Math.random() * 1e6)}`,
         type: 'Chat',
         from: personRef(personaId),
         to: agentRef(agentId),
         title: text,
-        payload: { text },
+        payload: {
+          text,
+          ...(rehearsalId ? { rehearsalId, simulated: true } : {}),
+        },
       })
       set({ chatPending: { ...get().chatPending, [agentId]: true } })
-      const agent = get().world.agents.find((a) => a.id === agentId)
-      handleChat(brainCtx(), agentId, agent?.deptId ?? 'marketing', text)
+      if (!rehearsalId) handleChat(ctx, agentId, agent?.deptId ?? 'marketing', text)
     },
 
     retryLive() {

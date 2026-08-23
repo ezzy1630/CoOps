@@ -1,48 +1,44 @@
 import { ArrowCounterClockwise, Minus, Play, Plus, X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { PANEL_WIDTH, useStore } from '../store'
-import { deptById, personById } from '../data/company'
+import { deptById } from '../data/company'
+import { getRehearsal, presentRehearsal, rehearsals } from '../engine/rehearsals'
+import type { RehearsalDefinition, RehearsalPresentation } from '../engine/rehearsals'
 import { cx } from '../utils'
 import { Chip } from './ui'
-import type { Task } from '../types'
-
-const ACTS = ['Interview', 'Fan-out', 'Unblock & deliver'] as const
 
 /** Map-only chrome. The status bar keeps controls visible without floating over the map. */
 export default function MapOverlays() {
-  const heroStage = useStore((s) => s.heroStage)
   const selectedTaskId = useStore((s) => s.selectedTaskId)
   const replay = useStore((s) => s.replay)
   const world = useStore((s) => s.world)
   const panel = useStore((s) => s.panel)
   const log = useStore((s) => s.log)
+  const scheduled = useStore((s) => s.scheduled)
   // the classic camera doesn't exist over the valley — its controls would be dead
   const mapStyle = useStore((s) => s.mapStyle)
   const executionMode = useStore((s) => s.executionMode)
-  const launchPending = useStore((s) => s.chatPending['op-marketing'] === true)
+  const chatPending = useStore((s) => s.chatPending)
+  const [selectedRehearsalId, setSelectedRehearsalId] = useState(() => getRehearsal()?.id ?? '')
 
   const task = selectedTaskId ? world.tasks.get(selectedTaskId) : null
-  const heroTask = [...world.tasks.values()].find((candidate) => candidate.title.startsWith('Summit Series launch'))
   const panelW = panel ? PANEL_WIDTH[panel.kind] : 0
   const workingCount = [...world.agentStatus.values()].filter((status) => status === 'working').length
   const blockedCount = [...world.agentStatus.values()].filter((status) => status === 'blocked').length
-
-  const heroUnblocked =
-    !!heroTask &&
-    log.some(
-      (event) => event.taskId === heroTask.id && (event.type === 'AccountConnected' || event.type === 'ApprovalGranted'),
-    )
-  const act = heroStage === 'interview' || heroStage === 'blueprint' ? 1 : heroUnblocked ? 3 : 2
-  const beat =
-    act === 1
-      ? 'Maya describes the outcome; the Marketing Agent drafts a blueprint to approve.'
-      : act === 3
-        ? 'QuickBooks connected. The run resumes from its checkpoint and delivers.'
-        : !heroTask
-          ? 'Blueprint approved. The Summit Launch Agent is spawning under Marketing.'
-          : heroTask.blockedOn
-            ? `Blocked. Only ${personById.get(heroTask.blockedOn.personId)?.name ?? 'one human'} can ${heroTask.blockedOn.what.charAt(0).toLowerCase() + heroTask.blockedOn.what.slice(1)}.`
-            : 'Work fans out to Finance, Legal and Support, running in parallel.'
+  const presentations = useMemo(
+    () => rehearsals.map((definition) => ({
+      definition,
+      presentation: presentRehearsal(definition, { log, scheduled, world }),
+    })),
+    [log, scheduled, world],
+  )
+  const selectedRehearsal =
+    presentations.find(({ presentation }) => presentation.state === 'active') ??
+    presentations.find(({ definition }) => definition.id === selectedRehearsalId) ??
+    presentations[0]
+  const rehearsalPending = selectedRehearsal?.definition.live?.agentId
+    ? chatPending[selectedRehearsal.definition.live.agentId] === true
+    : false
 
   return (
     <>
@@ -58,18 +54,27 @@ export default function MapOverlays() {
           <>
             <ValleyHealth working={workingCount} blocked={blockedCount} waiting={world.approvals.length} />
             <span className="h-7 w-px shrink-0 bg-line" aria-hidden />
-            <ValleyRunNarrative heroStage={heroStage} act={act} beat={beat} />
+            <ValleyRunNarrative
+              definition={selectedRehearsal?.definition}
+              presentation={selectedRehearsal?.presentation}
+              executionMode={executionMode}
+            />
             <div className="min-w-0 flex-1" />
-            {!replay && (heroStage === 'idle' || (heroStage === 'done' && heroTask)) && (
-              <DemoAction
-                prominent
-                heroStage={heroStage}
-                heroTask={heroTask}
-                act={act}
-                beat={beat}
+            {!replay && rehearsals.length > 1 && (
+              <RehearsalPicker
+                selectedId={selectedRehearsal?.definition.id ?? ''}
                 executionMode={executionMode}
-                launchPending={launchPending}
-                onReplay={() => heroTask && useStore.getState().startReplay(heroTask.id)}
+                disabled={selectedRehearsal?.presentation.state === 'active'}
+                onChange={setSelectedRehearsalId}
+              />
+            )}
+            {!replay && selectedRehearsal && selectedRehearsal.presentation.state !== 'active' && (
+              <RehearsalAction
+                prominent
+                definition={selectedRehearsal.definition}
+                presentation={selectedRehearsal.presentation}
+                executionMode={executionMode}
+                pending={rehearsalPending}
               />
             )}
           </>
@@ -79,15 +84,20 @@ export default function MapOverlays() {
             <ZoomControls />
             <PulseSparkline />
             <div className="min-w-0 flex-1" />
-            {!replay && (
-              <DemoAction
-                heroStage={heroStage}
-                heroTask={heroTask}
-                act={act}
-                beat={beat}
+            {!replay && rehearsals.length > 1 && (
+              <RehearsalPicker
+                selectedId={selectedRehearsal?.definition.id ?? ''}
                 executionMode={executionMode}
-                launchPending={launchPending}
-                onReplay={() => heroTask && useStore.getState().startReplay(heroTask.id)}
+                disabled={selectedRehearsal?.presentation.state === 'active'}
+                onChange={setSelectedRehearsalId}
+              />
+            )}
+            {!replay && selectedRehearsal && (
+              <RehearsalAction
+                definition={selectedRehearsal.definition}
+                presentation={selectedRehearsal.presentation}
+                executionMode={executionMode}
+                pending={rehearsalPending}
               />
             )}
           </>
@@ -157,36 +167,87 @@ function ValleyHealth({ working, blocked, waiting }: { working: number; blocked:
 }
 
 function ValleyRunNarrative({
-  heroStage,
-  act,
-  beat,
+  definition,
+  presentation,
+  executionMode,
 }: {
-  heroStage: ReturnType<typeof useStore.getState>['heroStage']
-  act: number
-  beat: string
+  definition?: RehearsalDefinition
+  presentation?: RehearsalPresentation
+  executionMode: ReturnType<typeof useStore.getState>['executionMode']
 }) {
-  const currentAct = heroStage === 'idle' ? 0 : act
-  const title = heroStage === 'idle' ? 'Launch route ready' : heroStage === 'done' ? 'Launch delivered' : ACTS[act - 1]
-  const detail = heroStage === 'idle'
-    ? 'Follow a launch as work moves between departments and pauses for named people.'
-    : beat
+  if (!definition || !presentation) {
+    return (
+      <span className="min-w-0">
+        <span className="block truncate text-[11px] font-medium text-ink">Ambient company activity</span>
+        <span className="block truncate text-[10px] text-dim">No authored rehearsal is installed; ambient work continues.</span>
+      </span>
+    )
+  }
+
+  const steps = presentation.steps ?? []
+  const current = presentation.state === 'idle'
+    ? 0
+    : presentation.state === 'complete'
+      ? steps.length
+      : Math.max(1, Math.min(presentation.current ?? 1, Math.max(steps.length, 1)))
+  const title = presentation.state === 'idle'
+    ? definition.command[executionMode].title
+    : presentation.state === 'complete'
+      ? 'Rehearsal complete'
+      : steps[current - 1] ?? 'Rehearsal running'
+  const detail = presentation.state === 'idle'
+    ? definition.command[executionMode].description
+    : presentation.detail ?? (presentation.state === 'complete' ? 'The run is ready to replay.' : 'Follow the run as work moves across the company.')
 
   return (
     <div className="flex min-w-0 max-w-[620px] items-center gap-3">
-      <div className="hidden shrink-0 items-center gap-1.5 lg:flex" aria-label={currentAct === 0 ? 'Launch not started' : `Launch step ${currentAct} of ${ACTS.length}`}>
-        {ACTS.map((label, index) => (
-          <span
-            key={label}
-            className={cx('h-1 w-7', index + 1 <= currentAct ? 'bg-task' : 'bg-linebright')}
-            title={label}
-          />
-        ))}
-      </div>
+      {steps.length > 0 && (
+        <div
+          className="hidden shrink-0 items-center gap-1.5 lg:flex"
+          aria-label={current === 0 ? 'Rehearsal not started' : `Rehearsal step ${current} of ${steps.length}`}
+        >
+          {steps.map((label, index) => (
+            <span
+              key={label}
+              className={cx('h-1 w-7', index + 1 <= current ? 'bg-task' : 'bg-linebright')}
+              title={label}
+            />
+          ))}
+        </div>
+      )}
       <span className="min-w-0">
         <span className="block truncate text-[11px] font-medium text-ink">{title}</span>
         <span className="block truncate text-[10px] text-dim">{detail}</span>
       </span>
     </div>
+  )
+}
+
+function RehearsalPicker({
+  selectedId,
+  executionMode,
+  disabled,
+  onChange,
+}: {
+  selectedId: string
+  executionMode: ReturnType<typeof useStore.getState>['executionMode']
+  disabled: boolean
+  onChange: (id: string) => void
+}) {
+  return (
+    <select
+      aria-label="Choose rehearsal"
+      value={selectedId}
+      onChange={(event) => onChange(event.target.value)}
+      disabled={disabled}
+      className="h-6 max-w-40 shrink-0 border-l border-line bg-surface px-2 text-[11px] text-mut outline-none hover:bg-hover hover:text-ink"
+    >
+      {rehearsals.map((definition) => (
+        <option key={definition.id} value={definition.id}>
+          {definition.command[executionMode].title}
+        </option>
+      ))}
+    </select>
   )
 }
 
@@ -225,66 +286,67 @@ function ZoomControls() {
   )
 }
 
-function DemoAction({
-  heroStage,
-  heroTask,
-  act,
-  beat,
+function RehearsalAction({
+  definition,
+  presentation,
   executionMode,
-  launchPending,
+  pending,
   prominent = false,
-  onReplay,
 }: {
-  heroStage: ReturnType<typeof useStore.getState>['heroStage']
-  heroTask: Task | undefined
-  act: number
-  beat: string
+  definition: RehearsalDefinition
+  presentation: RehearsalPresentation
   executionMode: ReturnType<typeof useStore.getState>['executionMode']
-  launchPending: boolean
+  pending: boolean
   prominent?: boolean
-  onReplay: () => void
 }) {
-  if (heroStage === 'idle') {
+  if (presentation.state === 'idle') {
     return (
       <button
         className={cx(
           'flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium disabled:cursor-wait disabled:text-dim',
           prominent ? 'btn btn-primary h-8' : 'h-6 border-l border-line text-ink hover:bg-hover',
         )}
-        disabled={launchPending}
-        onClick={() => useStore.getState().runHeroAuto()}
+        disabled={pending}
+        onClick={() => useStore.getState().runRehearsal(definition.id)}
       >
         <Play size={11} weight="fill" />
-        {launchPending
-          ? 'Waiting for Marketing'
-          : executionMode === 'live'
-            ? 'Start live launch'
-            : 'Run launch rehearsal'}
+        {pending ? 'Waiting for agent' : definition.command[executionMode].title}
       </button>
     )
   }
-  if (heroStage === 'done' && heroTask) {
+  if (presentation.state === 'complete') {
     return (
-      <button className={cx('flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium', prominent ? 'btn h-8' : 'h-6 border-l border-line text-ink hover:bg-hover')} onClick={onReplay}>
+      <button
+        className={cx(
+          'flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium',
+          prominent ? 'btn h-8' : 'h-6 border-l border-line text-ink hover:bg-hover',
+        )}
+        onClick={() => presentation.taskId
+          ? useStore.getState().startReplay(presentation.taskId)
+          : useStore.getState().runRehearsal(definition.id)}
+      >
         <ArrowCounterClockwise size={12} weight="bold" />
-        Replay the launch
+        {presentation.replayLabel ?? (presentation.taskId ? 'Replay rehearsal' : 'Run rehearsal again')}
       </button>
     )
   }
+
+  const steps = presentation.steps ?? []
+  const current = Math.max(1, Math.min(presentation.current ?? 1, Math.max(steps.length, 1)))
   return (
-    <div className="flex min-w-0 max-w-[520px] items-center gap-3" title={beat}>
-      <div className="flex shrink-0 items-center gap-1.5 text-[10px]">
-        {ACTS.map((label, index) => (
+    <div className="flex min-w-0 max-w-[520px] items-center gap-3" title={presentation.detail}>
+      {steps.length > 0 && <div className="flex shrink-0 items-center gap-1.5 text-[10px]">
+        {steps.map((label, index) => (
           <span key={label} className="flex items-center gap-1.5">
             {index > 0 && <span className="text-dim">→</span>}
-            <span className={cx(index + 1 === act ? 'text-ink' : index + 1 < act ? 'text-mut' : 'text-dim')}>
+            <span className={cx(index + 1 === current ? 'text-ink' : index + 1 < current ? 'text-mut' : 'text-dim')}>
               {label}
             </span>
           </span>
         ))}
-      </div>
-      <span className="h-4 w-px shrink-0 bg-line" aria-hidden />
-      <span className="min-w-0 truncate text-[12px] text-mut">{beat}</span>
+      </div>}
+      {steps.length > 0 && presentation.detail && <span className="h-4 w-px shrink-0 bg-line" aria-hidden />}
+      {presentation.detail && <span className="min-w-0 truncate text-[12px] text-mut">{presentation.detail}</span>}
     </div>
   )
 }

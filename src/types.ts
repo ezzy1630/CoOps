@@ -1,3 +1,5 @@
+import type { ArtifactTemplate } from './artifacts/document.js'
+
 // ─── Core identifiers ────────────────────────────────────────────────────────
 
 export type DeptId = string
@@ -116,6 +118,8 @@ export interface TypedPayload {
     type: string
     /** what the worker actually produced */
     content?: string
+    /** structured authored content for a labeled local rehearsal */
+    template?: ArtifactTemplate
     /** engine that produced it */
     source?: string
     /** real external location, present only when a tool returned one */
@@ -137,6 +141,8 @@ export interface TypedPayload {
   author?: Ref
   /** set on events produced by offline demo scripting rather than the backend */
   simulated?: boolean
+  /** owning optional rehearsal; preserved through approvals and continuations */
+  rehearsalId?: string
 }
 
 export interface WorldEvent {
@@ -212,6 +218,7 @@ export interface PendingApproval {
   deptId?: DeptId
   ts: number
   blueprint?: AgentBlueprint
+  rehearsalId?: string
 }
 
 export interface World {

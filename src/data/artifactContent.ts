@@ -1,61 +1,17 @@
 import type { AgentDef, Task, WorldEvent } from '../types.js'
 import { BASE_AGENTS, deptById, personById } from './company.js'
 import { between, mulberry32, pick, type Rng } from '../engine/rng.js'
+import type { ArtifactDoc, ArtifactTemplate, ClaimItem, DocBlock, DocType } from '../artifacts/document.js'
+
+export type { ArtifactDoc, ArtifactTemplate, ClaimItem, DocBlock, DocType } from '../artifacts/document.js'
 
 /**
  * Turns an ArtifactDelivered event into a structured internal document —
- * the actual memo / table / FAQ a judge can read. Every known artifact title
- * from scenarios.ts, hero.ts and mockBrain.ts has bespoke content; anything
- * else falls back to a deterministic doc seeded from the title + task id.
+ * the actual memo / table / FAQ a judge can read. Attached live content and
+ * templates take precedence; known generic titles use deterministic content,
+ * and anything else falls back to a document seeded from the title + task id.
  * No Math.random anywhere: same event → same document, every render.
  */
-
-// ─── Document model ──────────────────────────────────────────────────────────
-
-export type DocType = 'memo' | 'table' | 'faq' | 'brief' | 'checklist' | 'macros' | 'generic'
-
-export interface ClaimItem {
-  claim: string
-  verdict: 'cleared' | 'redlined'
-  /** suggested replacement wording (redlined claims only) */
-  replacement?: string
-  /** one-line margin rationale */
-  note: string
-}
-
-export type DocBlock =
-  | { kind: 'para'; text: string }
-  | { kind: 'heading'; text: string }
-  | { kind: 'fields'; rows: { k: string; v: string }[] }
-  | {
-      kind: 'table'
-      columns: string[]
-      /** per-column alignment; 'r' columns render mono + tabular numerals */
-      align: ('l' | 'r')[]
-      rows: string[][]
-      footRows?: { cells: string[]; strong?: boolean }[]
-      note?: string
-    }
-  | { kind: 'qa'; items: { q: string; a: string }[] }
-  | { kind: 'claims'; items: ClaimItem[] }
-  | { kind: 'checklist'; items: { text: string; done: boolean; note?: string }[] }
-  | { kind: 'macro'; label: string; subject?: string; body: string }
-  | { kind: 'note'; text: string; tone?: 'human' | 'guard' }
-  | { kind: 'sign'; name: string; role: string }
-
-export interface ArtifactDoc {
-  docType: DocType
-  /** letterhead label, e.g. "MEMORANDUM" / "BUDGET CONFIRMATION" */
-  label: string
-  title: string
-  /** mono meta row parts: task id · date · prepared by … */
-  meta: string[]
-  blocks: DocBlock[]
-  /** e.g. "Marketing desk" — for the footer line */
-  recipientDesk: string
-  /** set only when built from real payload content rather than an authored sample */
-  live?: { source: string }
-}
 
 // ─── Small deterministic helpers ─────────────────────────────────────────────
 
@@ -153,6 +109,9 @@ const doc = (c: Ctx, docType: DocType, label: string, blocks: DocBlock[], title?
   recipientDesk: c.recipientDesk,
 })
 
+const templateDoc = (c: Ctx, template: ArtifactTemplate): ArtifactDoc =>
+  doc(c, template.docType, template.label, template.blocks, template.title)
+
 // ─── Finance: vendor payment confirmation ────────────────────────────────────
 
 const VENDOR_LINES: Record<string, [string, string]> = {
@@ -203,7 +162,7 @@ function paymentDoc(c: Ctx): ArtifactDoc {
   ])
 }
 
-// ─── Legal: claims review (template + hero + mock-brain variants) ────────────
+// ─── Legal: claims review ────────────────────────────────────────────────────
 
 interface ClaimsPack {
   scope: string
@@ -301,46 +260,6 @@ function claimsNoteDoc(c: Ctx): ArtifactDoc {
       text: 'No other blockers. If the copy changes materially before publication, re-run the review — cleared status applies to the exact wording above.',
     },
     { kind: 'sign', name: 'Grace Osei', role: 'Commercial Counsel · owns marketing-claims sign-off' },
-  ])
-}
-
-function summitClaimsDoc(c: Ctx): ArtifactDoc {
-  return doc(c, 'memo', 'MEMORANDUM', [
-    {
-      kind: 'para',
-      text: 'Per the Summit Series launch brief, Legal reviewed the four hero claims scheduled for the launch page, paid social, and packaging inserts. Three clear as written; one is redlined with suggested replacement wording below.',
-    },
-    {
-      kind: 'claims',
-      items: [
-        {
-          claim: 'Warmest jacket we’ve ever made',
-          verdict: 'redlined',
-          replacement: 'Our warmest Summit-line jacket to date — 850-fill down, tested to a −30 °F comfort limit',
-          note: 'Bare superlative reads as a market-wide comparison. Scope it to our own line and cite the test basis.',
-        },
-        {
-          claim: '850-fill responsibly sourced down',
-          verdict: 'cleared',
-          note: 'RDS certificate #RDS-2214 current through 2027.',
-        },
-        {
-          claim: 'Waterproof 3-layer shell',
-          verdict: 'cleared',
-          note: '20,000 mm hydrostatic head — lab report EP-L-0326, March 2026.',
-        },
-        {
-          claim: 'Guaranteed for life',
-          verdict: 'cleared',
-          note: 'Permitted with the standard link to warranty terms (repair-or-replace program).',
-        },
-      ],
-    },
-    {
-      kind: 'para',
-      text: 'With the single qualifier applied, the claim set is cleared for external use across all launch surfaces. Sign-off logged to the claims register via DocuSign.',
-    },
-    { kind: 'sign', name: 'Rob Alvarez', role: 'General Counsel · claims sign-off' },
   ])
 }
 
@@ -525,7 +444,7 @@ function skuExportDoc(c: Ctx): ArtifactDoc {
   ])
 }
 
-// ─── Finance: budget confirmation / position ─────────────────────────────────
+// ─── Finance: budget position ────────────────────────────────────────────────
 
 const LAUNCH_BUDGET: [string, number][] = [
   ['Paid social', 31200],
@@ -534,32 +453,6 @@ const LAUNCH_BUDGET: [string, number][] = [
   ['Retail & showroom displays', 9600],
   ['PR, events & seeding', 8800],
 ]
-
-function budgetConfirmationDoc(c: Ctx): ArtifactDoc {
-  return doc(c, 'table', 'BUDGET CONFIRMATION', [
-    {
-      kind: 'para',
-      text: `The Summit Series launch envelope is confirmed at ${usd(85000, false)} against Q3 actuals, pulled read-only from QuickBooks (launch cost centers) on ${longDate(c.ev.ts)}. Committed lines below; spend to date tracks 4% under plan with no lines at risk.`,
-    },
-    {
-      kind: 'table',
-      columns: ['Line item', 'Committed'],
-      align: ['l', 'r'],
-      rows: LAUNCH_BUDGET.map(([k, v]) => [k, usd(v, false)]),
-      footRows: [
-        { cells: ['Committed subtotal', usd(78800, false)] },
-        { cells: ['Contingency remaining', usd(6200, false)] },
-        { cells: ['Approved envelope', usd(85000, false)], strong: true },
-      ],
-      note: 'Source: QuickBooks Q3 actuals · scoped capability grant, read-only.',
-    },
-    {
-      kind: 'para',
-      text: 'Contingency stays unallocated until launch week; draws above $2,000 need Finance sign-off per the launch agent’s limits.',
-    },
-    { kind: 'sign', name: 'Dana Whitfield', role: 'Finance Operations Lead · envelope owner' },
-  ])
-}
 
 function budgetPositionDoc(c: Ctx): ArtifactDoc {
   const rows = LAUNCH_BUDGET.map(([k, committed]) => {
@@ -616,33 +509,6 @@ const FIT_FAQ: { q: string; a: string }[] = [
   },
 ]
 
-const SUMMIT_FAQ: { q: string; a: string }[] = [
-  {
-    q: 'How warm is the Summit Series jacket?',
-    a: 'It carries a −30 °F comfort-limit rating from EN-standard lab testing with 850-fill down. Real-world warmth varies with layering and wind, so treat the rating as a lab benchmark, not a promise for every condition.',
-  },
-  {
-    q: 'Is it actually waterproof, or just water-resistant?',
-    a: 'Waterproof: a 3-layer shell rated to 20,000 mm hydrostatic head with fully taped seams. Sustained heavy rain is fine; the down is also treated to resist moisture if the shell is compromised.',
-  },
-  {
-    q: 'How does Summit Series sizing run?',
-    a: 'True to size with an alpine cut — room for a midlayer, trim through the waist. If you’ll layer a thick fleece underneath, go one size up. The size chart lists chest, sleeve, and hem measurements per size.',
-  },
-  {
-    q: 'How do I wash a down jacket?',
-    a: 'Front-loading machine, cold, down-specific soap, then tumble dry low with clean tennis balls until fully lofted. Never dry-clean. (Two care details are still with the product team — see the note below.)',
-  },
-  {
-    q: 'What does “guaranteed for life” cover?',
-    a: 'Manufacturing defects for the life of the garment: we repair or replace, our call. Normal wear, crampon tears, and campfire embers aren’t defects — but our repair desk fixes those at cost.',
-  },
-  {
-    q: 'When can I buy it?',
-    a: 'Launch day, online and in the Bellingham showroom. Sign up on the product page for the stock alert; showroom quantities are limited in the first week.',
-  },
-]
-
 const GENERAL_FAQ: { q: string; a: string }[] = [
   {
     q: 'How long does shipping take?',
@@ -678,20 +544,6 @@ function faqDoc(c: Ctx): ArtifactDoc {
       {
         kind: 'note',
         text: 'Publishing to the help center needs Nina Park’s approval — queued in her approvals list.',
-        tone: 'human',
-      },
-    ])
-  }
-  if (n.includes('summit')) {
-    return doc(c, 'faq', 'FAQ DRAFT', [
-      {
-        kind: 'para',
-        text: 'Launch-day FAQ set for the Summit Series, drafted from the product spec sheet. Six of twelve shown here in ranked order; the full set is staged in Zendesk as unpublished articles.',
-      },
-      { kind: 'qa', items: SUMMIT_FAQ },
-      {
-        kind: 'note',
-        text: 'Two open questions on care instructions (down-wash frequency, storage loft) are flagged to the product team before publish.',
         tone: 'human',
       },
     ])
@@ -751,7 +603,7 @@ function briefDoc(c: Ctx): ArtifactDoc {
   const audience = pick(c.rng, [
     'Core backpacking customers and waitlist signups',
     'Weekend hikers upgrading their first serious kit',
-    'Returning customers with a Summit-line purchase',
+    'Returning customers replacing an older product',
   ])
   const channel = pick(c.rng, ['Email + paid social', 'Launch page + showroom', 'Email + help-center banner'])
   return doc(c, 'brief', 'BRIEF', [
@@ -840,14 +692,14 @@ export function buildArtifactDoc(
     }
   }
 
+  if (art?.template) return templateDoc(c, art.template)
+
   if (n.includes('payment confirmation')) return paymentDoc(c)
-  if (n.includes('claims review memo')) return summitClaimsDoc(c) // hero — Summit Series
   if (n.includes('claims review') || n.includes('compliance review')) return claimsNoteDoc(c)
   if (n.includes('dispute recommendation')) return disputeDoc(c)
   if (n.includes('restock')) return restockDoc(c)
   if (n.includes('equipment order')) return equipmentDoc(c)
   if (n.includes('sku count')) return skuExportDoc(c)
-  if (n.includes('budget confirmation')) return budgetConfirmationDoc(c)
   if (n.includes('budget position')) return budgetPositionDoc(c)
   if (n.includes('faq')) return faqDoc(c)
   if (n.includes('delay notice')) return delayNoticeDoc(c)

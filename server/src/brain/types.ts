@@ -6,8 +6,6 @@ export interface BrainCtx {
   schedule(steps: Step[], baseDelayMs?: number): void
   cancelTask(taskId: string): void
   worldTasks(): { id: string; title: string; status: string }[]
-  interviewStep(agentId: string): number | null
-  setInterviewStep(agentId: string, step: number | null): void
 }
 
 export interface BrainAdapter {

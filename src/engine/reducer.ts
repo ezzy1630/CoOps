@@ -84,6 +84,7 @@ export function buildWorld(
               eventId: e.id, taskId: t.id, kind: e.blockedOn.kind,
               what: e.blockedOn.what, personId: e.blockedOn.personId,
               requestedBy: e.from, deptId: e.deptTo ?? e.deptFrom, ts: e.ts,
+              rehearsalId: e.payload?.rehearsalId,
             })
           }
           break
@@ -123,6 +124,7 @@ export function buildWorld(
         personId: e.payload.blueprint.ownerId,
         requestedBy: e.from, deptId: e.payload.blueprint.deptId, ts: e.ts,
         blueprint: e.payload.blueprint,
+        rehearsalId: e.payload.rehearsalId,
       })
     }
     if (e.type === 'AgentSpawned' && e.payload?.agent) {

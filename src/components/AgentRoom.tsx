@@ -2,7 +2,7 @@ import { CaretRight, X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useStore } from '../store'
-import { LAUNCH_AGENT_ID, deptById, personById, toolById } from '../data/company'
+import { deptById, personById, toolById } from '../data/company'
 import { cx, fmtUsd, timeAgo } from '../utils'
 import { Chip, typeLabel } from './ui'
 import type { AgentStatus, EventType, PendingApproval, WorldEvent } from '../types'
@@ -112,6 +112,15 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
 
   const agent = world.agents.find((a) => a.id === agentId)
   const pending = chatPending[agentId] === true
+  const blueprintEventId = useMemo(() => {
+    for (let index = log.length - 1; index >= 0; index -= 1) {
+      const event = log[index]
+      if (event.type === 'AgentSpawned' && event.payload?.agent?.id === agentId) {
+        return event.payload.reason
+      }
+    }
+    return undefined
+  }, [log, agentId])
 
   const messages = useMemo(
     () => log.filter((e) => e.type === 'Chat' && (e.from?.id === agentId || e.to?.id === agentId)),
@@ -261,8 +270,11 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
             })
           )}
         </div>
-        {agentId === LAUNCH_AGENT_ID && (
-          <button className="btn mt-2 h-7 px-2.5 py-1 text-[12px]" onClick={() => useStore.getState().openPanel('diff')}>
+        {blueprintEventId && (
+          <button
+            className="btn mt-2 h-7 px-2.5 py-1 text-[12px]"
+            onClick={() => useStore.getState().openPanel('diff', blueprintEventId)}
+          >
             View inheritance diff
           </button>
         )}
@@ -479,7 +491,7 @@ function BlueprintCard({ approval, now }: { approval: PendingApproval; now: numb
         <button className="btn btn-primary" onClick={() => useStore.getState().approve(approval)}>
           Approve blueprint
         </button>
-        <button className="btn" onClick={() => useStore.getState().openPanel('diff')}>
+        <button className="btn" onClick={() => useStore.getState().openPanel('diff', approval.eventId)}>
           View inheritance
         </button>
         <span className="ml-auto text-right text-[11px] leading-tight text-dim tabular-nums">
@@ -698,8 +710,8 @@ function MicGlyph() {
   )
 }
 
-/** The scripted ask, parked in the hint row where it has room to be read. */
-const SUGGESTION = 'I need an agent for the Summit Series launch'
+/** A generic blueprint ask, parked in the hint row where it has room to be read. */
+const SUGGESTION = 'I need an agent to prepare a customer research brief'
 
 function Composer({ agentId }: { agentId: string }) {
   const [text, setText] = useState('')

@@ -3,7 +3,6 @@ import type { AgentDef, Department, Person, Persona, Tool } from '../types.js'
 export const COMPANY = {
   name: 'Everpeak Outfitters',
   tagline: 'Alpine gear, made to last',
-  product: 'Summit Series', // the launch at the heart of the demo
 }
 
 // ─── Departments ─────────────────────────────────────────────────────────────
@@ -185,9 +184,6 @@ export const BASE_AGENTS: AgentDef[] = [
   },
 ]
 
-/** The worker the hero scenario creates live. Referenced by id across the app. */
-export const LAUNCH_AGENT_ID = 'w-launch'
-
 // ─── Personas (role-aware entry) ─────────────────────────────────────────────
 
 export const PERSONAS: Persona[] = [
@@ -217,5 +213,4 @@ export const toolById = new Map(TOOLS.map((t) => [t.id, t]))
 /** Agent id → department id, derived from BASE_AGENTS. */
 export const AGENT_DEPT: Readonly<Record<string, string>> = Object.freeze({
   ...Object.fromEntries(BASE_AGENTS.map((a) => [a.id, a.deptId])),
-  [LAUNCH_AGENT_ID]: 'marketing',
 })

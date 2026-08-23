@@ -39,6 +39,7 @@ flowchart LR
 
 - Live mode opens the backend event stream and reports its exact Runtime Identity. It never substitutes rehearsal events when the backend is unavailable.
 - Rehearsal mode runs only in the browser. Every scripted event carries `payload.simulated: true`.
+- Rehearsal mode has two layers: the ambient company baseline is always-on product behavior, while optional authored rehearsals are discovered from `src/demos`. Removing every authored rehearsal leaves a valid ambient-only application.
 - The server appends each event before broadcasting it. The client folds the ordered Event Log into the current world.
 - An Approval can be resolved only by its named person. The server rejects duplicate decisions.
 - Artifact provenance is explicit. Live content, rehearsal templates, and metadata-only deliveries cannot share the same presentation state.
