@@ -98,7 +98,7 @@ export function createGeminiBrain(opts: {
       contents: [
         `Task objective: ${spec.objective}`,
         `Requested deliverable: ${spec.artifact.name} (${spec.artifact.type}).`,
-        `Requesting department: ${DEPTS[spec.fromDept]?.name ?? spec.fromDept}.`,
+        `Requesting department: ${deptById.get(spec.fromDept)?.name ?? spec.fromDept}.`,
       ].join('\n'),
       config: { systemInstruction },
     })
