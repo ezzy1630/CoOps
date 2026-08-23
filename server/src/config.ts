@@ -13,6 +13,8 @@ export interface Config {
   modelArmor?: { project: string; location: string; templateId: string }
   googleOAuth?: GoogleOAuthConfig
   sheetsId?: string
+  a2aToken?: string
+  a2aPrincipal?: string
 }
 
 export function loadConfig(): Config {
@@ -37,6 +39,8 @@ export function loadConfig(): Config {
       : {}),
     googleOAuth: googleOAuthFromEnv(),
     sheetsId: process.env.COOPS_SHEETS_ID,
+    a2aToken: process.env.COOPS_A2A_TOKEN,
+    a2aPrincipal: process.env.COOPS_A2A_PRINCIPAL,
   }
 }
 
