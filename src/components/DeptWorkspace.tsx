@@ -1,3 +1,4 @@
+import { ArrowRight, X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useStore } from '../store'
@@ -10,10 +11,9 @@ import type { AgentStatus, TaskStatus } from '../types'
 const DAY_MS = 24 * 60 * 60 * 1000
 
 /**
- * This panel's chips keep the warm raised fill; the shared atom defaults to
- * surface. `!` on any tint that would otherwise lose to the atom's own base
- * utility at equal specificity (Tailwind orders same-property utilities by
- * value, not by class-attribute order).
+ * This panel's chips keep the warm raised fill over the shared atom (which is
+ * deliberately borderless and fill-free by default). `!` marks any tint that
+ * would otherwise lose to an atom utility at equal specificity.
  */
 const CHIP_FILL = 'bg-raised!'
 
@@ -47,7 +47,7 @@ function Avatar({ personId }: { personId: string }) {
   if (!p) return null
   return (
     <span
-      className="flex size-6 shrink-0 items-center justify-center border border-linebright bg-raised text-[9px] font-semibold text-mut"
+      className="flex size-6 shrink-0 items-center justify-center border border-linebright bg-raised text-[10px] font-semibold text-mut"
     >
       {p.initials}
     </span>
@@ -57,12 +57,12 @@ function Avatar({ personId }: { personId: string }) {
 /** Task status tone — the same language the map overlays speak. */
 function taskTone(status: TaskStatus): string {
   switch (status) {
-    case 'done': return 'border-artifact/50! text-artifact!'
-    case 'failed': return 'border-escalation/50! text-escalation!'
-    case 'running': return 'border-task/50 text-task'
+    case 'done': return 'bg-artifact/10! text-artifact!'
+    case 'failed': return 'bg-escalation/10! text-escalation!'
+    case 'running': return 'border-task/40 bg-task/8 text-task'
     case 'waiting_auth':
-    case 'waiting_approval': return 'border-permission/50 text-permission'
-    default: return 'border-line text-mut'
+    case 'waiting_approval': return 'border-permission/40 bg-permission/10 text-permission'
+    default: return ''
   }
 }
 
@@ -71,9 +71,9 @@ function Section({
 }: { title: string; meta?: string; children: ReactNode }) {
   return (
     <section className="border-t border-line px-3 py-2.5">
-      <div className="mb-1.5 flex items-baseline gap-2">
-        <h3 className="text-[10px] font-medium text-mut">{title}</h3>
-        {meta && <span className="font-mono text-[10px] text-dim/70 tabular-nums">{meta}</span>}
+      <div className="mb-2 flex items-baseline gap-2">
+        <h3 className="text-[11px] font-semibold tracking-wide text-mut">{title}</h3>
+        {meta && <span className="font-mono text-[10.5px] text-dim/70 tabular-nums">{meta}</span>}
       </div>
       {children}
     </section>
@@ -99,7 +99,7 @@ function LockGlyph() {
 }
 
 function Empty({ children }: { children: ReactNode }) {
-  return <p className="px-2 py-1 text-[11.5px] text-dim">{children}</p>
+  return <p className="px-2 py-1 text-[12px] text-dim">{children}</p>
 }
 
 // ─── Department Workspace ────────────────────────────────────────────────────
@@ -164,25 +164,25 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span aria-hidden className="h-3.5 w-0.5 shrink-0 rounded-full" style={{ background: departmentHue }} />
-            <h2 className="truncate text-[14px] font-semibold">{dept.name}</h2>
+            <h2 className="truncate text-[15px] font-semibold tracking-[-0.01em]">{dept.name}</h2>
           </div>
-          <p className="mt-0.5 truncate text-[12px] text-dim">{dept.blurb}</p>
+          <p className="mt-0.5 truncate text-[12.5px] text-dim">{dept.blurb}</p>
         </div>
         {lead && (
           <div className="flex shrink-0 items-center gap-2" title={`Department lead: ${lead.name}`}>
             <Avatar personId={lead.id} />
             <span className="min-w-0 leading-tight">
-              <span className="block max-w-32 truncate text-[12px]">{lead.name}</span>
-              <span className="block max-w-32 truncate text-[10px] text-dim">{lead.role}</span>
+              <span className="block max-w-32 truncate text-[12.5px]">{lead.name}</span>
+              <span className="block max-w-32 truncate text-[10.5px] text-dim">{lead.role}</span>
             </span>
           </div>
         )}
         <button
-          className="shrink-0 rounded px-1.5 py-0.5 text-[14px] text-dim transition-colors hover:bg-hover hover:text-ink"
+          className="shrink-0 rounded-sm px-1.5 py-0.5 text-dim transition-colors hover:bg-hover hover:text-ink"
           title="Close"
           onClick={() => useStore.getState().closePanel()}
         >
-          ✕
+          <X size={15} />
         </button>
       </div>
 
@@ -193,10 +193,10 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
             <div className="border-l border-linebright pl-3">
               <div className="flex items-center gap-2">
                 <StatusDot status={world.agentStatus.get(operator.id) ?? 'idle'} />
-                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{operator.name}</span>
-                <span className="text-[10px] text-dim">Department agent</span>
+                <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">{operator.name}</span>
+                <span className="text-[10.5px] text-dim">Department agent</span>
               </div>
-              <p className="mt-1.5 text-[12px] leading-snug text-mut">{operator.purpose}</p>
+              <p className="mt-1.5 text-[12.5px] leading-snug text-mut">{operator.purpose}</p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <button
                   className="btn btn-primary h-7 px-2.5 py-1 text-[12px]"
@@ -205,7 +205,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   Open Agent Room
                 </button>
                 <button
-                  className="rounded px-2 py-1 text-[12px] text-mut transition-colors hover:bg-hover hover:text-ink"
+                  className="rounded-sm px-2 py-1 text-[12px] text-mut transition-colors hover:bg-hover hover:text-ink"
                   title="Describe the job in chat — the agent interviews you, then drafts a blueprint"
                   onClick={() => useStore.getState().openPanel('agent', operator.id)}
                 >
@@ -235,21 +235,21 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                     <StatusDot status={status} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
-                        <span className="truncate text-[12px]">{w.name}</span>
+                        <span className="truncate text-[12.5px]">{w.name}</span>
                         {w.bornAt != null && (
-                          <Chip className={cx(CHIP_FILL, 'shrink-0 border-task/50 text-task')}>new</Chip>
+                          <Chip className={cx(CHIP_FILL, 'shrink-0 bg-task/10! text-task!')}>new</Chip>
                         )}
                       </span>
                       <span
                         className={cx(
-                          'block truncate text-[11px]',
+                          'block truncate text-[11.5px]',
                           status === 'working' && task ? 'text-task/80' : 'text-dim',
                         )}
                       >
                         {status === 'working' && task ? task.title : w.purpose}
                       </span>
                     </span>
-                    <span className="shrink-0 text-[10px] text-dim">→</span>
+                    <ArrowRight size={11} weight="bold" className="shrink-0 text-dim" />
                   </button>
                 )
               })}
@@ -283,11 +283,11 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                         <Chip className={cx(CHIP_FILL, 'shrink-0', taskTone(t.status))}>
                           {t.status.replace('_', ' ')}
                         </Chip>
-                        <span className="min-w-0 flex-1 truncate text-[12px]">{t.title}</span>
+                        <span className="min-w-0 flex-1 truncate text-[12.5px]">{t.title}</span>
                         {t.costUsd > 0 && (
-                          <span className="shrink-0 font-mono text-[10px] text-dim tabular-nums">{fmtUsd(t.costUsd)}</span>
+                          <span className="shrink-0 font-mono text-[10.5px] text-dim tabular-nums">{fmtUsd(t.costUsd)}</span>
                         )}
-                        <span className="shrink-0 font-mono text-[10px] text-dim tabular-nums">{timeAgo(t.createdAt, now)}</span>
+                        <span className="shrink-0 font-mono text-[10.5px] text-dim tabular-nums">{timeAgo(t.createdAt, now)}</span>
                       </button>
                       {over && (
                         <button
@@ -296,7 +296,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                           title="Replay this task on the map"
                           onClick={() => useStore.getState().startReplay(t.id)}
                         >
-                          <Chip className={cx(CHIP_FILL, 'transition-colors hover:border-task/50 hover:text-task')}>
+                          <Chip className={cx(CHIP_FILL, 'transition-colors hover:text-task')}>
                             ↺ replay
                           </Chip>
                         </button>
@@ -312,7 +312,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                             title={`Open: ${artifactEventName(ae)}`}
                             onClick={() => useStore.getState().openArtifact(ae.id)}
                           >
-                            <Chip className="max-w-full border-artifact/35! bg-artifact/8! text-artifact! transition-colors hover:border-artifact/60! hover:bg-artifact/15!">
+                            <Chip className="max-w-full bg-artifact/10! text-artifact! transition-colors hover:bg-artifact/15!">
                               <DocGlyph />
                               <span className="truncate">{artifactEventName(ae)}</span>
                             </Chip>
@@ -341,14 +341,14 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   }}
                   onMouseEnter={() => useStore.getState().setHighlight(e.id)}
                   onMouseLeave={() => useStore.getState().setHighlight(null)}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-hover"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-hover"
                 >
                   <Chip className={cx(CHIP_FILL, 'shrink-0 border-task/40 text-task')}>
                     {deptById.get(e.deptFrom ?? '')?.name ?? e.deptFrom}
                   </Chip>
-                  <span className="shrink-0 text-dim">→</span>
-                  <span className="min-w-0 flex-1 truncate text-[12px]">{e.title}</span>
-                  <span className="shrink-0 font-mono text-[10px] text-dim tabular-nums">{timeAgo(e.ts, now)}</span>
+                  <ArrowRight size={11} weight="bold" className="shrink-0 text-dim" />
+                  <span className="min-w-0 flex-1 truncate text-[12.5px]">{e.title}</span>
+                  <span className="shrink-0 font-mono text-[10.5px] text-dim tabular-nums">{timeAgo(e.ts, now)}</span>
                 </button>
               ))}
             </div>
@@ -376,7 +376,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                   >
                     {needsAuth && <LockGlyph />}
                     {t.name}
-                    <span className={cx('text-[10px]', needsAuth ? 'text-permission/60' : 'text-dim')}>
+                    <span className={cx('text-[10.5px]', needsAuth ? 'text-permission/60' : 'text-dim')}>
                       {t.kind}
                     </span>
                   </Chip>
