@@ -1,5 +1,6 @@
 import type { AgentBlueprint, WorldEvent } from '../../../src/types.js'
 import type { BrainAdapter, BrainCtx } from './types.js'
+import type { DeptMemory } from '../memory/types.js'
 import type { ExchangeExecutor } from './exchanges.js'
 import { runExchange } from './exchanges.js'
 
@@ -73,20 +74,23 @@ const blueprintEvent = (personId: string): EventBody => ({
   payload: { blueprint: LAUNCH_BLUEPRINT },
 })
 
-const reply = (ctx: BrainCtx, agentId: string, personId: string, text: string, delay = 1100) =>
-  ctx.schedule([{
-    at: delay,
-    e: {
-      type: 'Chat', from: agentRef(agentId), to: personRef(personId),
-      title: text, payload: { text },
-    },
-  }])
-
-export function createMockBrain(): BrainAdapter {
+export function createMockBrain(opts?: { memory?: DeptMemory }): BrainAdapter {
   return {
     async handle(ctx, agentId, deptId, text, personId) {
       const t = text.toLowerCase()
       const iv = ctx.interviewStep(agentId)
+      await opts?.memory?.append(deptId, 'human', text)
+
+      const reply = async (ctx: BrainCtx, agentId: string, personId: string, text: string, delay = 1100) => {
+        await opts?.memory?.append(deptId, 'agent', text)
+        ctx.schedule([{
+          at: delay,
+          e: {
+            type: 'Chat', from: agentRef(agentId), to: personRef(personId),
+            title: text, payload: { text },
+          },
+        }])
+      }
 
       if (iv !== null && agentId === 'op-marketing') {
         const next = iv + 1
