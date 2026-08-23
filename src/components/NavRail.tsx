@@ -54,9 +54,9 @@ export default function NavRail() {
               className={cx('group relative flex h-9 w-full items-center gap-2.5 px-2 text-left text-[13px] transition-colors', active ? 'bg-raised font-medium text-ink' : 'text-mut hover:bg-hover hover:text-ink')}
               onClick={() => useStore.getState().setView(item.view)}>
               <ItemIcon size={15} weight={active ? 'fill' : 'regular'} className={cx('shrink-0 text-dim', active && 'text-task')} />
-              <span className={cx('min-w-0 flex-1 truncate', fun && 'font-display')}>{item.label}</span>
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
               {item.view === 'map' && mapActivity && <span className="size-1.5 rounded-full bg-task" title="Work in flight" aria-label="Work in flight" />}
-              {item.view === 'approvals' && approvals > 0 && <span className={cx('text-[11px] tabular-nums text-human', fun ? 'font-display' : 'font-mono')}>{approvals}</span>}
+              {item.view === 'approvals' && approvals > 0 && <span className="font-mono text-[11px] tabular-nums text-human">{approvals}</span>}
             </button>
           )
         })}

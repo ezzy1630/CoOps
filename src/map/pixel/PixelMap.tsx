@@ -17,6 +17,7 @@ import {
   type StandSpot,
 } from './layout'
 import { deriveWalkers, emoteFor, lastActs, lastSpeech, walkerWindowMs } from './choreography'
+import ValleyToolbar, { readValleyFilterCounts, type ValleyFilter, type ValleyInspection } from './ValleyToolbar'
 const CELL = 24 // avatar cell in the strip, manifest avatars.cell
 const CELL_PX = CELL * SPRITE_SCALE
 // bubbles and letters draw at native 1:1 scale for uniform pixel consistency
@@ -25,6 +26,8 @@ const EMOTE_PX = 16
 const EMOTE_FRESH_MS = 6000
 /** a spoken line hangs over its speaker briefly, then the emote returns */
 const SPEECH_MS = 6000
+const VALLEY_TOOLBAR_HEIGHT = 52
+const VALLEY_RUN_BAR_HEIGHT = 56
 
 // every standing villager idles between the same two strip columns (down0 ↔ down1)
 const BOB_VARS = {
@@ -129,6 +132,9 @@ export default function PixelMap() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 1200, h: 800 })
   const [now, setNow] = useState(() => Date.now())
+  const [filter, setFilter] = useState<ValleyFilter>('all')
+  const [showNames, setShowNames] = useState(false)
+  const [inspection, setInspection] = useState<ValleyInspection>(null)
   const artState = usePixelArt()
   const world = useStore((s) => s.world)
   const log = useStore((s) => s.log)
@@ -183,6 +189,13 @@ export default function PixelMap() {
     [replay ? replayBucket : world, log, replay?.taskId],
   )
 
+  useEffect(() => {
+    const counts = readValleyFilterCounts(renderWorld)
+    if ((filter === 'working' && counts.working === 0) || (filter === 'attention' && counts.attention === 0)) {
+      setFilter('all')
+    }
+  }, [filter, renderWorld])
+
   const spots = useMemo(
     () => (artState.status === 'ready' ? standPointFor(artState.art, renderWorld.agents) : null),
     [artState, renderWorld.agents],
@@ -195,6 +208,8 @@ export default function PixelMap() {
 
   // a side panel covers part of the viewport; fit and center in what remains
   const panelW = panel ? PANEL_WIDTH[panel.kind] : 0
+  const availableWidth = Math.max(1, size.w - panelW - 24)
+  const availableHeight = Math.max(1, size.h - VALLEY_TOOLBAR_HEIGHT - VALLEY_RUN_BAR_HEIGHT - 20)
 
   return (
     <div
@@ -203,6 +218,15 @@ export default function PixelMap() {
       style={{ backgroundColor: 'var(--color-map-canvas)' }}
       onClick={() => useStore.getState().selectTask(null)}
     >
+      <ValleyToolbar
+        world={renderWorld}
+        filter={filter}
+        showNames={showNames}
+        inspection={inspection}
+        panelWidth={panelW}
+        onFilterChange={setFilter}
+        onShowNamesChange={setShowNames}
+      />
       {artState.status === 'ready' && spots && (
         <Scene
           art={artState.art}
@@ -213,8 +237,12 @@ export default function PixelMap() {
           highlightEventId={highlightEventId}
           presence={presence}
           renderTime={renderTime}
-          k={fitK(size.w - panelW, size.h, artState.art.world)}
-          centerX={(size.w - panelW) / 2}
+          k={fitK(availableWidth, availableHeight, artState.art.world)}
+          centerX={12 + availableWidth / 2}
+          centerY={VALLEY_TOOLBAR_HEIGHT + 10 + availableHeight / 2}
+          filter={filter}
+          showNames={showNames}
+          onInspect={setInspection}
         />
       )}
       {artState.status !== 'ready' && (
@@ -234,7 +262,7 @@ export default function PixelMap() {
  * DOM order never decides who stands in front.
  */
 function Scene({
-  art, world, spots, focus, selectedTaskId, highlightEventId, presence, renderTime, k, centerX,
+  art, world, spots, focus, selectedTaskId, highlightEventId, presence, renderTime, k, centerX, centerY, filter, showNames, onInspect,
 }: {
   art: PixelArt
   world: World
@@ -246,14 +274,40 @@ function Scene({
   renderTime: number
   k: number
   centerX: number
+  centerY: number
+  filter: ValleyFilter
+  showNames: boolean
+  onInspect: (inspection: ValleyInspection) => void
 }) {
-  const dimmed = (deptId?: string, agentId?: string) => {
-    if (!focus) return false
-    if (agentId) return !focus.agents.has(agentId)
-    if (deptId) return !focus.depts.has(deptId)
-    return true
+  const approvalAgentIds = useMemo(
+    () => new Set(world.approvals.flatMap((approval) => approval.requestedBy?.kind === 'agent' ? [approval.requestedBy.id] : [])),
+    [world.approvals],
+  )
+  const approvalDeptIds = useMemo(
+    () => new Set(world.approvals.map((approval) => approval.deptId ?? 'operations')),
+    [world.approvals],
+  )
+  const agentMatchesFilter = (agentId: string) => {
+    if (filter === 'all') return true
+    const status = world.agentStatus.get(agentId) ?? 'idle'
+    if (filter === 'working') return status === 'working'
+    return status === 'blocked' || approvalAgentIds.has(agentId)
   }
-  const dim = (d: boolean) => ({ opacity: d ? 0.15 : 1, transition: 'opacity 0.35s' as const })
+  const deptMatchesFilter = (deptId: string) => {
+    if (filter === 'all') return true
+    return approvalDeptIds.has(deptId) || world.agents.some((agent) => agent.deptId === deptId && agentMatchesFilter(agent.id))
+  }
+  const dimmed = (deptId?: string, agentId?: string) => {
+    if (focus) {
+      if (agentId) return !focus.agents.has(agentId)
+      if (deptId) return !focus.depts.has(deptId)
+      return true
+    }
+    if (agentId) return !agentMatchesFilter(agentId)
+    if (deptId) return !deptMatchesFilter(deptId)
+    return filter !== 'all'
+  }
+  const dim = (d: boolean) => ({ opacity: d ? 0.22 : 1, transition: 'opacity 0.22s' as const })
 
   // dept → its operator's stand point: the fallback endpoint when an event's
   // agent ref predates a replay fold or names an unknown id
@@ -317,8 +371,8 @@ function Scene({
 
   return (
     <div
-      className="absolute top-1/2"
-      style={{ left: centerX, width: art.world.w, height: art.world.h, transform: `translate(-50%, -50%) scale(${k})` }}
+      className="absolute"
+      style={{ left: centerX, top: centerY, width: art.world.w, height: art.world.h, transform: `translate(-50%, -50%) scale(${k})` }}
     >
       <img
         src={art.background}
@@ -388,19 +442,28 @@ function Scene({
         const z = Math.round(b.y + b.h)
         return (
           <div key={b.deptId} className="absolute" style={{ left: b.x, top: b.y, width: b.w, height: b.h, zIndex: z, ...dim(dimmed(b.deptId)) }}>
-            <img
-              src={b.file}
-              alt={name}
-              draggable={false}
-              onClick={(e) => {
-                e.stopPropagation()
+            <button
+              type="button"
+              aria-label={`Open ${name} department`}
+              onClick={(event) => {
+                event.stopPropagation()
                 useStore.getState().openPanel('dept', b.deptId)
               }}
-              className="pixelated absolute inset-0 cursor-pointer select-none transition duration-150 hover:brightness-110"
+              onMouseEnter={() => onInspect({ kind: 'dept', id: b.deptId })}
+              onMouseLeave={() => onInspect(null)}
+              onFocus={() => onInspect({ kind: 'dept', id: b.deptId })}
+              onBlur={() => onInspect(null)}
+              className="valley-building absolute inset-0 cursor-pointer select-none"
+            >
+            <img
+              src={b.file}
+              alt=""
+              draggable={false}
+              className="pixelated pointer-events-none absolute inset-0 select-none transition duration-150"
               style={{ width: b.w, height: b.h }}
             />
-            <div
-              className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-sm border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]"
+            <span
+              className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-sm border px-1.5 py-0.5 font-display text-[9px] font-medium tracking-[0.04em]"
               style={{
                 // above the roofline: below the door is the operator's spot,
                 // and the sprite buried every sign that hung there
@@ -414,7 +477,8 @@ function Scene({
               }}
             >
               {name}
-            </div>
+            </span>
+            </button>
           </div>
         )
       })}
@@ -433,7 +497,7 @@ function Scene({
         const sp = speech.get(ag.id)
         const isDim = dimmed(ag.deptId, ag.id)
         return (
-          <div key={ag.id} className="absolute" style={{ left: pt.x, top: pt.y, zIndex: z, ...dim(isDim) }}>
+          <div key={ag.id} className="group absolute" style={{ left: pt.x, top: pt.y, zIndex: z, ...dim(isDim) }}>
             {ownerHue !== undefined && (
               <div
                 className="pointer-events-none absolute rounded-[50%]"
@@ -453,25 +517,41 @@ function Scene({
               active={sp != null && renderTime - sp.ts < SPEECH_MS}
               emote={emote}
             />
-            <div
-              onClick={(e) => {
-                e.stopPropagation()
+            <button
+              type="button"
+              aria-label={`Open ${ag.name}, ${world.agentStatus.get(ag.id) ?? 'idle'} ${world.departments.get(ag.deptId)?.name ?? ag.deptId} agent`}
+              onClick={(event) => {
+                event.stopPropagation()
                 useStore.getState().openPanel('agent', ag.id)
               }}
-              className="sprite-bob pixelated absolute cursor-pointer select-none"
+              onMouseEnter={() => onInspect({ kind: 'agent', id: ag.id })}
+              onMouseLeave={() => onInspect(null)}
+              onFocus={() => onInspect({ kind: 'agent', id: ag.id })}
+              onBlur={() => onInspect(null)}
+              className="valley-agent-control absolute cursor-pointer select-none"
               style={{
-                left: -CELL_PX / 2,
-                top: -CELL_PX,
-                width: CELL_PX,
-                height: CELL_PX,
-                backgroundImage: `url(${url})`,
-                backgroundSize: `${art.avatars.frameOrder.length * CELL_PX}px ${CELL_PX}px`,
-                animationDelay: `${-(hash % 1100)}ms`,
-                ...BOB_VARS,
+                left: -18,
+                top: -32,
+                width: 36,
+                height: 36,
               }}
-            />
+            >
+              <span
+                className="sprite-bob pixelated pointer-events-none absolute"
+                style={{
+                  left: 6,
+                  top: 8,
+                  width: CELL_PX,
+                  height: CELL_PX,
+                  backgroundImage: `url(${url})`,
+                  backgroundSize: `${art.avatars.frameOrder.length * CELL_PX}px ${CELL_PX}px`,
+                  animationDelay: `${-(hash % 1100)}ms`,
+                  ...BOB_VARS,
+                }}
+              />
+            </button>
             <div
-              className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-sm border px-1 text-[8px] leading-snug"
+              className={`valley-agent-name pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-sm border px-1 text-[8px] leading-snug ${showNames || focus?.agents.has(ag.id) ? 'valley-agent-name-pinned' : ''}`}
               style={{
                 left: 0,
                 top: 2,
@@ -513,7 +593,9 @@ function Scene({
                 opacity: wk.opacity,
               }}
             />
-            <div
+            <button
+              type="button"
+              aria-label={wk.event.taskId ? `Focus ${world.tasks.get(wk.event.taskId)?.title ?? 'traveling task'}` : 'Inspect traveling work'}
               onClick={(e) => {
                 e.stopPropagation()
                 const st = useStore.getState()
@@ -546,7 +628,7 @@ function Scene({
                   ...bobVars,
                 }}
               />
-            </div>
+            </button>
           </Fragment>
         )
       })}
@@ -581,7 +663,9 @@ function Scene({
 
       {/* approvals → sealed mail waiting by the department door */}
       {mailBadges.map(({ a, anchor, person, isDim }) => (
-        <div
+        <button
+          type="button"
+          aria-label={`Open approval for ${person?.name ?? 'assigned person'}`}
           key={a.eventId}
           onClick={(e) => {
             e.stopPropagation()
@@ -609,7 +693,7 @@ function Scene({
           >
             {person?.initials ?? '?'}
           </div>
-        </div>
+        </button>
       ))}
 
       {/* multiplayer presence: colleagues browsing departments */}
