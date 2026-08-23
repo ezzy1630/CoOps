@@ -8,7 +8,7 @@ import { createGeminiBrain } from './brain/gemini.js'
 import { createHeuristicGuardrail } from './guardrail/heuristic.js'
 import { createModelArmorGuardrail } from './guardrail/modelarmor.js'
 import { openJsonlMemory } from './memory/jsonl.js'
-import type { BrainCtx } from './brain/types.js'
+import type { BrainAdapter, BrainCtx } from './brain/types.js'
 import type { WorldEvent } from '../../src/types.js'
 
 const cfg = loadConfig()
@@ -64,9 +64,22 @@ function worldTasks(events: WorldEvent[]): { id: string; title: string; status: 
 const interviews = new Map<string, number | null>()
 const scheduler = new Scheduler(e => store.append(e))
 const guardrail = cfg.modelArmor ? createModelArmorGuardrail(cfg.modelArmor) : createHeuristicGuardrail()
-const brain = cfg.geminiApiKey
-  ? createGeminiBrain({ apiKey: cfg.geminiApiKey, guardrail, memory: openJsonlMemory(cfg.dataDir) })
-  : createMockBrain()
+const apiKey = cfg.geminiApiKey
+const effectiveBrain =
+  !cfg.brainMode || cfg.brainMode === 'auto' ? (apiKey ? 'gemini' : 'mock') : cfg.brainMode
+let brain: BrainAdapter
+if (effectiveBrain === 'gemini') {
+  if (!apiKey) {
+    console.error('[brain] COOPS_BRAIN=gemini set but GEMINI_API_KEY is missing')
+    process.exit(1)
+  }
+  console.log('[brain] gemini')
+  brain = createGeminiBrain({ apiKey, guardrail, memory: openJsonlMemory(cfg.dataDir) })
+} else {
+  const reason = cfg.brainMode === 'mock' ? 'forced by COOPS_BRAIN' : 'no GEMINI_API_KEY'
+  console.log(`[brain] mock fixture (${reason})`)
+  brain = createMockBrain()
+}
 
 const brainCtx: BrainCtx = {
   emit: e => {

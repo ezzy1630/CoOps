@@ -7,7 +7,6 @@ import { createDryRunTools, WORKSPACE_TOOLS } from '../tools/dryrun.js'
 import type { WorkspaceToolAdapter } from '../tools/types.js'
 import { runExchange } from './exchanges.js'
 import type { ExchangeExecutor } from './exchanges.js'
-import { createMockBrain } from './mock.js'
 import type { BrainAdapter, BrainCtx } from './types.js'
 
 // Compact copy of src/data/company.ts departments for prompt building.
@@ -121,8 +120,12 @@ export function createGeminiBrain(opts: {
       try {
         await runTurn(ctx, ai, model, opts.guardrail, opts.memory, workspaceTools, geminiExecutor, agentId, deptId, text, personId)
       } catch (err) {
-        console.error('[gemini-brain] falling back to mock brain for this message:', err)
-        void createMockBrain().handle(ctx, agentId, deptId, text, personId)
+        console.error(`[gemini-brain] turn failed for agent ${agentId} in ${deptId}:`, err)
+        const reply = `I hit an internal error handling that — please try again.\n${String((err as Error | undefined)?.message ?? err)}`
+        ctx.emit({
+          type: 'Chat', from: { kind: 'agent', id: agentId }, to: { kind: 'person', id: personId },
+          title: reply, payload: { text: reply },
+        })
       }
     },
   }
