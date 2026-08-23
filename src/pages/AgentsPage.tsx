@@ -34,29 +34,32 @@ export default function AgentsPage() {
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto overscroll-contain bg-surface">
       <div className="flex w-full min-w-0 flex-1 flex-col px-6 py-4 lg:px-9">
-        <header className="flex h-10 shrink-0 items-baseline gap-4 border-b border-line">
-          <h2 className="text-[17px] font-semibold tracking-[-0.025em]">Agents</h2>
-          <span className="font-mono text-[10px] tabular-nums text-dim">
-            {agents.length} registered / <span className={working > 0 ? 'text-task' : undefined}>{working} working</span> / <span className={blocked > 0 ? 'text-human' : undefined}>{blocked} blocked</span>
+        <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-5 gap-y-2 border-b border-line pb-3">
+          <h2 className="text-[21px] leading-none font-semibold tracking-[-0.02em]">Agents</h2>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[21px] leading-none font-semibold tabular-nums">{agents.length}</span>
+            <span className="text-[12px] text-dim">registered</span>
+          </div>
+          <span className="font-mono text-[11px] tabular-nums text-dim">
+            <span className={working > 0 ? 'text-task' : undefined}>{working} working</span>
+            {' · '}
+            <span className={blocked > 0 ? 'text-human' : undefined}>{blocked} blocked</span>
           </span>
-          <span className="ml-auto text-[10px] text-dim">Updates from the running company</span>
         </header>
 
-        <div className="min-w-0 flex-1 overflow-x-auto">
-          <table className="w-full min-w-[1120px] table-fixed border-collapse text-left">
+        <div className="min-w-0 flex-1 overflow-x-auto pt-1">
+          <table className="w-full min-w-[1000px] table-fixed border-collapse text-left">
             <colgroup>
-              <col className="w-[24%]" />
-              <col className="w-[14%]" />
-              <col className="w-[10%]" />
-              <col className="w-[12%]" />
-              <col className="w-[21%]" />
-              <col className="w-[17%]" />
-              <col className="w-[12%]" />
+              <col className="w-[27%]" />
+              <col className="w-[15%]" />
+              <col className="w-[13%]" />
+              <col className="w-[25%]" />
+              <col className="w-[20%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-line">
-                {['Agent', 'Department', 'Class', 'Status', 'Current task', 'Tools'].map((label) => <th key={label} className="px-3 py-2 text-[10px] font-medium text-dim">{label}</th>)}
-                <th className="px-3 py-2 text-right text-[10px] font-medium text-dim">Spawned</th>
+                {['Agent', 'Department', 'Status', 'Current task', 'Tools'].map((label) => <th key={label} className="px-3 py-2.5 text-[11px] font-medium text-dim">{label}</th>)}
+                <th className="px-3 py-2.5 text-right text-[11px] font-medium text-dim">Spawned</th>
               </tr>
             </thead>
             <tbody>
@@ -115,37 +118,39 @@ function AgentRow({ agent, world }: { agent: AgentDef; world: World }) {
       }}
       title={`Open ${agent.name} on the map`}
     >
-      <td className="px-3 py-1.5">
+      <td className="px-3 py-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="h-5 w-0.5 shrink-0 rounded-full" style={{ background: `hsl(${hue} 55% 50%)` }} aria-hidden />
-          <span className={cx('relative flex size-5 shrink-0 items-center justify-center border text-[8px] font-semibold', agent.kind === 'operator' ? 'border-task/40 text-task' : 'border-linebright text-mut')}>
+          <span
+            className={cx('relative flex size-6 shrink-0 items-center justify-center border text-[10px] font-semibold', agent.kind === 'operator' ? 'border-task/40 text-task' : 'border-linebright text-mut')}
+            title={agent.kind === 'operator' ? 'Department agent' : 'Worker'}
+          >
             {agent.kind === 'operator' ? 'O' : 'W'}
             {status === 'working' && <span className="absolute -inset-1 border border-task/35" aria-hidden />}
           </span>
           <div className="min-w-0">
-            <div className="truncate text-[12px] font-medium text-ink">{agent.name}</div>
-            <div className="truncate text-[10px] text-dim">Owned by {owner?.name ?? agent.ownerId}</div>
+            <div className="truncate text-[13px] font-medium text-ink">{agent.name}</div>
+            <div className="truncate text-[10.5px] text-dim">Owned by {owner?.name ?? agent.ownerId}</div>
           </div>
         </div>
       </td>
-      <td className="px-3 py-1.5 text-[11px] text-mut">{dept?.name ?? agent.deptId}</td>
-      <td className="px-3 py-1.5 text-[10px] capitalize text-dim">{agent.kind}</td>
-      <td className="px-3 py-1.5">
-        <span className={cx('text-[10px]', STATUS_CLASS[status])}>{status === 'blocked' && <CapabilityGlyph />}{STATUS_LABEL[status]}</span>
+      <td className="px-3 py-2 text-[12px] text-mut">{dept?.name ?? agent.deptId}</td>
+      <td className="px-3 py-2">
+        <span className={cx('text-[11.5px] font-medium', STATUS_CLASS[status])}>{status === 'blocked' && <CapabilityGlyph />}{STATUS_LABEL[status]}</span>
       </td>
-      <td className="max-w-0 px-3 py-1.5">
-        <div className={cx('break-words text-[11px]', task ? 'text-ink' : 'text-dim')} title={task?.title}>{task?.title ?? '-'}</div>
+      <td className="max-w-0 px-3 py-2">
+        {task ? (
+          <div className="break-words text-[12px] text-ink" title={task.title}>{task.title}</div>
+        ) : null}
       </td>
-      <td className="px-3 py-1.5">
+      <td className="px-3 py-2">
         {tools.length > 0 ? (
-          <span className="text-[10px] leading-4 text-mut">{tools.join(', ')}</span>
-        ) : (
-          <span className="font-mono text-[10px] text-dim">-</span>
-        )}
+          <span className="text-[10.5px] leading-[1.5] text-mut">{tools.join(', ')}</span>
+        ) : null}
       </td>
-      <td className="relative px-3 py-1.5 text-right font-mono text-[10px] whitespace-nowrap text-dim tabular-nums">
-        <span className="transition-opacity group-hover:opacity-0 group-focus:opacity-0">{agent.bornAt ? fmtDay(agent.bornAt) : '-'}</span>
-        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10px] text-task opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">Open on map ↗</span>
+      <td className="relative px-3 py-2 text-right font-mono text-[10.5px] whitespace-nowrap text-dim tabular-nums">
+        <span className="transition-opacity group-hover:opacity-0 group-focus:opacity-0">{agent.bornAt ? fmtDay(agent.bornAt) : ''}</span>
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10.5px] text-task opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">Open on map ↗</span>
       </td>
     </tr>
   )

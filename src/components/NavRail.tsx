@@ -1,3 +1,4 @@
+import { CaretUp } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { PERSONAS, personById } from '../data/company'
 import { useStore, type AppView } from '../store'
@@ -24,25 +25,25 @@ export default function NavRail() {
   return (
     <aside className="relative z-40 flex w-[148px] shrink-0 flex-col border-r border-line bg-bg" aria-label="Primary navigation">
       <div className="flex h-14 shrink-0 items-center px-4">
-        <span className={cx('text-[15px] font-semibold tracking-[-0.035em]', fun && 'font-display')}>CoOps</span>
+        <span className={cx('text-[16px] font-semibold tracking-[-0.035em]', fun && 'font-display')}>CoOps</span>
       </div>
       <nav className="flex flex-1 flex-col px-2 py-2">
         {NAV_ITEMS.map((item) => {
           const active = view === item.view
           return (
             <button key={item.view} type="button" aria-current={active ? 'page' : undefined}
-              className={cx('group relative flex h-9 w-full items-center gap-2 px-2 text-left text-[12px] transition-colors', active ? 'bg-raised text-ink' : 'text-mut hover:bg-hover hover:text-ink')}
+              className={cx('group relative flex h-9 w-full items-center gap-2 px-2 text-left text-[13px] transition-colors', active ? 'bg-raised font-medium text-ink' : 'text-mut hover:bg-hover hover:text-ink')}
               onClick={() => useStore.getState().setView(item.view)}>
-              <span className={cx('w-4 font-mono text-[9px] text-dim', active && 'text-task')}>{item.index}</span>
+              <span className={cx('w-4 font-mono text-[10px] text-dim', active && 'text-task')}>{item.index}</span>
               <span className={cx('min-w-0 flex-1 truncate', fun && 'font-display')}>{item.label}</span>
               {item.view === 'map' && mapActivity && <span className="size-1.5 rounded-full bg-task" title="Work in flight" aria-label="Work in flight" />}
-              {item.view === 'approvals' && approvals > 0 && <span className={cx('text-[10px] tabular-nums text-human', fun ? 'font-display' : 'font-mono')}>{approvals}</span>}
+              {item.view === 'approvals' && approvals > 0 && <span className={cx('text-[11px] tabular-nums text-human', fun ? 'font-display' : 'font-mono')}>{approvals}</span>}
             </button>
           )
         })}
       </nav>
       <div className="shrink-0 border-t border-line p-2">
-        <button type="button" className="flex h-8 w-full items-center px-2 text-[11px] text-dim hover:bg-hover hover:text-ink"
+        <button type="button" className="flex h-8 w-full items-center px-2 text-[12px] text-dim hover:bg-hover hover:text-ink"
           onClick={() => useStore.getState().toggleTheme()} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
           <span className="w-6 font-mono text-[10px]">{theme === 'dark' ? 'L' : 'D'}</span>
           {theme === 'dark' ? 'Light mode' : 'Dark mode'}
@@ -69,9 +70,9 @@ function PersonaMenu({ personaId }: { personaId?: string }) {
     <div ref={ref} className="relative">
       <button type="button" className="flex h-9 w-full items-center gap-2 px-2 text-left hover:bg-hover" onClick={() => setOpen((value) => !value)}
         title={person ? `Viewing as ${person.name}` : 'Switch persona'} aria-expanded={open}>
-        <span className="flex size-5 shrink-0 items-center justify-center bg-raised text-[8px] font-semibold text-mut">{person?.initials ?? '?'}</span>
-        <span className="min-w-0 flex-1 truncate text-[11px] text-mut">{person?.name.split(' ')[0] ?? 'Persona'}</span>
-        <span className="text-[9px] text-dim">⌃</span>
+        <span className="flex size-6 shrink-0 items-center justify-center bg-raised text-[10px] font-semibold text-mut">{person?.initials ?? '?'}</span>
+        <span className="min-w-0 flex-1 truncate text-[12px] text-mut">{person?.name.split(' ')[0] ?? 'Persona'}</span>
+        <CaretUp size={11} weight="bold" className="shrink-0 text-dim" />
       </button>
       {open && (
         <div className="panel anim-fadeup absolute bottom-10 left-0 z-50 w-60 p-1">
@@ -81,12 +82,12 @@ function PersonaMenu({ personaId }: { personaId?: string }) {
             return (
               <button key={entry.personId} type="button" className={cx('flex w-full items-center gap-2 px-2 py-2 text-left hover:bg-hover', entry.personId === personaId && 'bg-raised')}
                 onClick={() => { setOpen(false); useStore.getState().switchPersona(entry.personId) }}>
-                <span className="flex size-5 shrink-0 items-center justify-center bg-raised text-[8px] font-semibold text-mut">{candidate.initials}</span>
-                <span className="min-w-0"><span className="block truncate text-[12px]">{candidate.name}</span><span className="block truncate text-[10px] text-dim">{entry.label}</span></span>
+                <span className="flex size-6 shrink-0 items-center justify-center bg-raised text-[10px] font-semibold text-mut">{candidate.initials}</span>
+                <span className="min-w-0"><span className="block truncate text-[12.5px]">{candidate.name}</span><span className="block truncate text-[10.5px] text-dim">{entry.label}</span></span>
               </button>
             )
           })}
-          <button type="button" className="mt-1 w-full border-t border-line px-2 py-2 text-left text-[11px] text-mut hover:bg-hover"
+          <button type="button" className="mt-1 w-full border-t border-line px-2 py-2 text-left text-[12px] text-mut hover:bg-hover"
             onClick={() => { setOpen(false); useStore.getState().setFirstRunStep(0) }}>Replay intro</button>
         </div>
       )}
