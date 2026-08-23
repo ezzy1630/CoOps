@@ -1,6 +1,6 @@
 import { useMemo, type MouseEvent } from 'react'
 import { useStore } from '../store'
-import { artifactEventName, buildArtifactDoc } from '../data/artifactContent'
+import { readArtifactRecord, type ArtifactProvenance } from '../artifacts/model'
 import { deptById, personById } from '../data/company'
 import { cx, fmtClock, fmtDay } from '../utils'
 import { Pill } from '../components/ui'
@@ -40,18 +40,19 @@ export default function DocumentsPage() {
               </div>
             </div>
           ) : (
-            <table className="w-full min-w-[1100px] table-fixed border-collapse text-left">
+            <table className="w-full min-w-[1020px] table-fixed border-collapse text-left">
               <colgroup>
-                <col className="w-[30%]" />
+                <col className="w-[25%]" />
+                <col className="w-[12%]" />
                 <col className="w-[14%]" />
-                <col className="w-[13%]" />
-                <col className="w-[21%]" />
-                <col className="w-[11%]" />
-                <col className="w-[11%]" />
+                <col className="w-[12%]" />
+                <col className="w-[18%]" />
+                <col className="w-[10%]" />
+                <col className="w-[9%]" />
               </colgroup>
               <thead>
                 <tr className="border-b border-line">
-                  {['Document', 'Type', 'Desk', 'Task'].map((label) => <th key={label} className="px-3 py-2.5 text-[11px] font-medium text-dim">{label}</th>)}
+                  {['Document', 'Type', 'Provenance', 'Desk', 'Task'].map((label) => <th key={label} className="px-3 py-2.5 text-[11px] font-medium text-dim">{label}</th>)}
                   <th className="px-3 py-2.5 text-right text-[11px] font-medium text-dim">Delivered</th>
                   <th className="px-3 py-2.5 text-right text-[11px] font-medium text-dim">Open</th>
                 </tr>
@@ -70,13 +71,12 @@ export default function DocumentsPage() {
 }
 
 function DocumentRow({ event, world, index }: { event: WorldEvent; world: World; index: number }) {
-  const doc = buildArtifactDoc(event, {
+  const record = readArtifactRecord(event, {
     task: event.taskId ? world.tasks.get(event.taskId) : undefined,
     agents: world.agents,
   })
   const dept = event.deptFrom ? deptById.get(event.deptFrom) : undefined
   const task = event.taskId ? world.tasks.get(event.taskId) : undefined
-  const name = artifactEventName(event)
   const from = refLabel(event.from, world)
   const deptHue = personById.get(dept?.leadId ?? '')?.hue
 
@@ -124,12 +124,13 @@ function DocumentRow({ event, world, index }: { event: WorldEvent; world: World;
             <DocumentGlyph />
           </span>
           <div className="min-w-0">
-            <div className="truncate text-[13px] font-medium text-ink" title={doc.title}>{doc.title}</div>
-            <div className="mt-0.5 truncate text-[10.5px] text-dim" title={from ? `Prepared by ${from}` : name}>{from ? `Prepared by ${from}` : name}</div>
+            <div className="truncate text-[13px] font-medium text-ink" title={record.title}>{record.title}</div>
+            <div className="mt-0.5 truncate text-[10.5px] text-dim" title={from ? `Prepared by ${from}` : record.name}>{from ? `Prepared by ${from}` : record.name}</div>
           </div>
         </div>
       </td>
-      <td className="px-3 py-2"><Pill className="text-artifact">{doc.label}</Pill></td>
+      <td className="px-3 py-2"><Pill className="text-artifact">{record.label}</Pill></td>
+      <td className="px-3 py-2"><Pill className={PROVENANCE_CLASS[record.provenance]}>{record.provenanceLabel}</Pill></td>
       <td className="px-3 py-2 text-[12px] text-mut">{dept?.name ?? 'Company'}</td>
       <td className="max-w-0 px-3 py-2">
         <div className={cx('truncate text-[12px]', task ? 'text-ink' : 'text-dim')} title={task?.title}>{task?.title ?? 'Unlinked delivery'}</div>
@@ -148,6 +149,12 @@ function DocumentRow({ event, world, index }: { event: WorldEvent; world: World;
       </td>
     </tr>
   )
+}
+
+const PROVENANCE_CLASS: Record<ArtifactProvenance, string> = {
+  'live-content': 'text-artifact',
+  'rehearsal-template': 'text-permission',
+  'metadata-only': 'text-escalation',
 }
 
 function refLabel(ref: Ref | undefined, world: World): string | null {

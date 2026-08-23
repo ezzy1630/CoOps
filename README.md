@@ -24,7 +24,8 @@ Open http://localhost:5173 in **Chrome on a desktop** (voice input uses the Web 
 3. Scroll to zoom the company map: departments → agents → task envelopes on the edges.
 4. In Live mode, press **Start live launch** to ask the Marketing Agent to create a launch worker. For the deterministic path, open `?mode=rehearsal` and press **Run launch rehearsal**.
 5. Click any finished task and press **↺ Replay** to replay asynchronous work in seconds.
-6. **⌘K** jumps to any agent, task, person, department, or approval.
+6. Open **Activity** to inspect the runtime, event log, tool actions, human gates, artifact provenance, guardrail blocks, and per-task traces.
+7. **⌘K** jumps to any agent, task, person, department, or approval.
 
 ## Stack
 
@@ -48,3 +49,9 @@ capability levels, and Cloud Run deployment.
 ## Architecture note
 
 The entire UI is a fold over a typed event log (`src/engine/reducer.ts`). The rehearsal datasets (`src/data/scenarios.ts`, `src/data/hero.ts`) emit the same `WorldEvent` types as the backend and tag every scripted event with `payload.simulated`. Live mode never falls back to those datasets.
+
+Artifact views read one record from `src/artifacts/model.ts`. That module distinguishes live content, rehearsal templates, and metadata-only deliveries. A live event without content never renders authored rehearsal material, and external actions appear only when an event carries a valid URL.
+
+The navigation rail and Activity read the same run summary from `src/evidence/runEvidence.ts`. Secondary pages and panels load on demand so the map remains the fast initial path.
+
+See [docs/architecture.md](docs/architecture.md) for the frontend, backend, Gemini, and Google Cloud execution diagram.

@@ -1,6 +1,6 @@
-import type { AgentDef, Task, WorldEvent } from '../types'
-import { BASE_AGENTS, deptById, personById } from './company'
-import { between, mulberry32, pick, type Rng } from '../engine/rng'
+import type { AgentDef, Task, WorldEvent } from '../types.js'
+import { BASE_AGENTS, deptById, personById } from './company.js'
+import { between, mulberry32, pick, type Rng } from '../engine/rng.js'
 
 /**
  * Turns an ArtifactDelivered event into a structured internal document —

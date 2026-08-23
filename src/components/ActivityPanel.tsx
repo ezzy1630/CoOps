@@ -5,13 +5,17 @@ import { useStore } from '../store'
 import { DEPARTMENTS, deptById } from '../data/company'
 import { cx, fmtClock, fmtDay, fmtDuration, fmtUsd } from '../utils'
 import { Chip, Pill, typeLabel } from './ui'
-import type { EventType, WorldEvent } from '../types'
+import type { EventType, Task, WorldEvent } from '../types'
+import { readRunEvidence } from '../evidence/runEvidence'
 
 /** Live + historical run feed for the whole company. */
 export default function ActivityPanel() {
   const log = useStore((s) => s.log)
   const world = useStore((s) => s.world)
   const highlightEventId = useStore((s) => s.highlightEventId)
+  const executionMode = useStore((s) => s.executionMode)
+  const liveConnection = useStore((s) => s.liveConnection)
+  const runtimeInfo = useStore((s) => s.runtimeInfo)
   const [dept, setDept] = useState<string>('all')
   const [group, setGroup] = useState<string>('all')
   const [traceTaskId, setTraceTaskId] = useState<string | null>(null)
@@ -47,6 +51,13 @@ export default function ActivityPanel() {
               <span className={blocked > 0 ? 'text-human' : undefined}>{blocked} blocked</span> · {fmtUsd(spend)} today
             </span>
           </div>
+          <RunEvidenceStrip
+            events={log}
+            tasks={tasks}
+            executionMode={executionMode}
+            liveConnection={liveConnection}
+            runtimeInfo={runtimeInfo}
+          />
           <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1">
             <FilterChip label="All" active={dept === 'all'} onClick={() => setDept('all')} />
             {DEPARTMENTS.map((d) => (
@@ -102,6 +113,52 @@ export default function ActivityPanel() {
       </div>
 
       {traceTaskId && <TraceModal taskId={traceTaskId} onClose={() => setTraceTaskId(null)} />}
+    </div>
+  )
+}
+
+function RunEvidenceStrip({
+  events,
+  tasks,
+  executionMode,
+  liveConnection,
+  runtimeInfo,
+}: {
+  events: WorldEvent[]
+  tasks: Task[]
+  executionMode: ReturnType<typeof useStore.getState>['executionMode']
+  liveConnection: ReturnType<typeof useStore.getState>['liveConnection']
+  runtimeInfo: ReturnType<typeof useStore.getState>['runtimeInfo']
+}) {
+  const evidence = readRunEvidence({
+    events,
+    tasks,
+    executionMode,
+    liveConnection,
+    runtimeInfo,
+  })
+
+  return (
+    <section aria-label="Run evidence" className="mt-3 grid min-w-[760px] grid-cols-[1.2fr_0.8fr_1fr_1.25fr_1fr] border-y border-line">
+      <EvidenceCell label="Runtime" value={evidence.runtime} detail={evidence.runtimeDetail} />
+      <EvidenceCell label="Event log" value={`${evidence.events} events`} detail={`${evidence.tasks} tasks`} />
+      <EvidenceCell label="Tool actions" value={`${evidence.tools} recorded`} detail={`${evidence.humanGates} human gates`} />
+      <EvidenceCell
+        label="Artifacts"
+        value={`${evidence.artifacts.total} delivered`}
+        detail={`${evidence.artifacts.live} live, ${evidence.artifacts.rehearsal} rehearsal, ${evidence.artifacts.metadataOnly} metadata only`}
+      />
+      <EvidenceCell label="Guardrails" value={`${evidence.guardrails} ${evidence.guardrails === 1 ? 'block' : 'blocks'}`} detail="Inspect every event below" />
+    </section>
+  )
+}
+
+function EvidenceCell({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="min-w-0 border-r border-line bg-raised/20 px-3 py-2.5 last:border-r-0">
+      <div className="text-[10px] font-medium text-dim">{label}</div>
+      <div className="mt-1 truncate text-[12.5px] font-medium text-ink" title={value}>{value}</div>
+      <div className="mt-0.5 truncate font-mono text-[9.5px] text-dim" title={detail}>{detail}</div>
     </div>
   )
 }
@@ -385,7 +442,7 @@ function TraceModal({ taskId, onClose }: { taskId: string; onClose: () => void }
         </div>
 
         <div className="border-t border-line px-3 py-2 font-mono text-[10.5px] text-dim">
-          Derived from the event log · local trace visualization
+          Event-log trace · durations use measured latency or declared travel time
         </div>
       </div>
     </div>,
