@@ -12,7 +12,7 @@ import { openJsonlMemory } from './memory/jsonl.js'
 import { openFirestoreMemory } from './memory/firestore.js'
 import { workerIdFromName } from './ids.js'
 import { cancelExchangeTask } from './brain/exchanges.js'
-import type { BrainCtx } from './brain/types.js'
+import type { BrainAdapter, BrainCtx } from './brain/types.js'
 import { AGENT_DEPT } from '../../src/data/company.js'
 import type { WorldEvent } from '../../src/types.js'
 
@@ -52,9 +52,22 @@ const memory = cfg.firestore
   ? openFirestoreMemory({ projectId: cfg.firestore.projectId })
   : openJsonlMemory(cfg.dataDir)
 console.log(`[memory] ${cfg.firestore ? 'firestore' : 'jsonl'}`)
-const brain = cfg.geminiApiKey
-  ? createGeminiBrain({ apiKey: cfg.geminiApiKey, guardrail, memory })
-  : createMockBrain({ memory })
+const apiKey = cfg.geminiApiKey
+const effectiveBrain =
+  !cfg.brainMode || cfg.brainMode === 'auto' ? (apiKey ? 'gemini' : 'mock') : cfg.brainMode
+let brain: BrainAdapter
+if (effectiveBrain === 'gemini') {
+  if (!apiKey) {
+    console.error('[brain] COOPS_BRAIN=gemini set but GEMINI_API_KEY is missing')
+    process.exit(1)
+  }
+  console.log('[brain] gemini')
+  brain = createGeminiBrain({ apiKey, guardrail, memory })
+} else {
+  const reason = cfg.brainMode === 'mock' ? 'forced by COOPS_BRAIN' : 'no GEMINI_API_KEY'
+  console.log(`[brain] mock fixture (${reason})`)
+  brain = createMockBrain({ memory })
+}
 
 const brainCtx: BrainCtx = {
   emit: e => {

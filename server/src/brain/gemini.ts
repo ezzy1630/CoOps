@@ -8,7 +8,6 @@ import { createDryRunTools, WORKSPACE_TOOLS } from '../tools/dryrun.js'
 import type { WorkspaceToolAdapter } from '../tools/types.js'
 import { runExchange } from './exchanges.js'
 import type { ExchangeExecutor } from './exchanges.js'
-import { createMockBrain } from './mock.js'
 import type { BrainAdapter, BrainCtx } from './types.js'
 
 const REFUSAL = 'That request was blocked by policy — rephrase or contact your department lead.'
@@ -112,9 +111,11 @@ export function createGeminiBrain(opts: {
       try {
         await runTurn(ctx, ai, model, opts.guardrail, opts.memory, workspaceTools, geminiExecutor, agentId, deptId, text, personId)
       } catch (err) {
-        console.error('[gemini-brain] falling back to mock brain for this message:', err)
-        createMockBrain().handle(ctx, agentId, deptId, text, personId).catch((fallbackErr) => {
-          console.error('[gemini-brain] mock fallback failed:', fallbackErr)
+        console.error(`[gemini-brain] turn failed for agent ${agentId} in ${deptId}:`, err)
+        const reply = `I hit an internal error handling that request. Please try again.\n${String((err as Error | undefined)?.message ?? err)}`
+        ctx.emit({
+          type: 'Chat', from: { kind: 'agent', id: agentId }, to: { kind: 'person', id: personId },
+          title: reply, payload: { text: reply },
         })
       }
     },

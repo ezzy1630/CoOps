@@ -6,6 +6,7 @@ export interface Config {
   allowDevEmit: boolean
   /** Optional so existing Config literals (spine.test.ts) stay valid. */
   enableA2a?: boolean
+  brainMode?: 'mock' | 'gemini' | 'auto'
   geminiApiKey?: string
   firestore?: { projectId?: string }
   modelArmor?: { project: string; location: string; templateId: string }
@@ -17,6 +18,9 @@ export function loadConfig(): Config {
   const maProject = process.env.COOPS_MODELARMOR_PROJECT
   const maLocation = process.env.COOPS_MODELARMOR_LOCATION
   const maTemplate = process.env.COOPS_MODELARMOR_TEMPLATE
+  const brainEnv = process.env.COOPS_BRAIN?.toLowerCase()
+  const brainMode =
+    brainEnv === 'mock' || brainEnv === 'gemini' || brainEnv === 'auto' ? brainEnv : undefined
   return {
     port: Number.isNaN(portEnv) ? 8080 : portEnv,
     dataDir: process.env.COOPS_DATA_DIR ?? resolve('server/data'),
@@ -24,6 +28,7 @@ export function loadConfig(): Config {
     enableA2a: process.env.COOPS_ENABLE_A2A === '1',
     geminiApiKey: process.env.GEMINI_API_KEY,
     ...(project ? { firestore: { projectId: project } } : {}),
+    brainMode,
     ...(maProject && maLocation && maTemplate
       ? { modelArmor: { project: maProject, location: maLocation, templateId: maTemplate } }
       : {}),
