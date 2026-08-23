@@ -111,7 +111,19 @@ export default function ApprovalsPanel() {
   )
 }
 
-const RESOLVED_TYPES = new Set(['AccountConnected', 'ApprovalGranted', 'BlueprintApproved'])
+const RESOLVED_TYPES = new Set(['AccountConnected', 'ApprovalGranted', 'BlueprintApproved', 'TaskFailed'])
+
+function DenyButton({ approval }: { approval: PendingApproval }) {
+  return (
+    <button
+      className="btn h-7 px-2.5 text-[11px] text-mut"
+      title="Deny this request — the task is closed as failed"
+      onClick={(event) => { event.stopPropagation(); useStore.getState().deny(approval) }}
+    >
+      {approval.kind === 'blueprint' ? 'Reject' : 'Deny'}
+    </button>
+  )
+}
 
 type ApprovalFilter = 'all' | 'mine' | 'auth' | 'approval' | 'blueprint'
 
@@ -247,16 +259,22 @@ function ApprovalRow({
         <td className="px-3 py-1.5 text-right">
           <div className="flex flex-wrap justify-end gap-1.5">
             {approval.kind === 'auth' ? (
-              <button className="btn btn-primary h-7 px-2.5 text-[11px]" onClick={(event) => { event.stopPropagation(); onConnect() }}>
-                Connect account…
-              </button>
+              <>
+                <button className="btn btn-primary h-7 px-2.5 text-[11px]" onClick={(event) => { event.stopPropagation(); onConnect() }}>
+                  Connect account…
+                </button>
+                <DenyButton approval={approval} />
+              </>
             ) : (
-              <button
-                className={cx('btn h-7 px-2.5 text-[11px]', approval.kind === 'blueprint' ? 'btn-primary' : 'btn-human')}
-                onClick={(event) => { event.stopPropagation(); useStore.getState().approve(approval) }}
-              >
-                Approve
-              </button>
+              <>
+                <button
+                  className={cx('btn h-7 px-2.5 text-[11px]', approval.kind === 'blueprint' ? 'btn-primary' : 'btn-human')}
+                  onClick={(event) => { event.stopPropagation(); useStore.getState().approve(approval) }}
+                >
+                  Approve
+                </button>
+                <DenyButton approval={approval} />
+              </>
             )}
             {approval.taskId && (
               <button

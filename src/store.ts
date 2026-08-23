@@ -126,6 +126,7 @@ interface Store {
   emit(e: Omit<WorldEvent, 'ts'> | Omit<WorldEvent, 'ts'>[]): void
   schedule(steps: Step[], baseDelayMs?: number): void
   approve(approval: PendingApproval, asPersonId?: string): void
+  deny(approval: PendingApproval, asPersonId?: string): void
   runHeroAuto(): void
   sendChat(agentId: string, text: string): void
 
@@ -405,6 +406,39 @@ export const useStore = create<Store>()((set, get) => {
       }
       autoResolves = autoResolves.filter((ar) => ar.eventId !== approval.eventId)
       get().toast(titleMap[approval.kind], approval.kind === 'auth' ? 'The run resumes from its checkpoint.' : undefined, 'human')
+    },
+
+    deny(approval, asPersonId) {
+      const by = asPersonId ?? approval.personId
+      const title = approval.kind === 'blueprint'
+        ? `${approval.blueprint?.name ?? 'Agent'} — rejected`
+        : `${approval.what} — denied`
+      if (liveEnabled()) {
+        void fetch(`${backendUrl()}/approvals/${approval.eventId}/decision`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ personId: by, decision: 'deny' }),
+        }).catch(() => get().toast('Backend unreachable', `Could not reach ${backendUrl()}`, 'block'))
+        set({ presence: get().presence.filter((p) => p.where !== `approval:${approval.eventId}`) })
+        get().toast(title, 'The task is closed as failed.', 'human')
+        return
+      }
+      const person = personById.get(by)
+      get().emit({
+        id: `res_${approval.eventId}`,
+        type: 'TaskFailed',
+        taskId: approval.taskId,
+        from: personRef(by),
+        to: approval.requestedBy ?? agentRef('op-marketing'),
+        deptFrom: approval.deptId,
+        deptTo: approval.deptId,
+        title,
+        detail: `Denied by ${person?.name ?? by}. The task is closed as failed.`,
+        payload: { reason: approval.eventId },
+      })
+      set({ presence: get().presence.filter((p) => p.where !== `approval:${approval.eventId}`) })
+      autoResolves = autoResolves.filter((ar) => ar.eventId !== approval.eventId)
+      get().toast(title, 'The task is closed as failed.', 'human')
     },
 
     runHeroAuto() {

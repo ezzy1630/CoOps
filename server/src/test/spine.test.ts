@@ -11,6 +11,7 @@ import { Bus } from '../bus.js'
 import type { Config } from '../config.js'
 import { startHttp } from '../http.js'
 import { EventStore } from '../store.js'
+import { workerIdFromName } from '../ids.js'
 
 interface Frame {
   id: string
@@ -217,6 +218,101 @@ test('dev/emit stores when allowed; restart reloads full log from disk', async t
   const health = await requestJson('GET', `${s2.base}/healthz`)
   assert.equal(health.status, 200)
   assert.deepEqual(health.json, { ok: true, events: 1 })
+})
+
+test('deny decision closes the task as TaskFailed and resolves the request once', async t => {
+  const dir = await tempDir()
+  const s = await startStack(dir)
+  t.after(() => closeServer(s.server))
+  const reader = new SseReader(`${s.base}/events`)
+  t.after(() => reader.close())
+
+  const seeded = await s.store.append({
+    type: 'PermissionRequest',
+    taskId: 'T-t2',
+    blockedOn: { what: 'Help-center publish', personId: 'nina', kind: 'approval' },
+    from: { kind: 'agent', id: 'w-faq' },
+    to: { kind: 'person', id: 'nina' },
+    deptFrom: 'support',
+    deptTo: 'support',
+    title: 'Approval needed: Help-center publish',
+    ts: 1000,
+  })
+
+  const url = `${s.base}/approvals/${seeded.id}/decision`
+  const res = await requestJson('POST', url, { personId: 'nina', decision: 'deny' })
+  assert.equal(res.status, 200)
+  const denied = res.json as WorldEvent
+  assert.equal(denied.type, 'TaskFailed')
+  assert.equal(denied.taskId, 'T-t2')
+  assert.equal(denied.payload?.reason, seeded.id)
+
+  const frame = await reader.waitFor(f => f.id === denied.id || f.ev.id === denied.id)
+  assert.equal(frame.ev.type, 'TaskFailed')
+
+  const again = await requestJson('POST', url, { personId: 'nina', decision: 'deny' })
+  assert.equal(again.status, 409)
+})
+
+test('rejecting a blueprint emits TaskFailed without a task id', async t => {
+  const dir = await tempDir()
+  const s = await startStack(dir)
+  t.after(() => closeServer(s.server))
+
+  const seeded = await s.store.append({
+    type: 'BlueprintProposed',
+    from: { kind: 'agent', id: 'op-marketing' },
+    to: { kind: 'person', id: 'maya' },
+    deptFrom: 'marketing',
+    title: 'Blueprint ready: Summit Launch Agent',
+    payload: {
+      blueprint: {
+        name: 'Summit Launch Agent', deptId: 'marketing', purpose: 'Own the launch.',
+        trigger: 'A person asking', skills: [], toolIds: [], collaborators: [],
+        approvals: [], limits: [], ownerId: 'maya',
+      },
+    },
+    ts: 1000,
+  })
+
+  const res = await requestJson('POST', `${s.base}/approvals/${seeded.id}/decision`, {
+    personId: 'maya', decision: 'deny',
+  })
+  assert.equal(res.status, 200)
+  const rejected = res.json as WorldEvent
+  assert.equal(rejected.type, 'TaskFailed')
+  assert.equal(rejected.taskId, undefined)
+  assert.equal(rejected.payload?.reason, seeded.id)
+})
+
+test('decision endpoint rejects unknown decisions', async t => {
+  const dir = await tempDir()
+  const s = await startStack(dir)
+  t.after(() => closeServer(s.server))
+
+  const seeded = await s.store.append({
+    type: 'AuthRequired',
+    taskId: 'T-t3',
+    blockedOn: { what: 'Connect QuickBooks', personId: 'dana', kind: 'auth' },
+    from: { kind: 'agent', id: 'w-invoice' },
+    to: { kind: 'person', id: 'dana' },
+    title: 'QuickBooks auth required',
+    ts: 1000,
+  })
+  const res = await requestJson('POST', `${s.base}/approvals/${seeded.id}/decision`, {
+    personId: 'dana', decision: 'postpone',
+  })
+  assert.equal(res.status, 400)
+})
+
+test('workerIdFromName derives unique ids per blueprint name', () => {
+  const taken = new Set(['w-copy', 'w-social'])
+  assert.equal(workerIdFromName('Summit Launch Agent', taken), 'w-summit-launch-agent')
+  taken.add('w-summit-launch-agent')
+  assert.equal(workerIdFromName('Summit Launch Agent', taken), 'w-summit-launch-agent-2')
+  assert.equal(workerIdFromName('Summit   Launch -- Agent!', new Set()), 'w-summit-launch-agent')
+  // punctuation-only names still yield a valid id
+  assert.ok(workerIdFromName('???', new Set()).startsWith('w-'))
 })
 
 test('since parameter: stream resumes after the given event, not from it', async t => {
