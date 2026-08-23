@@ -177,7 +177,6 @@ async function runTurn(
   const say = async (raw: string): Promise<boolean> => {
     const verdict = await guardrail.inspect(raw)
     if (verdict.blocked) {
-    if (verdict.blocked) {
       emitBlocked(ctx, deptId, guardrail, verdict.category)
       if (turnTaskId) {
         ctx.cancelTask(turnTaskId)
