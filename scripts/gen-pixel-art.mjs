@@ -924,9 +924,9 @@ function buildHr() {
 
   return cv.outline(INK);
 }
-/* ── villagers: 96×16 strips, six 16×16 frames ────────────────────────────────
- * frameOrder: down0 down1 up0 up1 right0 right1. Head 6px (rows 1–6),
- * torso 5px (7–11), legs 3px (12–14), soles end row 14, ink sole line row 15.
+/* ── villagers: 144×24 strips, six 24×24 frames ───────────────────────────────
+ * frameOrder: down0 down1 up0 up1 right0 right1. Head 8px (rows 2–9),
+ * torso 8px (10–17), legs 5px (18–22), shoe sole row 23.
  * X0 = contact/idle stance, X1 = passing pose. */
 const VARIANTS = [
   { skin: '#f2c99c', hair: '#4a3226', style: 'short',    outfit: 'vest',  top: '#4a80cb', pants: '#5a4a3c' },
@@ -942,151 +942,199 @@ const HAIR_GRAY = '#b8b2a6';
 const SHIRT = '#efe6cf';
 
 function drawVillagerLegs(cv, v, view, step) {
-  const pants = hex(v.pants), shoe = hex(SHOE);
-  const leg = (x, fx) => { cv.rect(x, 12, 2, 2, pants); cv.rect(fx, 14, 2, 1, shoe); };
+  const pants = hex(v.pants), shoe = hex(SHOE), shoeD = mix(SHOE, '#181210', 0.4);
+  const leg = (x, w, h, sx, sw) => {
+    cv.rect(x, 18, w, h, pants);
+    cv.rect(sx, 18 + h, sw, 22 - (18 + h), shoe);
+    cv.rect(sx, 22, sw, 1, shoeD);
+  };
   if (view === 'right') {
-    if (step === 0) { leg(9, 10); leg(5, 4); }
-    else { leg(8, 8); leg(6, 6); }
+    if (step === 0) {
+      leg(12, 3, 3, 12, 4);
+      leg(8, 3, 2, 7, 3);
+    } else {
+      leg(10, 4, 3, 10, 4);
+    }
   } else {
-    if (step === 0) { leg(5, 5); leg(9, 9); }
-    else { leg(6, 6); leg(8, 8); }
+    if (step === 0) {
+      leg(8, 3, 3, 7, 4);
+      leg(13, 3, 3, 13, 4);
+    } else {
+      leg(9, 3, 3, 9, 3);
+      leg(12, 3, 3, 12, 3);
+    }
   }
 }
 
 function drawVillagerTorso(cv, v, view) {
-  const top = hex(v.top), topD = mix(v.top, '#241a22', 0.3), shirt = hex(SHIRT);
-  const x0 = view === 'right' ? 5 : 4, w = view === 'right' ? 6 : 8;
+  const top = hex(v.top), topD = mix(v.top, '#241a22', 0.35), topL = mix(v.top, '#ffffff', 0.2);
+  const shirt = hex(SHIRT), shirtD = mix(SHIRT, '#241a22', 0.2);
+  const belt = hex('#43332a');
   const kind = v.outfit;
+  const x0 = view === 'right' ? 8 : 7;
+  const w = view === 'right' ? 8 : 10;
+
+  cv.rect(x0, 10, w, 7, top);
 
   if (kind === 'vest') {
-    cv.rect(x0, 7, w, 4, shirt);
-    cv.rect(x0, 7, 3, 4, top);
-    cv.rect(x0 + w - 3, 7, 3, 4, top);
-  } else {
-    cv.rect(x0, 7, w, 4, top);
-  }
-  if (kind === 'cloak') {
-    cv.rect(x0, 7, w, 1, topD);
-    cv.set(x0 + 3, 8, hex(SEMANTIC.human));
-    cv.rect(x0, 11, w, 1, topD);
-  } else {
-    cv.rect(x0, 11, w, 1, hex('#43332a'));
-  }
-  if (kind === 'apron') {
-    cv.rect(x0 + 2, 8, w - 4, 4, shirt);
-    cv.set(x0 + 2, 7, shirt);
-    cv.set(x0 + w - 3, 7, shirt);
+    if (view === 'down') {
+      cv.rect(10, 10, 4, 6, shirt);
+      cv.vline(11, 12, 15, shirtD);
+      cv.rect(7, 10, 3, 7, top);
+      cv.rect(14, 10, 3, 7, top);
+      cv.set(9, 13, topD); cv.set(9, 15, topD);
+    } else if (view === 'right') {
+      cv.rect(x0 + 4, 10, 3, 6, shirt);
+      cv.rect(x0, 10, 4, 7, top);
+    }
+  } else if (kind === 'apron') {
+    if (view === 'down') {
+      cv.rect(9, 10, 6, 2, shirt);
+      cv.rect(9, 12, 6, 5, shirt);
+      cv.rect(7, 10, 2, 7, top);
+      cv.rect(15, 10, 2, 7, top);
+      cv.hline(9, 14, 14, shirtD);
+    } else if (view === 'right') {
+      cv.rect(x0 + 3, 11, 4, 6, shirt);
+      cv.rect(x0, 10, 3, 7, top);
+    }
+  } else if (kind === 'cloak') {
+    cv.rect(x0, 10, w, 2, topL);
+    cv.rect(x0, 16, w, 1, topD);
+    if (view === 'down') {
+      cv.rect(11, 11, 2, 2, hex(SEMANTIC.human));
+      cv.vline(11, 13, 16, topD);
+    }
   } else if (kind === 'sash') {
-    cv.rect(x0, 9, w, 1, hex(SEMANTIC.human));
+    if (view === 'down') {
+      cv.rect(9, 10, 6, 1, shirt);
+      cv.line(8, 11, 14, 16, hex(SEMANTIC.human), 2);
+    } else if (view === 'right') {
+      cv.line(x0 + 1, 11, x0 + 6, 16, hex(SEMANTIC.human), 2);
+    }
   } else if (kind === 'scarf') {
-    cv.rect(x0, 7, w, 1, shirt);
-    cv.set(x0 + 1, 8, shirt);
+    cv.rect(x0, 10, w, 2, shirt);
+    if (view === 'down') {
+      cv.rect(9, 12, 2, 4, shirt);
+      cv.rect(10, 13, 2, 4, shirtD);
+    } else if (view === 'right') {
+      cv.rect(x0 + 4, 12, 2, 4, shirt);
+    }
   }
 
-  const sleeve = kind === 'cloak' ? top : topD;
+  if (kind !== 'cloak' && kind !== 'apron') {
+    cv.rect(x0, 17, w, 1, belt);
+    if (view === 'down') cv.set(11, 17, hex(SEMANTIC.human));
+  }
+
+  const sleeveC = kind === 'cloak' ? top : topD;
+  const skinC = hex(v.skin);
   if (view !== 'right') {
-    cv.rect(3, 8, 1, 2, sleeve); cv.set(3, 10, hex(v.skin));
-    cv.rect(12, 8, 1, 2, sleeve); cv.set(12, 10, hex(v.skin));
+    cv.rect(5, 11, 2, 4, sleeveC);
+    cv.rect(5, 15, 2, 2, skinC);
+    cv.rect(17, 11, 2, 4, sleeveC);
+    cv.rect(17, 15, 2, 2, skinC);
   } else {
-    cv.set(8, 8, sleeve); cv.set(8, 9, sleeve); cv.set(8, 10, hex(v.skin));
+    cv.rect(11, 11, 2, 4, sleeveC);
+    cv.rect(11, 15, 2, 2, skinC);
   }
 }
 
 function drawVillagerHead(cv, v, view) {
-  const skin = hex(v.skin), hairC = hex(v.hair), gray = hex(HAIR_GRAY);
+  const skin = hex(v.skin), skinD = mix(v.skin, '#241a22', 0.25);
+  const hairC = hex(v.hair), hairD = mix(v.hair, '#151013', 0.35), hairL = mix(v.hair, '#ffffff', 0.2);
+  const gray = hex(HAIR_GRAY);
   const st = v.style;
-  const eyeRow = st === 'bun' || st === 'curly' ? 5 : st === 'beard' ? 3 : 4;
+  const eyeY = 6;
 
   if (view === 'down') {
+    cv.rect(8, 3, 8, 7, skin);
+    cv.hline(8, 15, 9, skinD);
+
     if (st === 'beard') {
-      cv.rect(5, 1, 6, 4, skin);
-      cv.rect(5, 5, 6, 2, gray);
-      cv.rect(6, 7, 4, 1, gray);
+      cv.rect(8, 2, 8, 3, gray);
+      cv.rect(8, 6, 2, 4, gray);
+      cv.rect(14, 6, 2, 4, gray);
+      cv.rect(8, 8, 8, 2, gray);
+      cv.rect(9, 10, 6, 1, gray);
     } else if (st === 'bun') {
-      cv.rect(7, 1, 2, 1, hairC);
-      cv.rect(5, 2, 6, 2, hairC);
-      cv.rect(5, 4, 6, 3, skin);
+      cv.rect(10, 1, 4, 2, hairC);
+      cv.rect(8, 2, 8, 3, hairC);
+      cv.rect(7, 3, 2, 4, hairC);
+      cv.rect(15, 3, 2, 4, hairC);
     } else if (st === 'curly') {
-      cv.rect(4, 2, 8, 2, hairC);
-      cv.hline(5, 10, 1, hairC);
-      cv.set(4, 4, hairC); cv.set(11, 4, hairC);
-      cv.rect(5, 4, 6, 3, skin);
-    } else {
-      cv.rect(5, 1, 6, 2, hairC);
-      cv.rect(5, 3, 6, 4, skin);
-      if (st === 'short') { cv.set(5, 3, hairC); cv.set(10, 3, hairC); }
-      else if (st === 'long') { cv.vline(5, 3, 7, hairC); cv.vline(10, 3, 7, hairC); }
-      else if (st === 'ponytail') { cv.vline(11, 3, 7, hairC); }
-      else if (st === 'braids') {
-        cv.rect(3, 3, 2, 6, hairC); cv.rect(11, 3, 2, 6, hairC);
-        cv.set(3, 8, hex(SEMANTIC.human)); cv.set(12, 8, hex(SEMANTIC.human));
-      } else if (st === 'wavy') {
-        cv.vline(5, 4, 5, hairC); cv.vline(10, 4, 5, hairC);
-        cv.set(4, 6, hairC); cv.set(11, 6, hairC);
-      }
-    }
-    cv.set(6, eyeRow, hex(INK)); cv.set(9, eyeRow, hex(INK));
-  } else if (view === 'up') {
-    if (st === 'beard') {
-      cv.rect(5, 1, 6, 5, skin);
-      cv.rect(5, 6, 6, 1, gray);
-    } else if (st === 'bun') {
-      cv.rect(7, 1, 2, 1, hairC);
-      cv.rect(5, 2, 6, 5, hairC);
-    } else if (st === 'curly') {
-      cv.rect(4, 1, 8, 6, hairC);
-    } else if (st === 'ponytail') {
-      cv.rect(5, 1, 6, 5, hairC);
-      cv.rect(5, 6, 6, 1, skin);
-      cv.rect(7, 6, 2, 5, hairC);
+      cv.rect(7, 1, 10, 4, hairC);
+      cv.rect(6, 3, 2, 5, hairC);
+      cv.rect(16, 3, 2, 5, hairC);
+      cv.set(8, 2, hairL); cv.set(13, 2, hairL);
+    } else if (st === 'short') {
+      cv.rect(8, 2, 8, 3, hairC);
+      cv.rect(7, 3, 2, 3, hairC);
+      cv.rect(15, 3, 2, 3, hairC);
+      cv.set(9, 2, hairL); cv.set(10, 2, hairL);
     } else if (st === 'long') {
-      cv.rect(5, 1, 6, 6, hairC);
-      cv.rect(5, 7, 6, 3, hairC);
+      cv.rect(8, 2, 8, 3, hairC);
+      cv.rect(7, 3, 2, 8, hairC);
+      cv.rect(15, 3, 2, 8, hairC);
+    } else if (st === 'ponytail') {
+      cv.rect(8, 2, 8, 3, hairC);
+      cv.rect(7, 3, 2, 4, hairC);
+      cv.rect(15, 3, 2, 4, hairC);
+      cv.rect(16, 4, 2, 6, hairC);
     } else if (st === 'braids') {
-      cv.rect(5, 1, 6, 5, hairC);
-      cv.rect(5, 6, 6, 1, skin);
-      cv.vline(4, 6, 9, hairC); cv.vline(11, 6, 9, hairC);
+      cv.rect(8, 2, 8, 3, hairC);
+      cv.rect(6, 3, 2, 7, hairC);
+      cv.rect(16, 3, 2, 7, hairC);
+      cv.rect(6, 9, 2, 1, hex(SEMANTIC.human));
+      cv.rect(16, 9, 2, 1, hex(SEMANTIC.human));
     } else if (st === 'wavy') {
-      cv.rect(5, 1, 6, 5, hairC);
-      cv.rect(5, 6, 6, 1, skin);
-      cv.rect(4, 6, 2, 3, hairC); cv.rect(10, 6, 2, 3, hairC);
-    } else {
-      cv.rect(5, 1, 6, 6, hairC);
+      cv.rect(8, 2, 8, 3, hairC);
+      cv.rect(7, 3, 2, 7, hairC);
+      cv.rect(15, 3, 2, 7, hairC);
+      cv.set(6, 7, hairC); cv.set(17, 7, hairC);
+    }
+
+    cv.set(9, eyeY, hex(INK));
+    cv.set(14, eyeY, hex(INK));
+  } else if (view === 'up') {
+    cv.rect(8, 2, 8, 8, hairC);
+    cv.rect(7, 3, 10, 6, hairC);
+    if (st === 'bun') {
+      cv.rect(10, 1, 4, 2, hairD);
+    } else if (st === 'ponytail') {
+      cv.rect(11, 5, 2, 6, hairD);
+    } else if (st === 'long') {
+      cv.rect(7, 3, 10, 8, hairC);
+    } else if (st === 'braids') {
+      cv.rect(6, 4, 2, 7, hairC);
+      cv.rect(16, 4, 2, 7, hairC);
+      cv.rect(6, 10, 2, 1, hex(SEMANTIC.human));
+      cv.rect(16, 10, 2, 1, hex(SEMANTIC.human));
+    } else if (st === 'beard') {
+      cv.rect(8, 2, 8, 8, gray);
     }
   } else {
+    cv.rect(9, 3, 7, 7, skin);
+    cv.rect(8, 2, 7, 4, hairC);
     if (st === 'beard') {
-      cv.rect(5, 1, 7, 4, skin);
-      cv.rect(5, 5, 2, 2, skin);
-      cv.rect(7, 5, 5, 2, gray);
-      cv.rect(10, 7, 2, 1, gray);
+      cv.rect(8, 2, 7, 4, gray);
+      cv.rect(12, 7, 4, 3, gray);
     } else if (st === 'bun') {
-      cv.rect(4, 1, 2, 2, hairC);
-      cv.rect(5, 3, 2, 4, hairC);
-      cv.rect(7, 3, 5, 4, skin);
-      cv.rect(5, 1, 7, 2, hairC);
-      cv.set(12, 5, skin);
-    } else if (st === 'curly') {
-      cv.rect(4, 1, 8, 3, hairC);
-      cv.set(4, 4, hairC); cv.set(5, 4, hairC);
-      cv.rect(8, 4, 4, 3, skin);
-      cv.set(12, 5, skin);
-    } else {
-      cv.rect(7, 3, 5, 4, skin);
-      cv.set(12, 5, skin);
-      cv.rect(5, 1, 7, 2, hairC);
-      cv.rect(5, 3, 2, 4, hairC);
-      if (st === 'long') { cv.rect(5, 3, 2, 7, hairC); }
-      else if (st === 'ponytail') { cv.rect(3, 4, 2, 4, hairC); }
-      else if (st === 'braids') { cv.vline(5, 3, 8, hairC); cv.set(5, 8, hex(SEMANTIC.human)); }
-      else if (st === 'wavy') { cv.vline(5, 4, 7, hairC); cv.set(4, 7, hairC); }
-      else if (st === 'short') { cv.set(7, 3, hairC); }
+      cv.rect(7, 1, 3, 3, hairC);
+    } else if (st === 'ponytail') {
+      cv.rect(6, 3, 3, 6, hairC);
+    } else if (st === 'long') {
+      cv.rect(7, 3, 3, 8, hairC);
+    } else if (st === 'braids') {
+      cv.rect(8, 3, 2, 8, hairC);
+      cv.rect(8, 10, 2, 1, hex(SEMANTIC.human));
     }
-    cv.set(10, eyeRow, hex(INK));
+    cv.set(14, eyeY, hex(INK));
   }
 }
 
 function buildAvatarCell(v, view, step) {
-  const cv = new Cv(16, 16);
+  const cv = new Cv(24, 24);
   drawVillagerLegs(cv, v, view, step);
   drawVillagerTorso(cv, v, view);
   drawVillagerHead(cv, v, view);
@@ -1094,9 +1142,9 @@ function buildAvatarCell(v, view, step) {
 }
 
 function buildAvatarStrip(v) {
-  const strip = new Cv(96, 16);
+  const strip = new Cv(144, 24);
   const FRAMES = [['down', 0], ['down', 1], ['up', 0], ['up', 1], ['right', 0], ['right', 1]];
-  FRAMES.forEach(([view, step], i) => buildAvatarCell(v, view, step).blit(strip, i * 16, 0));
+  FRAMES.forEach(([view, step], i) => buildAvatarCell(v, view, step).blit(strip, i * 24, 0));
   return strip;
 }
 
@@ -1196,7 +1244,7 @@ function buildManifest() {
       door: { x: d.door.x, y: d.door.y },
     })),
     avatars: {
-      cell: 16,
+      cell: 24,
       frameOrder: ['down0', 'down1', 'up0', 'up1', 'right0', 'right1'],
       variants: Array.from({ length: 8 }, (_, i) => `/pixel/avatars/v${i}.png`),
     },

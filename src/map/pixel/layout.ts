@@ -1,8 +1,8 @@
 import type { AgentDef } from '../../types'
 import type { PixelArt, PixelBuilding, Pt } from './art'
 
-/** A 16px avatar cell renders 48 world-units tall; buildings draw 1:1. */
-export const SPRITE_SCALE = 3
+/** All pixel art assets render at native 1:1 canvas units for uniform texel density. */
+export const SPRITE_SCALE = 1
 
 // ─── Stage math ──────────────────────────────────────────────────────────────
 
@@ -29,8 +29,8 @@ export const variantFor = (agentId: string, variantCount: number): number =>
 
 // ─── Villager stand points ───────────────────────────────────────────────────
 
-const OP_DOOR_GAP = 26 // operators clear their doorway (and the dept label)
-const RING_RADII = [46, 80] // sized for 48-unit sprites: neighbours need ~40 units
+const OP_DOOR_GAP = 14 // operators clear their doorway (and the dept label)
+const RING_RADII = [24, 44] // sized for 24-unit sprites: neighbours need ~20 units
 const RING_SLOTS = 6 // workers per ring before spilling outward
 const FAN_ARC = Math.PI // half-circle toward the street, not back at the wall
 
@@ -116,8 +116,8 @@ export function buildingFor(art: PixelArt, deptId: string): PixelBuilding | unde
  *  (the same diagonal the classic map's badge anchors use). */
 export function mailAnchor(art: PixelArt, b: PixelBuilding, idx: number): Pt {
   return clampToWorld(art, {
-    x: b.door.x + 24 + idx * 8,
-    y: b.door.y + 10 + idx * 46,
+    x: b.door.x + 16 + idx * 6,
+    y: b.door.y + 6 + idx * 20,
   })
 }
 

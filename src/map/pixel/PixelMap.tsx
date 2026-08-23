@@ -17,10 +17,10 @@ import {
   type StandSpot,
 } from './layout'
 import { deriveWalkers, emoteFor, lastActs, lastSpeech } from './choreography'
-const CELL = 16 // avatar cell in the strip, manifest avatars.cell
+const CELL = 24 // avatar cell in the strip, manifest avatars.cell
 const CELL_PX = CELL * SPRITE_SCALE
-// bubbles and letters draw at ×2: full-size cells would crowd the heads they label
-const EMOTE_PX = CELL * 2
+// bubbles and letters draw at native 1:1 scale for uniform pixel consistency
+const EMOTE_PX = 16
 /** an emote shows while its act is fresh, then the village calms down */
 const EMOTE_FRESH_MS = 6000
 /** a spoken line hangs over its speaker briefly, then the emote returns */
@@ -82,14 +82,14 @@ function StatusBubble({
         alt=""
         draggable={false}
         className="pixelated pointer-events-none absolute select-none"
-        style={{ left: 0, top: -(CELL_PX + EMOTE_PX + 4), transform: 'translateX(-50%)', width: EMOTE_PX, height: EMOTE_PX }}
+        style={{ left: 0, top: -(CELL_PX + EMOTE_PX + 2), transform: 'translateX(-50%)', width: EMOTE_PX, height: EMOTE_PX }}
       />
     ) : null
   }
   return (
     <div
       className="absolute"
-      style={{ left: 0, top: -(CELL_PX + 12), transform: 'translate(-50%, -100%)', width: 190 }}
+      style={{ left: 0, top: -(CELL_PX + 8), transform: 'translate(-50%, -100%)', width: 190 }}
       onClick={(e) => {
         e.stopPropagation()
         setPinned((p) => !p)
@@ -428,11 +428,11 @@ function Scene({
               <div
                 className="pointer-events-none absolute rounded-[50%]"
                 style={{
-                  left: -23,
-                  top: -9,
-                  width: 46,
-                  height: 18,
-                  border: `2px solid hsl(${ownerHue} 42% 38% / 0.55)`,
+                  left: -13,
+                  top: -5,
+                  width: 26,
+                  height: 10,
+                  border: `1.5px solid hsl(${ownerHue} 42% 38% / 0.55)`,
                   background: `hsl(${ownerHue} 58% 52% / 0.13)`,
                 }}
               />
@@ -461,10 +461,10 @@ function Scene({
               }}
             />
             <div
-              className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-sm border px-1 text-[8.5px] leading-snug"
+              className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-sm border px-1 text-[8px] leading-snug"
               style={{
                 left: 0,
-                top: 3,
+                top: 2,
                 background: art.palette.paper,
                 color: art.palette.ink,
                 borderColor: hexA(art.palette.outline, 0.45),
@@ -493,12 +493,12 @@ function Scene({
             <div
               className="pointer-events-none absolute rounded-[50%]"
               style={{
-                left: wk.x - 17,
-                top: wk.y - 6,
-                width: 34,
-                height: 12,
+                left: wk.x - 11,
+                top: wk.y - 4,
+                width: 22,
+                height: 8,
                 zIndex: wk.z,
-                border: `2px solid ${wk.color}`,
+                border: `1.5px solid ${wk.color}`,
                 background: `color-mix(in srgb, ${wk.color} 16%, transparent)`,
                 opacity: wk.opacity,
               }}

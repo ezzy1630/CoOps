@@ -67,7 +67,7 @@ All PNGs are 8-bit RGBA. Sizes are pinned by the manifest schema.
 | `buildings/support.png`           | 104×92    | Tavern: shingled gable, glowing windows + teal shutters, hanging sign, chimney |
 | `buildings/operations.png`        | 124×108   | Windmill: tapered tower, lattice sails, orange cap, stone skirt  |
 | `buildings/hr.png`                | 104×88    | Community hall: violet gable + cupola, pennant banner, flower boxes |
-| `avatars/v0.png` … `v7.png`       | 96×16     | Eight villagers; six 16×16 frames per strip                     |
+| `avatars/v0.png` … `v7.png`       | 144×24    | Eight villagers; six 24×24 frames per strip                     |
 | `emotes/working.png`              | 16×16     | Speech bubble + hammer                                           |
 | `emotes/blocked.png`              | 16×16     | Speech bubble + padlock (guard violet)                           |
 | `emotes/awaiting.png`             | 16×16     | Speech bubble + key (human amber shaft)                          |
@@ -83,8 +83,11 @@ each `door` point so they line up under every building sprite.
 
 ## Style rules
 
+- **Unified 1:1 Texel Density.** Every sprite and background pixel maps 1:1 to the 960×600
+  world canvas (`SPRITE_SCALE = 1`), eliminating mixels so all line weights and textures
+  remain visually cohesive.
 - **One ink.** Every silhouette is outlined with the same warm plum-brown `#2e1f2c`,
-  applied as a crisp 1px pass around each sprite (avatars are outlined per 16×16 cell
+  applied as a crisp 1px pass around each sprite (avatars are outlined per 24×24 cell
   before being packed into strips). Ground elements (paths, plaza) use darker-tone rims
   instead of ink so terrain stays soft; discrete objects always get the ink.
 - **Light from top-left.** Highlights sit up/left, shade down/right: roofs light left
@@ -92,12 +95,12 @@ each `door` point so they line up under every building sprite.
   the upper-left quadrant.
 - **Two-shade daylight shading.** Materials have base + one lighter + one darker step;
   no gradients beyond dithered speckle.
-- **Villager proportions.** Head 6px, torso 5px, legs 3px within a 16×16 cell; feet end
-  at row 14 with an ink sole line on row 15. Frame order is pinned:
+- **Villager proportions.** Head 8px, torso 8px, legs 5px within a 24×24 cell; feet end
+  at row 22 with an ink sole line on row 23. Frame order is pinned:
   `down0, down1, up0, up1, right0, right1`; X0 = contact pose (doubles as idle),
   X1 = passing pose; `right` faces right and code mirrors for left. Eight variants vary
   skin, hair style/color, and professional-villager outfits (vests, aprons, cloaks,
-  sash, scarf). No text, no weapons anywhere.
+  sash, scarf, coats). No text, no weapons anywhere.
 - **Keep-clear zones.** Nothing structural within r<60 of the plaza center (HTML sign
   overlays there) and decor avoids a clean strip directly in front of every building
   door where villagers stand.
