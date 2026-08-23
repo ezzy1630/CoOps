@@ -79,6 +79,8 @@ export type EventType =
   | 'BlueprintApproved'
   | 'AgentSpawned'
   | 'Chat'
+  | 'DeptAdded'
+  | 'DeptRemoved'
 
 export interface BlockedOn {
   what: string
@@ -100,6 +102,7 @@ export interface TypedPayload {
   latencyMs?: number
   blueprint?: AgentBlueprint
   agent?: AgentDef
+  department?: Department
   text?: string
   author?: Ref
 }
@@ -185,6 +188,8 @@ export interface World {
   agentTask: Map<AgentId, TaskId>
   /** agents alive at this point in time (base + spawned) */
   agents: AgentDef[]
+  /** departments alive at this point in time (base + added − removed) */
+  departments: Map<DeptId, Department>
   approvals: PendingApproval[]
   /** eventIds of guardrail blocks in the last few seconds (for gateway flash) */
   events: WorldEvent[]
