@@ -5,19 +5,20 @@ import type { Config } from './config.js'
 import { newId } from './ids.js'
 import type { EventStore } from './store.js'
 import type { Bus } from './bus.js'
+import type { OrgRegistry } from './org.js'
 import { mountA2a } from './a2a/mount.js'
 import type { WorldEvent } from '../../src/types.js'
 
 type Appendable = Omit<WorldEvent, 'id' | 'ts'> & Partial<Pick<WorldEvent, 'id' | 'ts'>>
 
-export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEvent>): Promise<{ server: http.Server }> {
+export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEvent>, org: OrgRegistry): Promise<{ server: http.Server }> {
   const app = express()
 
   app.use((req, res, next) => {
     res.setHeader('access-control-allow-origin', '*')
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
-        'access-control-allow-methods': 'GET,POST',
+        'access-control-allow-methods': 'GET,POST,DELETE',
         'access-control-allow-headers': 'content-type',
       })
       res.end()
@@ -31,15 +32,18 @@ export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEv
     next()
   })
 
-  if (cfg.enableA2a) mountA2a(app, { store, bus })
+  if (cfg.enableA2a) mountA2a(app, { store, bus }, org)
 
   app.get('/events', (req, res) => streamEvents(store, bus, sinceOf(req), res))
   app.get('/healthz', (_req, res) => send(res, 200, { ok: true, events: store.all().length }))
+  app.get('/org', (_req, res) => send(res, 200, org.list()))
 
   const jsonBody = express.json()
   app.post('/chat', jsonBody, wrapped(async (req, res) => postChat(store, req.body, res)))
   app.post('/approvals/:eventId/decision', jsonBody, wrapped(async (req, res) => postDecision(store, eventIdOf(req), req.body, res)))
   app.post('/dev/emit', jsonBody, wrapped(async (req, res) => postDevEmit(cfg, store, req.body, res)))
+  app.post('/org/departments', jsonBody, wrapped(async (req, res) => postDepartment(org, req.body, res)))
+  app.delete('/org/departments/:id', wrapped(async (req, res) => deleteDepartment(org, pathId(req), res)))
 
   app.use((_req, res) => send(res, 404, { error: 'not found' }))
 
@@ -67,6 +71,11 @@ function eventIdOf(req: Request): string {
   const id = req.params.eventId
   if (typeof id !== 'string' || id.length === 0) throw new Error('missing event id')
   return id
+}
+
+function pathId(req: Request): string {
+  const id = req.params.id
+  return Array.isArray(id) ? (id[0] ?? '') : (id ?? '')
 }
 
 function isBodyParseFailure(err: unknown): boolean {
@@ -199,4 +208,22 @@ async function postDevEmit(cfg: Config, store: EventStore, body: unknown, res: R
   }
   const stored = await store.append({ ...(b.event as Appendable), id: newId('dev') })
   send(res, 200, stored)
+}
+
+async function postDepartment(org: OrgRegistry, body: unknown, res: Response): Promise<void> {
+  const b = body as Record<string, unknown>
+  if (!isNonEmpty(b?.name) || (b?.blurb !== undefined && typeof b.blurb !== 'string')) {
+    return send(res, 400, { error: 'name is a required non-empty string and blurb must be a string' })
+  }
+  try {
+    send(res, 201, await org.add(b.name, b.blurb ?? ''))
+  } catch (err) {
+    send(res, 400, { error: err instanceof Error ? err.message : String(err) })
+  }
+}
+
+async function deleteDepartment(org: OrgRegistry, deptId: string, res: Response): Promise<void> {
+  const removed = await org.remove(deptId)
+  if (!removed) return send(res, 404, { error: `department ${deptId} not found` })
+  send(res, 200, removed)
 }

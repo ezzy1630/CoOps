@@ -10,6 +10,7 @@ import type { WorldEvent } from '../../../src/types.js'
 import { Bus } from '../bus.js'
 import type { Config } from '../config.js'
 import { startHttp } from '../http.js'
+import { OrgRegistry } from '../org.js'
 import { EventStore } from '../store.js'
 import { workerIdFromName } from '../ids.js'
 import { Scheduler } from '../runtime/scheduler.js'
@@ -112,7 +113,9 @@ async function startStack(dataDir: string, allowDevEmit = true): Promise<Stack> 
   const bus = new Bus<WorldEvent>()
   const store = await EventStore.open(dataDir, e => bus.publish(e))
   const cfg: Config = { port: 0, dataDir, allowDevEmit }
-  const { server } = await startHttp(cfg, store, bus)
+  const org = new OrgRegistry(dataDir, e => store.append(e))
+  await org.load()
+  const { server } = await startHttp(cfg, store, bus, org)
   const addr = server.address()
   assert(addr && typeof addr === 'object')
   return { base: `http://127.0.0.1:${(addr as AddressInfo).port}`, store, bus, server }

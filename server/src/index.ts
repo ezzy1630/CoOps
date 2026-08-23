@@ -2,6 +2,7 @@ import { loadConfig } from './config.js'
 import { EventStore } from './store.js'
 import { Bus } from './bus.js'
 import { startHttp } from './http.js'
+import { OrgRegistry } from './org.js'
 import { Scheduler } from './runtime/scheduler.js'
 import { createMockBrain } from './brain/mock.js'
 import { createGeminiBrain } from './brain/gemini.js'
@@ -9,8 +10,8 @@ import { createHeuristicGuardrail } from './guardrail/heuristic.js'
 import { openJsonlMemory } from './memory/jsonl.js'
 import { workerIdFromName } from './ids.js'
 import type { BrainCtx } from './brain/types.js'
-import type { WorldEvent } from '../../src/types.js'
 import { AGENT_DEPT } from '../../src/data/company.js'
+import type { WorldEvent } from '../../src/types.js'
 
 const cfg = loadConfig()
 const bus = new Bus<WorldEvent>()
@@ -64,6 +65,7 @@ const brainCtx: BrainCtx = {
 const RESOLUTION_TYPES = new Set(['AccountConnected', 'ApprovalGranted', 'BlueprintApproved'])
 
 /** The live routing roster: every agent this server can address, seeded plus spawned. */
+const DEPT_OF_AGENT: Record<string, string> = { ...AGENT_DEPT }
 const KNOWN_AGENTS = new Set<string>(Object.keys(DEPT_OF_AGENT))
 
 /** Registers a spawned agent in the routing roster so chats reach it. */
@@ -118,11 +120,13 @@ function onAppended(e: WorldEvent): void {
   spawnFromBlueprintResolution(e)
   if (e.type === 'Chat' && e.from?.kind === 'person' && e.to?.kind === 'agent') {
     const text = typeof e.payload?.text === 'string' ? e.payload.text : ''
-    if (text) brain.handle(brainCtx, e.to.id, AGENT_DEPT[e.to.id] ?? '', text, e.from.id)
+    if (text) brain.handle(brainCtx, e.to.id, DEPT_OF_AGENT[e.to.id] ?? org.deptOfAgent(e.to.id), text, e.from.id)
   }
 }
 
 const store = await EventStore.open(cfg.dataDir, onAppended)
 restoreSpawnedAgents(store.all())
-await startHttp(cfg, store, bus)
+const org = new OrgRegistry(cfg.dataDir, e => store.append(e))
+await org.load()
+await startHttp(cfg, store, bus, org)
 console.log(`LISTENING ${cfg.port}`)
