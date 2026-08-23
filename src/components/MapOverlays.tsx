@@ -24,6 +24,8 @@ export default function MapOverlays() {
   const task = selectedTaskId ? world.tasks.get(selectedTaskId) : null
   const heroTask = [...world.tasks.values()].find((candidate) => candidate.title.startsWith('Summit Series launch'))
   const panelW = panel ? PANEL_WIDTH[panel.kind] : 0
+  const workingCount = [...world.agentStatus.values()].filter((status) => status === 'working').length
+  const blockedCount = [...world.agentStatus.values()].filter((status) => status === 'blocked').length
 
   const heroUnblocked =
     !!heroTask &&
@@ -45,30 +47,59 @@ export default function MapOverlays() {
   return (
     <>
       <div
-        className="absolute bottom-0 left-0 z-10 flex h-10 items-center gap-3 border-t border-line bg-surface px-3"
+        className={cx(
+          'absolute bottom-0 left-0 z-10 flex items-center border-t border-line bg-surface',
+          mapStyle === 'fun' ? 'h-14 gap-4 px-4' : 'h-10 gap-3 px-3',
+        )}
         style={{ right: panelW }}
         aria-label="Map status bar"
       >
-        <Legend />
-        {mapStyle === 'classic' && <ZoomControls />}
-        <PulseSparkline />
-        <div className="min-w-0 flex-1" />
-        {!replay && (
-          <DemoAction
-            heroStage={heroStage}
-            heroTask={heroTask}
-            act={act}
-            beat={beat}
-            executionMode={executionMode}
-            launchPending={launchPending}
-            onReplay={() => heroTask && useStore.getState().startReplay(heroTask.id)}
-          />
+        {mapStyle === 'fun' ? (
+          <>
+            <ValleyHealth working={workingCount} blocked={blockedCount} waiting={world.approvals.length} />
+            <span className="h-7 w-px shrink-0 bg-line" aria-hidden />
+            <ValleyRunNarrative heroStage={heroStage} act={act} beat={beat} />
+            <div className="min-w-0 flex-1" />
+            {!replay && (heroStage === 'idle' || (heroStage === 'done' && heroTask)) && (
+              <DemoAction
+                prominent
+                heroStage={heroStage}
+                heroTask={heroTask}
+                act={act}
+                beat={beat}
+                executionMode={executionMode}
+                launchPending={launchPending}
+                onReplay={() => heroTask && useStore.getState().startReplay(heroTask.id)}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            <Legend />
+            <ZoomControls />
+            <PulseSparkline />
+            <div className="min-w-0 flex-1" />
+            {!replay && (
+              <DemoAction
+                heroStage={heroStage}
+                heroTask={heroTask}
+                act={act}
+                beat={beat}
+                executionMode={executionMode}
+                launchPending={launchPending}
+                onReplay={() => heroTask && useStore.getState().startReplay(heroTask.id)}
+              />
+            )}
+          </>
         )}
       </div>
 
       {task && !replay && (
         <div
-          className="pointer-events-none absolute bottom-[52px] left-0 z-10 flex justify-center px-3 transition-[right] duration-300"
+          className={cx(
+            'pointer-events-none absolute left-0 z-10 flex justify-center px-3 transition-[right] duration-300',
+            mapStyle === 'fun' ? 'bottom-[68px]' : 'bottom-[52px]',
+          )}
           style={{ right: panelW }}
         >
           <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-sm border border-line bg-surface px-3 py-2 shadow-[0_2px_8px_rgb(23_22_15/0.08)] anim-fadeup">
@@ -106,6 +137,56 @@ export default function MapOverlays() {
         </div>
       )}
     </>
+  )
+}
+
+function ValleyHealth({ working, blocked, waiting }: { working: number; blocked: number; waiting: number }) {
+  const approvalLabel = waiting === 1 ? 'approval' : 'approvals'
+  return (
+    <div className="flex shrink-0 items-center gap-3" aria-label={`${working} agents working, ${blocked} blocked, ${waiting} ${approvalLabel} waiting`}>
+      <span>
+        <span className="block font-display text-[11px] font-semibold text-ink">Company activity</span>
+        <span className="mt-0.5 flex items-center gap-2 text-[9.5px] text-dim">
+          <span className="flex items-center gap-1"><i className="h-2.5 w-px bg-task" aria-hidden />{working} working</span>
+          <span className="flex items-center gap-1"><i className="h-2.5 w-px bg-human" aria-hidden />{waiting} waiting</span>
+          {blocked > 0 && <span className="flex items-center gap-1 text-escalation"><i className="h-2.5 w-px bg-escalation" aria-hidden />{blocked} blocked</span>}
+        </span>
+      </span>
+    </div>
+  )
+}
+
+function ValleyRunNarrative({
+  heroStage,
+  act,
+  beat,
+}: {
+  heroStage: ReturnType<typeof useStore.getState>['heroStage']
+  act: number
+  beat: string
+}) {
+  const currentAct = heroStage === 'idle' ? 0 : act
+  const title = heroStage === 'idle' ? 'Launch route ready' : heroStage === 'done' ? 'Launch delivered' : ACTS[act - 1]
+  const detail = heroStage === 'idle'
+    ? 'Follow a launch as work moves between departments and pauses for named people.'
+    : beat
+
+  return (
+    <div className="flex min-w-0 max-w-[620px] items-center gap-3">
+      <div className="hidden shrink-0 items-center gap-1.5 lg:flex" aria-label={currentAct === 0 ? 'Launch not started' : `Launch step ${currentAct} of ${ACTS.length}`}>
+        {ACTS.map((label, index) => (
+          <span
+            key={label}
+            className={cx('h-1 w-7', index + 1 <= currentAct ? 'bg-task' : 'bg-linebright')}
+            title={label}
+          />
+        ))}
+      </div>
+      <span className="min-w-0">
+        <span className="block truncate text-[11px] font-medium text-ink">{title}</span>
+        <span className="block truncate text-[10px] text-dim">{detail}</span>
+      </span>
+    </div>
   )
 }
 
@@ -151,6 +232,7 @@ function DemoAction({
   beat,
   executionMode,
   launchPending,
+  prominent = false,
   onReplay,
 }: {
   heroStage: ReturnType<typeof useStore.getState>['heroStage']
@@ -159,12 +241,16 @@ function DemoAction({
   beat: string
   executionMode: ReturnType<typeof useStore.getState>['executionMode']
   launchPending: boolean
+  prominent?: boolean
   onReplay: () => void
 }) {
   if (heroStage === 'idle') {
     return (
       <button
-        className="flex h-6 shrink-0 items-center gap-1.5 border-l border-line px-3 text-[11px] font-medium text-ink hover:bg-hover disabled:cursor-wait disabled:text-dim"
+        className={cx(
+          'flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium disabled:cursor-wait disabled:text-dim',
+          prominent ? 'btn btn-primary h-8' : 'h-6 border-l border-line text-ink hover:bg-hover',
+        )}
         disabled={launchPending}
         onClick={() => useStore.getState().runHeroAuto()}
       >
@@ -179,7 +265,7 @@ function DemoAction({
   }
   if (heroStage === 'done' && heroTask) {
     return (
-      <button className="flex h-6 shrink-0 items-center gap-1.5 border-l border-line px-3 text-[11px] font-medium text-ink hover:bg-hover" onClick={onReplay}>
+      <button className={cx('flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium', prominent ? 'btn h-8' : 'h-6 border-l border-line text-ink hover:bg-hover')} onClick={onReplay}>
         <ArrowCounterClockwise size={12} weight="bold" />
         Replay the launch
       </button>

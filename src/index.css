@@ -312,6 +312,29 @@ html.fun-mode.dark {
   max-width: none;
 }
 
+/* Valley controls keep generous invisible targets while the art stays at its
+   native pixel scale. Names appear on intent, not as a permanent wall of text. */
+.valley-building:hover img,
+.valley-building:focus-visible img {
+  filter: brightness(1.08) saturate(1.04);
+}
+.valley-building:focus-visible,
+.valley-agent-control:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-fun-paper) 88%, var(--color-task));
+  outline-offset: 2px;
+}
+.valley-agent-name {
+  opacity: 0;
+  transform: translate(-50%, 2px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.group:hover > .valley-agent-name,
+.group:focus-within > .valley-agent-name,
+.valley-agent-name-pinned {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 /* Two-frame idle bob for villagers: flips the avatar strip between the
    down-facing contact pose (column 0) and its passing pose (column 1). The
    frame positions arrive as element custom props because the shift depends on
