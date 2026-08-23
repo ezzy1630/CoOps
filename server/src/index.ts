@@ -10,6 +10,7 @@ import { createHeuristicGuardrail } from './guardrail/heuristic.js'
 import { createModelArmorGuardrail } from './guardrail/modelarmor.js'
 import { openJsonlMemory } from './memory/jsonl.js'
 import { openFirestoreMemory } from './memory/firestore.js'
+import { createGoogleOAuth } from './auth/google.js'
 import { workerIdFromName } from './ids.js'
 import { cancelExchangeTask } from './brain/exchanges.js'
 import type { BrainAdapter, BrainCtx } from './brain/types.js'
@@ -151,5 +152,5 @@ const store = await EventStore.open(cfg.dataDir, onAppended)
 restoreSpawnedAgents(store.all())
 const org = new OrgRegistry(cfg.dataDir, e => store.append(e))
 await org.load()
-await startHttp(cfg, store, bus, org)
+await startHttp(cfg, store, bus, org, createGoogleOAuth(cfg.googleOAuth))
 console.log(`LISTENING ${cfg.port}`)

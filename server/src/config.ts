@@ -1,4 +1,5 @@
 import { resolve } from 'node:path'
+import type { GoogleOAuthConfig } from './auth/google.js'
 
 export interface Config {
   port: number
@@ -10,6 +11,7 @@ export interface Config {
   geminiApiKey?: string
   firestore?: { projectId?: string }
   modelArmor?: { project: string; location: string; templateId: string }
+  googleOAuth?: GoogleOAuthConfig
 }
 
 export function loadConfig(): Config {
@@ -32,5 +34,13 @@ export function loadConfig(): Config {
     ...(maProject && maLocation && maTemplate
       ? { modelArmor: { project: maProject, location: maLocation, templateId: maTemplate } }
       : {}),
+    googleOAuth: googleOAuthFromEnv(),
   }
+}
+
+function googleOAuthFromEnv(): GoogleOAuthConfig | undefined {
+  const clientId = process.env.COOPS_GOOGLE_CLIENT_ID
+  const clientSecret = process.env.COOPS_GOOGLE_CLIENT_SECRET
+  const redirectUri = process.env.COOPS_GOOGLE_REDIRECT_URI
+  return clientId && clientSecret && redirectUri ? { clientId, clientSecret, redirectUri } : undefined
 }

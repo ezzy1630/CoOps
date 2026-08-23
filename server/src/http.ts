@@ -8,13 +8,16 @@ import type { Bus } from './bus.js'
 import type { OrgRegistry } from './org.js'
 import { mountA2a } from './a2a/mount.js'
 import { PresenceRegistry } from './presence.js'
+import { createGoogleOAuth } from './auth/google.js'
+import type { GoogleOAuth } from './auth/google.js'
 import type { WorldEvent } from '../../src/types.js'
 
 type Appendable = Omit<WorldEvent, 'id' | 'ts'> & Partial<Pick<WorldEvent, 'id' | 'ts'>>
 
-export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEvent>, org: OrgRegistry): Promise<{ server: http.Server }> {
+export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEvent>, org: OrgRegistry, oauth?: GoogleOAuth): Promise<{ server: http.Server }> {
   const app = express()
   const presence = new PresenceRegistry()
+  const google = oauth ?? createGoogleOAuth()
 
   app.use((req, res, next) => {
     res.setHeader('access-control-allow-origin', '*')
@@ -40,6 +43,13 @@ export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEv
   app.get('/healthz', (_req, res) => send(res, 200, { ok: true, events: store.all().length }))
   app.get('/presence', (_req, res) => send(res, 200, presence.list()))
   app.get('/org', (_req, res) => send(res, 200, org.list()))
+
+  app.get('/auth/google/status', (_req, res) => send(res, 200, { enabled: google.enabled }))
+  app.get('/auth/google/start', (_req, res) => {
+    if (!google.enabled) return send(res, 404, { error: 'not found' })
+    res.redirect(302, google.authorizeUrl(google.issue()))
+  })
+  app.get('/auth/google/callback', wrapped(async (req, res) => getGoogleCallback(google, store, req, res)))
 
   const jsonBody = express.json()
   app.post('/chat', jsonBody, wrapped(async (req, res) => postChat(store, req.body, res)))
@@ -99,6 +109,11 @@ function wrapped(handler: (req: Request, res: Response) => Promise<void>) {
 function send(res: Response, status: number, body: unknown): void {
   res.setHeader('content-type', 'application/json')
   res.status(status).end(JSON.stringify(body))
+}
+
+function sendHtml(res: Response, status: number, html: string): void {
+  res.setHeader('content-type', 'text/html; charset=utf-8')
+  res.status(status).end(html)
 }
 
 function writeFrame(res: Response, ev: WorldEvent): void {
@@ -211,6 +226,44 @@ async function postDecision(store: EventStore, eventId: string, body: unknown, r
     id: newId('res'),
   })
   send(res, 200, ev)
+}
+
+async function getGoogleCallback(oauth: GoogleOAuth, store: EventStore, req: Request, res: Response): Promise<void> {
+  if (!oauth.enabled) return send(res, 404, { error: 'not found' })
+
+  const state = req.query.state
+  if (typeof state !== 'string' || !oauth.consume(state)) return sendHtml(res, 400, googleFailurePage('invalid_state'))
+
+  if (typeof req.query.error === 'string') return sendHtml(res, 400, googleFailurePage('authorization_declined'))
+
+  const code = req.query.code
+  if (typeof code !== 'string' || code.length === 0) return sendHtml(res, 400, googleFailurePage('missing_code'))
+
+  let identity
+  try {
+    identity = await oauth.exchange(code)
+  } catch {
+    console.error('[auth/google] token exchange failed')
+    return sendHtml(res, 400, googleFailurePage('token_exchange'))
+  }
+
+  await store.append({
+    type: 'AccountConnected',
+    from: { kind: 'person', id: 'avery' },
+    deptFrom: 'operations',
+    deptTo: 'operations',
+    title: `${identity.email} connected Google Drive + Sheets`,
+    detail: `Granted scopes: ${identity.scopes.join(', ')}. Access token held server-side only.`,
+    id: newId('res'),
+  })
+  sendHtml(res, 200, GOOGLE_CALLBACK_OK_PAGE)
+}
+
+const GOOGLE_CALLBACK_OK_PAGE =
+  '<!doctype html><html><body><script>window.close()</script><p>Google account connected — return to CoOps.</p></body></html>'
+
+function googleFailurePage(category: string): string {
+  return `<!doctype html><html><body><p>Connection failed (${category}).</p></body></html>`
 }
 
 async function postDevEmit(cfg: Config, store: EventStore, body: unknown, res: Response): Promise<void> {
