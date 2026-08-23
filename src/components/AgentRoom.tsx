@@ -350,7 +350,14 @@ function MessageGroup({ group, agentName, now }: { group: ThreadGroup; agentName
         >
           {who}
         </span>
-        {first && <span className="shrink-0 font-mono text-[10.5px] text-dim tabular-nums">{timeAgo(first.ts, now)}</span>}
+        {first && (
+          <span className="flex shrink-0 items-baseline gap-1.5">
+            {group.msgs.some((m) => m.payload?.simulated === true) && (
+              <span className="rounded-sm border border-linebright bg-surface px-1 py-px font-mono text-[9px] uppercase tracking-wider text-mut">SIM</span>
+            )}
+            <span className="font-mono text-[10.5px] text-dim tabular-nums">{timeAgo(first.ts, now)}</span>
+          </span>
+        )}
       </div>
       <div className={cx('mt-1.5 space-y-1.5', !group.fromPerson && 'border-l-2 border-linebright pl-3')}>
         {group.msgs.map((e) => (

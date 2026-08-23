@@ -1,3 +1,5 @@
+// Offline demo fixture mirroring server/src/brain/mock.ts — runs only when no
+// backend is connected; real chat goes through POST /chat to the server brain.
 import type { World } from '../types'
 import { agentRef, ev, personRef } from './build'
 import { deptById } from '../data/company'
