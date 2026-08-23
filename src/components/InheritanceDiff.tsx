@@ -1,3 +1,4 @@
+import { X } from '@phosphor-icons/react'
 import { useStore } from '../store'
 import { personById } from '../data/company'
 import { cx } from '../utils'
@@ -17,17 +18,17 @@ export default function InheritanceDiff() {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span aria-hidden className="h-3.5 w-0.5 shrink-0 rounded-full" style={{ background: `hsl(${MARKETING_HUE} 56% 52%)` }} />
-            <h2 className="text-[14px] font-semibold">Configuration inheritance</h2>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Configuration inheritance</h2>
           </div>
-          <p className="truncate text-[12px] text-dim">Summit Launch Agent — Marketing / Everpeak baseline</p>
+          <p className="truncate text-[12.5px] text-dim">Summit Launch Agent — Marketing / Everpeak baseline</p>
         </div>
         <div className="flex-1" />
         <button
-          className="rounded px-1.5 py-0.5 text-[14px] text-dim transition-colors hover:bg-hover hover:text-ink"
+          className="rounded-sm px-1.5 py-0.5 text-dim transition-colors hover:bg-hover hover:text-ink"
           title="Close"
           onClick={() => useStore.getState().closePanel()}
         >
-          ✕
+          <X size={15} />
         </button>
       </header>
 
@@ -210,11 +211,11 @@ function LockGlyph() {
 
 function SettingRow({ row }: { row: DiffRow }) {
   return (
-    <div className="grid grid-cols-[142px_1fr_140px] items-start gap-3 border-b border-line/50 px-3 py-1.5 hover:bg-raised/50">
-      <div className="text-[12px] leading-snug text-ink">{row.name}</div>
+    <div className="grid grid-cols-[142px_1fr_140px] items-start gap-3 border-b border-line/50 px-3 py-2 hover:bg-raised/50">
+      <div className="text-[12.5px] leading-snug text-ink">{row.name}</div>
 
       <div className="min-w-0">
-        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[12px] leading-snug">
+        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[12.5px] leading-snug">
           {row.chain.map((v, i) => {
             const last = i === row.chain.length - 1
             return (
@@ -225,12 +226,12 @@ function SettingRow({ row }: { row: DiffRow }) {
             )
           })}
         </div>
-        {row.note && <div className="mt-0.5 text-[11px] text-dim">{row.note}</div>}
+        {row.note && <div className="mt-0.5 text-[11.5px] text-dim">{row.note}</div>}
       </div>
 
       <div className="flex items-center justify-end gap-1.5">
         <Pill className={SOURCE_CLS[row.source]}>{SOURCE_LABEL[row.source]}</Pill>
-        <span className={cx('flex items-center gap-1 text-[10px]', STATE_CLS[row.state])}>
+        <span className={cx('flex items-center gap-1 text-[10.5px]', STATE_CLS[row.state])}>
           {row.state === 'denied' && <LockGlyph />}
           {row.state}
         </span>

@@ -17,6 +17,7 @@ export const ACTING_WORD: Partial<Record<EventType, string>> = {
   AuthRequired: 'awaiting access',
   Escalation: 'escalated',
   GuardrailBlock: 'blocked',
+  TaskFailed: 'failed',
   BlueprintProposed: 'drafting spec',
   Chat: 'replying',
 }

@@ -1,6 +1,8 @@
 /** Cross-department exchanges execute for real: runExchange drives one task
  * through its lifecycle, emitting each event when the stage actually completes.
- * Timing emerges from the executor's duration instead of scheduled playback. */
+ * Timing emerges from the executor's duration instead of scheduled playback.
+ * Dispatched tasks can be aborted mid-flight via cancelExchangeTask (e.g. when
+ * a guardrail blocks the turn that requested them). */
 
 import { BASE_AGENTS } from '../../../src/data/company.js'
 import type { WorldEvent } from '../../../src/types.js'
@@ -73,8 +75,19 @@ function resolveWorker(kind: ExchangeKind, toDept: string): string {
   return preferred?.id ?? agentInDept(toDept, 'worker')?.id ?? toDept
 }
 
-async function performExchange(ctx: BrainCtx, executor: ExchangeExecutor, spec: ExchangeSpecResolved): Promise<void> {
-  const taskId = nextTaskId()
+const cancelledTasks = new Set<string>()
+
+/** Aborts an in-flight exchange: remaining lifecycle events are suppressed. */
+export function cancelExchangeTask(taskId: string): void {
+  cancelledTasks.add(taskId)
+}
+
+async function performExchange(
+  ctx: BrainCtx,
+  executor: ExchangeExecutor,
+  spec: ExchangeSpecResolved,
+  taskId: string,
+): Promise<void> {
   const requester = agentRef(spec.requesterId)
   const operator = agentRef(spec.operatorId)
   const worker = agentRef(spec.workerId)
@@ -110,6 +123,7 @@ async function performExchange(ctx: BrainCtx, executor: ExchangeExecutor, spec: 
 
   const startedAt = Date.now()
   const outcome = await executor(spec)
+  if (cancelledTasks.has(taskId)) return
   const latencyMs = Date.now() - startedAt
 
   ctx.emit({
@@ -135,13 +149,14 @@ async function performExchange(ctx: BrainCtx, executor: ExchangeExecutor, spec: 
   })
 }
 
-/** Runs one real cross-department exchange; returns false when the target
+/** Runs one real cross-department exchange; returns null taskId when the target
  * department is the caller's own (nothing to run). */
-export function runExchange(ctx: BrainCtx, executor: ExchangeExecutor, kind: ExchangeKind, fromDept: string): boolean {
+export function runExchange(ctx: BrainCtx, executor: ExchangeExecutor, kind: ExchangeKind, fromDept: string): { dispatched: boolean; taskId: string | null } {
   const base = EXCHANGE_BASES[kind]
-  if (base.toDept === fromDept) return false
+  if (base.toDept === fromDept) return { dispatched: false, taskId: null }
 
   const toDept = base.toDept
+  const taskId = nextTaskId()
   const spec: ExchangeSpecResolved = {
     kind,
     fromDept,
@@ -154,6 +169,8 @@ export function runExchange(ctx: BrainCtx, executor: ExchangeExecutor, kind: Exc
     artifact: base.artifact,
   }
 
-  void performExchange(ctx, executor, spec).catch((err) => console.error(err))
-  return true
+  void performExchange(ctx, executor, spec, taskId)
+    .catch((err) => console.error(err))
+    .finally(() => cancelledTasks.delete(taskId))
+  return { dispatched: true, taskId }
 }
