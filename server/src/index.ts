@@ -47,7 +47,6 @@ function worldTasks(events: WorldEvent[]): { id: string; title: string; status: 
   return out
 }
 
-const interviews = new Map<string, number | null>()
 const scheduler = new Scheduler(e => store.append(e))
 const guardrail = cfg.modelArmor ? createModelArmorGuardrail(cfg.modelArmor) : createHeuristicGuardrail()
 const memory = cfg.firestore
@@ -87,10 +86,6 @@ const brainCtx: BrainCtx = {
     cancelExchangeTask(taskId)
   },
   worldTasks: () => worldTasks(store.all()),
-  interviewStep: agentId => interviews.get(agentId) ?? null,
-  setInterviewStep: (agentId, step) => {
-    interviews.set(agentId, step)
-  },
 }
 
 const RESOLUTION_TYPES = new Set(['AccountConnected', 'ApprovalGranted', 'BlueprintApproved'])
@@ -123,6 +118,7 @@ function spawnFromBlueprintResolution(e: WorldEvent): void {
     title: `${bp.name} is live`,
     detail: `Worker profile created in the shared runtime as ${agentId}.`,
     payload: {
+      reason: orig.id,
       agent: {
         id: agentId,
         name: bp.name,
