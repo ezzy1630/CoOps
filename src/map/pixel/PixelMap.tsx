@@ -392,23 +392,6 @@ function Scene({
         )
       })}
 
-      {/* the plaza inscription, as a wooden plaque pinned at the manifest point */}
-      <div
-        className="pointer-events-none absolute flex flex-col items-center rounded-sm border-2 px-3 py-1.5"
-        style={{
-          left: art.plaza.x,
-          top: art.plaza.y,
-          transform: 'translate(-50%, -50%)',
-          zIndex: Math.round(art.plaza.y),
-          background: art.palette.paper,
-          color: art.palette.ink,
-          borderColor: art.palette.outline,
-          boxShadow: `4px 4px 0 ${hexA(art.palette.outline, 0.22)}`,
-        }}
-      >
-        <span className="font-mono text-[11px] font-semibold tracking-[0.18em]">AGENT GATEWAY</span>
-        <span className="mt-0.5 font-mono text-[7.5px] tracking-[0.24em] opacity-70">NO ROOT AGENT</span>
-      </div>
 
       {/* standing villagers: home rings, emote bubbles, name chips */}
       {world.agents.map((ag) => {
