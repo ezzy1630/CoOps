@@ -7,6 +7,7 @@ import { createMockBrain } from './brain/mock.js'
 import { createGeminiBrain } from './brain/gemini.js'
 import { createHeuristicGuardrail } from './guardrail/heuristic.js'
 import { openJsonlMemory } from './memory/jsonl.js'
+import { openFirestoreMemory } from './memory/firestore.js'
 import type { BrainCtx } from './brain/types.js'
 import type { WorldEvent } from '../../src/types.js'
 
@@ -63,9 +64,13 @@ function worldTasks(events: WorldEvent[]): { id: string; title: string; status: 
 const interviews = new Map<string, number | null>()
 const scheduler = new Scheduler(e => store.append(e))
 const guardrail = createHeuristicGuardrail()
+const memory = cfg.firestore
+  ? openFirestoreMemory({ projectId: cfg.firestore.projectId })
+  : openJsonlMemory(cfg.dataDir)
+console.log(`[memory] ${cfg.firestore ? 'firestore' : 'jsonl'}`)
 const brain = cfg.geminiApiKey
-  ? createGeminiBrain({ apiKey: cfg.geminiApiKey, guardrail, memory: openJsonlMemory(cfg.dataDir) })
-  : createMockBrain()
+  ? createGeminiBrain({ apiKey: cfg.geminiApiKey, guardrail, memory })
+  : createMockBrain({ memory })
 
 const brainCtx: BrainCtx = {
   emit: e => {
