@@ -151,12 +151,20 @@ export default function CompanyMap() {
   const renderTime = replay ? virtualAt(replay.knots, replay.wallMs) : now
   const replayBucket = replay ? Math.floor(renderTime / 160) : 0
   const renderWorld = useMemo(
-    () => (replay ? buildWorld(BASE_AGENTS, log, renderTime) : world),
+    () => (replay ? buildWorld(BASE_AGENTS, DEPARTMENTS, log, renderTime) : world),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [replay ? replayBucket : world, log, replay?.taskId],
   )
 
-  const lay = useMemo(() => layout(DEPARTMENTS, renderWorld.agents), [renderWorld.agents])
+  const departments = useMemo(
+    () => [...renderWorld.departments.values()].sort((a, b) => a.id.localeCompare(b.id)),
+    [renderWorld.departments],
+  )
+
+  const lay = useMemo(
+    () => layout(departments, renderWorld.agents),
+    [departments, renderWorld.agents],
+  )
 
   const focus = useMemo(
     () => (selectedTaskId ? taskParticipants(renderWorld, selectedTaskId) : null),
@@ -201,13 +209,13 @@ export default function CompanyMap() {
   const labelArcs = useMemo(
     () =>
       new Map(
-        DEPARTMENTS.map((d) => {
+        departments.map((d) => {
           const z = lay.zones.get(d.id)!
           const flip = Math.sin(z.angle) > 0.001
           return [d.id, { name: districtLabelArc(z, flip), sub: districtSubArc(z, flip) }] as const
         }),
       ),
-    [lay],
+    [lay, departments],
   )
 
   // quadratic-bezier lengths, cached per edge (invalidated if endpoints shift)
@@ -421,7 +429,7 @@ export default function CompanyMap() {
   // per-district workload, counted once per world rather than once per district
   const deptSummary = useMemo(() => {
     const m = new Map<string, { working: number; blocked: number; total: number }>()
-    for (const d of DEPARTMENTS) m.set(d.id, { working: 0, blocked: 0, total: 0 })
+    for (const d of departments) m.set(d.id, { working: 0, blocked: 0, total: 0 })
     for (const ag of renderWorld.agents) {
       const s = m.get(ag.deptId)
       if (!s) continue
@@ -451,7 +459,7 @@ export default function CompanyMap() {
       <svg width={w} height={h} className="block">
         <g transform={`translate(${centerX},${h / 2}) scale(${k}) translate(${-cx},${-cy})`} style={{ transition: 'none' }}>
           <defs>
-            {DEPARTMENTS.map((d) => (
+            {departments.map((d) => (
               <g key={d.id}>
                 <path id={`dl-${d.id}`} d={labelArcs.get(d.id)!.name} fill="none" />
                 <path id={`ds-${d.id}`} d={labelArcs.get(d.id)!.sub} fill="none" />
@@ -529,7 +537,7 @@ export default function CompanyMap() {
           )}
 
           {/* department districts */}
-          {DEPARTMENTS.map((d) => {
+          {departments.map((d) => {
             const z = lay.zones.get(d.id)!
             const sum = deptSummary.get(d.id)!
             const isHome = persona?.deptId === d.id

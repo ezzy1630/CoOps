@@ -1,5 +1,5 @@
 import type {
-  AgentDef, AgentStatus, PendingApproval, Task, World, WorldEvent,
+  AgentDef, AgentStatus, Department, PendingApproval, Task, World, WorldEvent,
 } from '../types'
 
 /**
@@ -7,13 +7,17 @@ import type {
  * This single function powers the live map, the activity feed, the approvals
  * queue AND the replay scrubber (replay = fold up to an earlier instant).
  */
-export function buildWorld(baseAgents: AgentDef[], log: WorldEvent[], upTo: number): World {
+export function buildWorld(
+  baseAgents: AgentDef[], baseDepartments: Department[], log: WorldEvent[], upTo: number,
+): World {
   const tasks = new Map<string, Task>()
   const agents: AgentDef[] = [...baseAgents]
+  const departments = new Map(baseDepartments.map((d) => [d.id, d]))
   const approvals: PendingApproval[] = []
   const taskAgents = new Map<string, Set<string>>()
   const events: WorldEvent[] = []
   const resolved = new Set<string>() // eventIds of satisfied approvals
+  const removedAgents = new Set<string>() // agentIds whose department was removed
 
   const touch = (e: WorldEvent): Task => {
     let t = tasks.get(e.taskId!)
@@ -123,6 +127,21 @@ export function buildWorld(baseAgents: AgentDef[], log: WorldEvent[], upTo: numb
     if (e.type === 'AgentSpawned' && e.payload?.agent) {
       agents.push({ ...e.payload.agent, bornAt: e.ts })
     }
+    if (e.type === 'DeptAdded' && e.payload?.department) {
+      departments.set(e.payload.department.id, e.payload.department)
+      // the new department arrives with its operator, spawned just like AgentSpawned
+      if (e.payload.agent) agents.push({ ...e.payload.agent, bornAt: e.ts })
+    }
+    if (e.type === 'DeptRemoved' && e.payload?.department) {
+      const id = e.payload.department.id
+      departments.delete(id)
+      for (let i = agents.length - 1; i >= 0; i--) {
+        if (agents[i].deptId === id) {
+          removedAgents.add(agents[i].id)
+          agents.splice(i, 1)
+        }
+      }
+    }
   }
 
   // agent statuses: blocked > working > idle
@@ -132,6 +151,7 @@ export function buildWorld(baseAgents: AgentDef[], log: WorldEvent[], upTo: numb
     if (t.status === 'done' || t.status === 'failed') continue
     const members = taskAgents.get(t.id) ?? new Set()
     for (const a of members) {
+      if (removedAgents.has(a)) continue
       const blocked = t.status === 'waiting_auth' || t.status === 'waiting_approval'
       const prev = agentStatus.get(a)
       if (blocked || prev !== 'blocked') {
@@ -144,6 +164,7 @@ export function buildWorld(baseAgents: AgentDef[], log: WorldEvent[], upTo: numb
   return {
     tasks,
     agents,
+    departments,
     agentStatus,
     agentTask,
     approvals: approvals.filter((a) => !resolved.has(a.eventId)),

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { PANEL_WIDTH, useStore, type PresenceMark } from '../../store'
-import { BASE_AGENTS, deptById, personById } from '../../data/company'
+import { BASE_AGENTS, DEPARTMENTS, personById } from '../../data/company'
 import { buildWorld, taskParticipants } from '../../engine/reducer'
 import { virtualAt } from '../../engine/replay'
 import type { Person, World } from '../../types'
@@ -178,7 +178,7 @@ export default function PixelMap() {
   const renderTime = replay ? virtualAt(replay.knots, replay.wallMs) : now
   const replayBucket = replay ? Math.floor(renderTime / 160) : 0
   const renderWorld = useMemo(
-    () => (replay ? buildWorld(BASE_AGENTS, log, renderTime) : world),
+    () => (replay ? buildWorld(BASE_AGENTS, DEPARTMENTS, log, renderTime) : world),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [replay ? replayBucket : world, log, replay?.taskId],
   )
@@ -357,7 +357,7 @@ function Scene({
       </svg>
 
       {art.buildings.map((b) => {
-        const name = deptById.get(b.deptId)?.name ?? b.deptId
+        const name = world.departments.get(b.deptId)?.name ?? b.deptId
         const z = Math.round(b.y + b.h)
         return (
           <div key={b.deptId} className="absolute" style={{ left: b.x, top: b.y, width: b.w, height: b.h, zIndex: z, ...dim(dimmed(b.deptId)) }}>
@@ -580,7 +580,7 @@ function Scene({
       {presenceChips.map(({ mark, pt, person }) => (
         <div
           key={`${mark.personId}-${mark.where}`}
-          title={`${person.name} — viewing ${deptById.get(mark.where)?.name ?? mark.where}`}
+          title={`${person.name} — viewing ${world.departments.get(mark.where)?.name ?? mark.where}`}
           className="pointer-events-auto absolute cursor-default"
           style={{ left: pt.x, top: pt.y, zIndex: Math.round(pt.y), ...dim(dimmed(mark.where)) }}
         >

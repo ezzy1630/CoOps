@@ -1,5 +1,5 @@
 import type { AgentCard, AgentSkill } from '@a2a-js/sdk'
-import { BASE_AGENTS } from '../../../src/data/company.js'
+import type { AgentDef, Department } from '../../../src/types.js'
 
 export interface OperatorDef {
   id: string
@@ -8,9 +8,14 @@ export interface OperatorDef {
   description: string
 }
 
-export const OPERATORS: readonly OperatorDef[] = BASE_AGENTS
-  .filter((a) => a.kind === 'operator')
-  .map((a) => ({ id: a.id, name: a.name, dept: a.deptId, description: a.purpose }))
+export function operatorDefFor(entry: { department: Department; operator: AgentDef }): OperatorDef {
+  return {
+    id: entry.operator.id,
+    name: entry.operator.name,
+    dept: entry.department.id,
+    description: entry.operator.purpose,
+  }
+}
 
 function skill(id: string, name: string, description: string): AgentSkill {
   return {

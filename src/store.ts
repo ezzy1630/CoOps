@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type {
   MapStyle, PendingApproval, Person, TaskId, World, WorldEvent,
 } from './types'
-import { BASE_AGENTS, personById } from './data/company'
+import { BASE_AGENTS, DEPARTMENTS, personById } from './data/company'
 import { buildWorld } from './engine/reducer'
 import { agentRef, personRef, type Step } from './engine/build'
 import {
@@ -179,7 +179,7 @@ export const useStore = create<Store>()((set, get) => {
     onBlueprintApproved: () => {},
   })
 
-  const rebuild = (log: WorldEvent[]) => buildWorld(BASE_AGENTS, log, Number.MAX_SAFE_INTEGER)
+  const rebuild = (log: WorldEvent[]) => buildWorld(BASE_AGENTS, DEPARTMENTS, log, Number.MAX_SAFE_INTEGER)
 
   const tick = () => {
     const now = Date.now()
