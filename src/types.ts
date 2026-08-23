@@ -112,7 +112,7 @@ export interface TypedPayload {
   department?: Department
   text?: string
   author?: Ref
-  /** set on events produced by the offline demo brain, not the backend */
+  /** set on events produced by offline demo scripting rather than the backend */
   simulated?: boolean
 }
 

@@ -1,6 +1,9 @@
+// Offline rehearsal dataset — runs only without a backend; every event emitted here is tagged payload.simulated.
 import type { WorldEvent } from '../types'
 import { agentRef, ev, personRef, systemRef, Script, type Step } from '../engine/build'
 import { between, mulberry32, pick, type Rng } from '../engine/rng'
+
+const sim = <T extends { payload?: object }>(e: T): T => ({ ...e, payload: { ...e.payload, simulated: true } }) as T
 
 let taskNum = 990
 export const nextTaskId = () => `T-${++taskNum}`
@@ -23,7 +26,6 @@ export interface ExchangeSpec {
   /** Terminal failure: the chain ends in GuardrailBlock + TaskFailed instead of
    * an artifact, so the failure UI stays demonstrable in ambient traffic. */
   fail?: { reason: string; category: string }
-  costUsd?: number
 }
 
 /** Builds the full event chain for one governed cross-department task. */
@@ -34,7 +36,7 @@ export function exchange(spec: ExchangeSpec, pace = 1): { script: Script; taskId
 
   const requester = spec.localWorker ? agentRef(spec.localWorker) : agentRef(spec.fromOp)
 
-  s.then(0, ev({
+  s.then(0, sim(ev({
     type: 'TaskRequest', taskId, edge: 'task', travelMs: 2400,
     from: requester, to: agentRef(spec.toOp),
     deptFrom: spec.fromDept, deptTo: spec.toDept,
@@ -47,99 +49,99 @@ export function exchange(spec: ExchangeSpec, pace = 1): { script: Script; taskId
       sharedContext: 'scoped brief only',
       visibility: 'request + artifact',
     },
-  }))
-  s.then(p(2600), ev({
+  })))
+  s.then(p(2600), sim(ev({
     type: 'TaskAccepted', taskId,
     from: agentRef(spec.toOp), to: requester,
     deptFrom: spec.toDept, deptTo: spec.fromDept,
     title: `${spec.title} — accepted`,
     detail: `Queued in ${spec.toDept}`,
-  }))
+  })))
   if (spec.worker) {
-    s.then(p(1800), ev({
+    s.then(p(1800), sim(ev({
       type: 'DelegatedTo', taskId,
       from: agentRef(spec.toOp), to: agentRef(spec.worker),
       deptFrom: spec.toDept, deptTo: spec.toDept,
       title: `Delegated to worker`,
       detail: `${spec.title}`,
-    }))
+    })))
   }
   if (spec.guardrail) {
-    s.then(p(2400), ev({
+    s.then(p(2400), sim(ev({
       type: 'GuardrailBlock', taskId,
       from: systemRef('gateway'),
       deptFrom: spec.fromDept, deptTo: spec.toDept,
-      title: 'Model Armor blocked content',
+      title: 'Local regex rules blocked content',
       detail: spec.guardrail,
       payload: { reason: spec.guardrail },
-    }))
+    })))
   }
   if (spec.permission) {
-    const permEv = ev({
+    const permEv = sim(ev({
       type: 'PermissionRequest', taskId, edge: 'permission', travelMs: 2200,
       from: agentRef(spec.worker ?? spec.toOp), to: personRef(spec.permission.personId),
       deptFrom: spec.toDept, deptTo: spec.toDept,
       title: `Approval needed: ${spec.permission.what}`,
       blockedOn: { what: spec.permission.what, personId: spec.permission.personId, kind: 'approval' },
-    })
+    }))
     s.then(p(2600), permEv)
-    s.then(p(6000), ev({
+    s.then(p(6000), sim(ev({
       type: 'ApprovalGranted', taskId,
       from: personRef(spec.permission.personId), to: agentRef(spec.worker ?? spec.toOp),
       deptFrom: spec.toDept, deptTo: spec.toDept,
       title: `${spec.permission.what} — approved`,
       payload: { reason: permEv.id },
-    }))
+    })))
   }
   if (spec.escalate) {
-    s.then(p(2800), ev({
+    s.then(p(2800), sim(ev({
       type: 'Escalation', taskId, edge: 'escalation', travelMs: 2600,
       from: agentRef(spec.toOp), to: agentRef(spec.fromOp),
       deptFrom: spec.toDept, deptTo: spec.fromDept,
       title: `Escalated: ${spec.title}`,
       detail: 'Outside my authority — needs your department lead.',
-    }))
+    })))
   }
-  s.then(p(3200), ev({
+  s.then(p(3200), sim(ev({
     type: 'StatusUpdate', taskId,
     from: agentRef(spec.worker ?? spec.toOp), to: agentRef(spec.fromOp),
     deptFrom: spec.toDept, deptTo: spec.fromDept,
     title: 'In progress',
     detail: `Working on ${spec.artifact.name.toLowerCase()}`,
-    payload: { latencyMs: Math.round(400 + 2200 * ((taskNum * 37) % 100) / 100), costUsd: spec.costUsd ?? 0.04 },
-  }))
+    payload: { latencyMs: Math.round(400 + 2200 * ((taskNum * 37) % 100) / 100) },
+  })))
   if (spec.fail) {
-    s.then(p(2600), ev({
+    s.then(p(2600), sim(ev({
       type: 'GuardrailBlock', taskId,
       from: systemRef('gateway'),
       deptFrom: spec.toDept, deptTo: spec.fromDept,
       title: 'Model Armor blocked content',
       detail: spec.fail.reason,
       payload: { reason: spec.fail.category },
-    }))
-    s.then(p(2200), ev({
+    })))
+    s.then(p(2200), sim(ev({
       type: 'TaskFailed', taskId,
       from: systemRef('gateway'),
       deptFrom: spec.toDept, deptTo: spec.fromDept,
       title: `${spec.title} — failed`,
       detail: 'Blocked by policy before delivery; the task is closed as failed.',
       payload: { reason: spec.fail.category },
-    }))
+    })))
     return { script: s, taskId }
   }
-  s.then(p(4200), ev({
+  s.then(p(4200), sim(ev({
     type: 'ArtifactDelivered', taskId, edge: 'artifact', travelMs: 2400,
     from: agentRef(spec.toOp), to: requester,
     deptFrom: spec.toDept, deptTo: spec.fromDept,
     title: `Delivered: ${spec.artifact.name}`,
-    payload: { artifact: spec.artifact, costUsd: spec.costUsd ?? 0.06 },
-  }))
-  s.then(p(1600), ev({
+    payload: { artifact: spec.artifact },
+  })))
+  s.then(p(1600), sim(ev({
     type: 'TaskCompleted', taskId,
     from: requester,
     deptFrom: spec.fromDept, deptTo: spec.fromDept,
     title: `${spec.title} — complete`,
-  }))
+  })))
   return { script: s, taskId }
 }
 
@@ -246,7 +248,7 @@ export const SEED_APPROVAL_EVENT_ID = 'seed_scope_renewal'
  */
 export function standingApproval(now: number): WorldEvent[] {
   const taskId = SEED_APPROVAL_TASK_ID
-  return [
+  const seed: WorldEvent[] = [
     {
       id: 'seed_scope_task', ts: now - 66 * 60_000, type: 'TaskRequest', taskId,
       from: agentRef('op-finance'), to: agentRef('w-invoice'),
@@ -268,25 +270,26 @@ export function standingApproval(now: number): WorldEvent[] {
       blockedOn: { what: 'Renew Bill.com read-only scope', personId: 'dana', kind: 'auth' },
     },
   ]
+  return seed.map((e) => sim(e))
 }
 
 /** What Finance does once the scope is renewed — so approving it resolves into visible work. */
 export function standingApprovalFollowUp(): Step[] {
   const taskId = SEED_APPROVAL_TASK_ID
   const s = new Script()
-  s.then(1400, ev({
+  s.then(1400, sim(ev({
     type: 'ToolCall', taskId,
     from: agentRef('w-invoice'), deptFrom: 'finance', deptTo: 'finance',
     title: 'Bill.com: capability renewed',
     detail: 'Read-only scope re-issued for 90 days — invoice matching resumes.',
-    payload: { tool: 'Bill.com', action: 'scope.renew', costUsd: 0.01, latencyMs: 420 },
-  }))
-  s.then(2600, ev({
+    payload: { tool: 'Bill.com', action: 'scope.renew', latencyMs: 420 },
+  })))
+  s.then(2600, sim(ev({
     type: 'TaskCompleted', taskId,
     from: agentRef('w-invoice'), deptFrom: 'finance', deptTo: 'finance',
     title: 'Quarterly tool-scope review — complete',
     detail: 'One capability renewed; two unused ones left to lapse.',
-  }))
+  })))
   return s.steps
 }
 

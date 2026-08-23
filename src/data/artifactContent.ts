@@ -739,7 +739,7 @@ function delayNoticeDoc(c: Ctx): ArtifactDoc {
     },
     {
       kind: 'note',
-      text: 'The forwarded carrier advisory contained embedded instructions; Model Armor stripped them at the gateway before drafting began.',
+      text: 'The forwarded carrier advisory contained embedded instructions; the local regex guardrail stripped them at the gateway before drafting began.',
       tone: 'guard',
     },
   ])

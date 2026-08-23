@@ -23,7 +23,7 @@ const reply = (ctx: BrainCtx, agentId: string, text: string, delay = 1100) =>
     at: delay,
     e: ev({
       type: 'Chat', from: agentRef(agentId), to: personRef(ctx.personaId()),
-      title: text, payload: { text },
+      title: text, payload: { text, simulated: true },
     }),
   }])
 
