@@ -94,7 +94,14 @@ export interface TypedPayload {
   sharedContext?: string
   expected?: string
   visibility?: string
-  artifact?: { name: string; type: string }
+  artifact?: {
+    name: string
+    type: string
+    /** what the worker actually produced */
+    content?: string
+    /** engine that produced it */
+    source?: string
+  }
   tool?: string
   action?: string
   reason?: string

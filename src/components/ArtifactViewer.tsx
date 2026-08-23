@@ -57,8 +57,15 @@ export default function ArtifactViewer() {
                   <div className="text-[11px] font-semibold tracking-[0.32em] text-ink uppercase">
                     Everpeak Outfitters
                   </div>
-                  <div className="shrink-0 font-mono text-[10px] tracking-[0.14em] text-mut uppercase">
-                    {doc.label}
+                  <div className="flex shrink-0 items-baseline gap-2">
+                    {!doc.live && (
+                      <span className="rounded border border-line px-1.5 py-0.5 font-mono text-[9px] tracking-wider text-mut uppercase">
+                        Sample
+                      </span>
+                    )}
+                    <span className="font-mono text-[10px] tracking-[0.14em] text-mut uppercase">
+                      {doc.label}
+                    </span>
                   </div>
                 </div>
                 <div className="mt-3 border-t border-linebright" />
@@ -86,7 +93,9 @@ export default function ArtifactViewer() {
               <footer className="mt-10 border-t border-line pt-3">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-mono text-[10.5px] text-dim">
-                    Drafted autonomously · delivered to {doc.recipientDesk}
+                    {doc.live
+                      ? `Produced by ${doc.live.source} · delivered to ${doc.recipientDesk}`
+                      : `Drafted autonomously · delivered to ${doc.recipientDesk}`}
                   </span>
                   <button
                     className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-line px-2 py-1 font-mono text-[10.5px] text-mut transition-colors hover:border-linebright hover:bg-raised hover:text-ink"

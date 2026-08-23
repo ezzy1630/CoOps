@@ -103,7 +103,7 @@ export function createGeminiBrain(opts: {
     })
     const text = res.text ?? ''
     if ((await opts.guardrail.inspect(text)).blocked) throw new Error('exchange output blocked by guardrail')
-    return { summary: text }
+    return { summary: text, source: 'Gemini model output' }
   }
 
   return {

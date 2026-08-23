@@ -53,6 +53,8 @@ export interface ArtifactDoc {
   blocks: DocBlock[]
   /** e.g. "Marketing desk" — for the footer line */
   recipientDesk: string
+  /** set only when built from real payload content rather than an authored sample */
+  live?: { source: string }
 }
 
 // ─── Small deterministic helpers ─────────────────────────────────────────────
@@ -815,6 +817,28 @@ export function buildArtifactDoc(
 ): ArtifactDoc {
   const c = makeCtx(event, opts.task, opts.agents ?? BASE_AGENTS)
   const n = c.name.toLowerCase()
+
+  // Real worker output attached by the engine beats any authored template.
+  const art = event.payload?.artifact
+  if (art?.content && art.content.trim()) {
+    const desk =
+      (event.deptTo && deptById.get(event.deptTo)?.name) ??
+      (opts.task && deptById.get(opts.task.originDept)?.name) ??
+      c.desk
+    return {
+      docType: 'generic',
+      label: 'Live output',
+      title: c.name,
+      meta: c.meta,
+      blocks: art.content
+        .split(/\n\s*\n/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .map((text): DocBlock => ({ kind: 'para', text })),
+      recipientDesk: `${desk} desk`,
+      live: { source: art.source ?? c.preparedBy },
+    }
+  }
 
   if (n.includes('payment confirmation')) return paymentDoc(c)
   if (n.includes('claims review memo')) return summitClaimsDoc(c) // hero — Summit Series
