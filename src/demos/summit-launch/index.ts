@@ -68,21 +68,16 @@ function present(snapshot: RehearsalSnapshot): RehearsalPresentation {
 const summitLaunch: RehearsalDefinition = {
   id: 'summit-launch',
   ownerId: 'maya',
+  focusAgentId: 'op-marketing',
   command: {
     rehearsal: {
       title: 'Run the launch rehearsal',
       description: 'Run the labeled scripted launch path from interview through delivery',
     },
     live: {
-      title: 'Start the live launch',
-      description: 'Ask the live Marketing Agent to propose and run a launch worker',
+      title: 'Start the Summit launch demo',
+      description: 'Switch to the labeled local rehearsal and run the launch path from interview through delivery',
     },
-  },
-  live: {
-    agentId: 'op-marketing',
-    prompt: 'I need a dedicated agent to run the Summit Series launch.',
-    startedTitle: 'Live launch started',
-    startedDetail: 'The request was sent to the Marketing Agent. Follow the live conversation in the Agent Room.',
   },
   run: heroInterviewAuto,
   handleChat: handleSummitChat,

@@ -7,32 +7,28 @@ export function executionMode(): ExecutionMode {
     : 'live'
 }
 
-export function liveEnabled(): boolean {
-  return executionMode() === 'live'
-}
-
-const navigationTarget = (): URL => {
+const locationTarget = (): URL => {
   const url = new URL(window.location.href)
   url.searchParams.delete('backend')
   return url
 }
 
-export function openLive(personId: string): void {
-  const url = navigationTarget()
+export function showLiveLocation(personId: string): void {
+  const url = locationTarget()
   url.searchParams.delete('mode')
   url.searchParams.delete('demo')
   url.searchParams.delete('tour')
   url.searchParams.set('as', personId)
-  window.location.assign(url)
+  window.history.replaceState(window.history.state, '', url)
 }
 
-export function openRehearsal(rehearsalId: string, personId: string): void {
-  const url = navigationTarget()
+export function showRehearsalLocation(rehearsalId: string, personId: string): void {
+  const url = locationTarget()
   url.searchParams.set('mode', 'rehearsal')
   url.searchParams.set('demo', rehearsalId)
   url.searchParams.set('as', personId)
   url.searchParams.set('tour', '0')
-  window.location.assign(url)
+  window.history.replaceState(window.history.state, '', url)
 }
 
 export function backendUrl(): string {

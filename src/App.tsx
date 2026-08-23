@@ -46,11 +46,7 @@ export default function App() {
     const demo = demoParam && useStore.getState().executionMode === 'rehearsal'
       ? getRehearsal(demoParam === '1' ? undefined : demoParam)
       : undefined
-    const as = params.get('as') ?? demo?.ownerId
-    if (as && !useStore.getState().entered) {
-      if (demo || params.get('tour') === '0') localStorage.setItem('coops_onboarded', '1')
-      useStore.getState().enter(as)
-    }
+    if (demo || params.get('tour') === '0') localStorage.setItem('coops_onboarded', '1')
     let demoTimer: number | undefined
     if (demo) {
       demoTimer = window.setTimeout(

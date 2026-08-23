@@ -18,7 +18,6 @@ export default function MapOverlays() {
   // the classic camera doesn't exist over the valley — its controls would be dead
   const mapStyle = useStore((s) => s.mapStyle)
   const executionMode = useStore((s) => s.executionMode)
-  const chatPending = useStore((s) => s.chatPending)
   const [selectedRehearsalId, setSelectedRehearsalId] = useState(() => getRehearsal()?.id ?? '')
 
   const task = selectedTaskId ? world.tasks.get(selectedTaskId) : null
@@ -36,10 +35,6 @@ export default function MapOverlays() {
     presentations.find(({ presentation }) => presentation.state === 'active') ??
     presentations.find(({ definition }) => definition.id === selectedRehearsalId) ??
     presentations[0]
-  const rehearsalPending = selectedRehearsal?.definition.live?.agentId
-    ? chatPending[selectedRehearsal.definition.live.agentId] === true
-    : false
-
   return (
     <>
       <div
@@ -74,7 +69,6 @@ export default function MapOverlays() {
                 definition={selectedRehearsal.definition}
                 presentation={selectedRehearsal.presentation}
                 executionMode={executionMode}
-                pending={rehearsalPending}
               />
             )}
           </>
@@ -97,7 +91,6 @@ export default function MapOverlays() {
                 definition={selectedRehearsal.definition}
                 presentation={selectedRehearsal.presentation}
                 executionMode={executionMode}
-                pending={rehearsalPending}
               />
             )}
           </>
@@ -290,13 +283,11 @@ function RehearsalAction({
   definition,
   presentation,
   executionMode,
-  pending,
   prominent = false,
 }: {
   definition: RehearsalDefinition
   presentation: RehearsalPresentation
   executionMode: ReturnType<typeof useStore.getState>['executionMode']
-  pending: boolean
   prominent?: boolean
 }) {
   if (presentation.state === 'idle') {
@@ -306,13 +297,12 @@ function RehearsalAction({
           'flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium disabled:cursor-wait disabled:text-dim',
           prominent ? 'btn btn-primary h-8' : 'h-6 border-l border-line text-ink hover:bg-hover',
         )}
-        disabled={pending}
         aria-label={definition.command[executionMode].title}
         title={definition.command[executionMode].description}
         onClick={() => useStore.getState().runRehearsal(definition.id)}
       >
         <Play size={11} weight="fill" />
-        {pending ? 'Waiting for agent' : 'Start'}
+        Start demo
       </button>
     )
   }
@@ -323,6 +313,8 @@ function RehearsalAction({
           'flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium',
           prominent ? 'btn h-8' : 'h-6 border-l border-line text-ink hover:bg-hover',
         )}
+        aria-label="Restart demo"
+        title="Clear this rehearsal and start it again from the beginning"
         onClick={() => useStore.getState().openRehearsal(definition.id)}
       >
         <ArrowCounterClockwise size={12} weight="bold" />

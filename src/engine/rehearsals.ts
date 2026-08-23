@@ -40,13 +40,8 @@ export interface RehearsalPresentation {
 export interface RehearsalDefinition {
   id: string
   ownerId: string
+  focusAgentId?: string
   command: Record<ExecutionMode, { title: string; description: string }>
-  live?: {
-    agentId: string
-    prompt: string
-    startedTitle: string
-    startedDetail: string
-  }
   run(api: EngineApi, personId: string): void
   handleChat?(api: RehearsalChatApi, input: RehearsalChatInput): boolean
   present(snapshot: RehearsalSnapshot): RehearsalPresentation
