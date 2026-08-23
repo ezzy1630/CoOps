@@ -1,4 +1,4 @@
-import type { AgentDef, Department, Person, Persona, Tool } from '../types'
+import type { AgentDef, Department, Person, Persona, Tool } from '../types.js'
 
 export const COMPANY = {
   name: 'Everpeak Outfitters',

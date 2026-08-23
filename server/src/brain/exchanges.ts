@@ -1,67 +1,87 @@
+/** Cross-department exchanges execute for real: runExchange drives one task
+ * through its lifecycle, emitting each event when the stage actually completes.
+ * Timing emerges from the executor's duration instead of scheduled playback. */
+
+import { BASE_AGENTS } from '../../../src/data/company.js'
 import type { WorldEvent } from '../../../src/types.js'
-import type { Step } from '../runtime/scheduler.js'
 import type { BrainCtx } from './types.js'
 
-type EventBody = Omit<WorldEvent, 'id' | 'ts'>
+export type ExchangeKind = 'budget' | 'legal' | 'faq'
+
+export interface ExchangeSpecResolved {
+  kind: ExchangeKind
+  fromDept: string
+  toDept: string
+  requesterId: string
+  operatorId: string
+  workerId: string
+  title: string
+  objective: string
+  artifact: { name: string; type: string }
+}
+
+export interface ExchangeOutcome {
+  summary: string
+}
+
+export type ExchangeExecutor = (spec: ExchangeSpecResolved) => Promise<ExchangeOutcome>
 
 const agentRef = (id: string) => ({ kind: 'agent' as const, id })
 
 let taskNum = 990
 const nextTaskId = () => `T-${++taskNum}`
 
-const OP_BY_DEPT: Record<string, string> = {
-  marketing: 'op-marketing', finance: 'op-finance', legal: 'op-legal',
-  support: 'op-support', operations: 'op-operations', hr: 'op-hr',
+const WORKER_BY_KIND: Record<ExchangeKind, string> = {
+  budget: 'w-budget',
+  legal: 'w-contract',
+  faq: 'w-faq',
 }
 
-interface ExchangeSpec {
-  fromDept: string
-  fromOp: string
+interface ExchangeBase {
   toDept: string
-  toOp: string
-  worker: string
   title: string
   objective: string
   artifact: { name: string; type: string }
 }
 
-const EXCHANGE_SPECS: Record<'budget' | 'legal' | 'faq', Omit<ExchangeSpec, 'fromDept' | 'fromOp'>> = {
+const EXCHANGE_BASES: Record<ExchangeKind, ExchangeBase> = {
   budget: {
-    toDept: 'finance', toOp: 'op-finance', worker: 'w-budget',
+    toDept: 'finance',
     title: 'Q3 launch budget summary',
     objective: 'Pull the current Q3 launch budget position with committed vs. actual.',
     artifact: { name: 'Q3 budget position', type: 'Report' },
   },
   legal: {
-    toDept: 'legal', toOp: 'op-legal', worker: 'w-contract',
+    toDept: 'legal',
     title: 'Claims and policy check',
     objective: 'Review the requested copy or document for compliance issues.',
     artifact: { name: 'Compliance review note', type: 'Memo' },
   },
   faq: {
-    toDept: 'support', toOp: 'op-support', worker: 'w-faq',
+    toDept: 'support',
     title: 'FAQ preparation request',
     objective: 'Draft customer-facing FAQs for the requested topic.',
     artifact: { name: 'FAQ draft', type: 'Article' },
   },
 }
 
-const PACE = 2.2
+const agentInDept = (deptId: string, kind: 'operator' | 'worker') =>
+  BASE_AGENTS.find((a) => a.deptId === deptId && a.kind === kind)
 
-function exchangeSteps(spec: ExchangeSpec, taskId: string): Step[] {
-  const steps: Step[] = []
-  let cursor = 0
-  const push = (delayMs: number, e: EventBody) => {
-    cursor += delayMs
-    steps.push({ at: cursor, e })
-  }
-  const p = (ms: number) => ms * PACE
+function resolveWorker(kind: ExchangeKind, toDept: string): string {
+  const preferred = BASE_AGENTS.find((a) => a.id === WORKER_BY_KIND[kind] && a.deptId === toDept)
+  return preferred?.id ?? agentInDept(toDept, 'worker')?.id ?? toDept
+}
 
-  const requester = agentRef(spec.fromOp)
+async function performExchange(ctx: BrainCtx, executor: ExchangeExecutor, spec: ExchangeSpecResolved): Promise<void> {
+  const taskId = nextTaskId()
+  const requester = agentRef(spec.requesterId)
+  const operator = agentRef(spec.operatorId)
+  const worker = agentRef(spec.workerId)
 
-  push(0, {
+  ctx.emit({
     type: 'TaskRequest', taskId, edge: 'task', travelMs: 2400,
-    from: requester, to: agentRef(spec.toOp),
+    from: requester, to: operator,
     deptFrom: spec.fromDept, deptTo: spec.toDept,
     title: spec.title,
     detail: spec.objective,
@@ -73,51 +93,67 @@ function exchangeSteps(spec: ExchangeSpec, taskId: string): Step[] {
       visibility: 'request + artifact',
     },
   })
-  push(p(2600), {
+  ctx.emit({
     type: 'TaskAccepted', taskId,
-    from: agentRef(spec.toOp), to: requester,
+    from: operator, to: requester,
     deptFrom: spec.toDept, deptTo: spec.fromDept,
     title: `${spec.title} — accepted`,
     detail: `Queued in ${spec.toDept}`,
   })
-  push(p(1800), {
+  ctx.emit({
     type: 'DelegatedTo', taskId,
-    from: agentRef(spec.toOp), to: agentRef(spec.worker),
+    from: operator, to: worker,
     deptFrom: spec.toDept, deptTo: spec.toDept,
     title: 'Delegated to worker',
-    detail: `${spec.title}`,
+    detail: spec.title,
   })
-  push(p(3200), {
+
+  const startedAt = Date.now()
+  const outcome = await executor(spec)
+  const latencyMs = Date.now() - startedAt
+
+  ctx.emit({
     type: 'StatusUpdate', taskId,
-    from: agentRef(spec.worker), to: agentRef(spec.fromOp),
+    from: worker, to: requester,
     deptFrom: spec.toDept, deptTo: spec.fromDept,
     title: 'In progress',
-    detail: `Working on ${spec.artifact.name.toLowerCase()}`,
-    payload: { latencyMs: Math.round(400 + 2200 * ((taskNum * 37) % 100) / 100), costUsd: 0.04 },
+    detail: outcome.summary,
+    payload: { latencyMs },
   })
-  push(p(4200), {
+  ctx.emit({
     type: 'ArtifactDelivered', taskId, edge: 'artifact', travelMs: 2400,
-    from: agentRef(spec.toOp), to: requester,
+    from: operator, to: requester,
     deptFrom: spec.toDept, deptTo: spec.fromDept,
     title: `Delivered: ${spec.artifact.name}`,
-    payload: { artifact: spec.artifact, costUsd: 0.06 },
+    payload: { artifact: spec.artifact },
   })
-  push(p(1600), {
+  ctx.emit({
     type: 'TaskCompleted', taskId,
     from: requester,
     deptFrom: spec.fromDept, deptTo: spec.fromDept,
     title: `${spec.title} — complete`,
   })
-  return steps
 }
 
-/** Schedules a cross-department exchange chain; returns false when the target
- * department is the caller's own department (nothing to schedule). */
-export function scheduleExchange(ctx: BrainCtx, kind: 'budget' | 'legal' | 'faq', fromDept: string): boolean {
-  const base = EXCHANGE_SPECS[kind]
+/** Runs one real cross-department exchange; returns false when the target
+ * department is the caller's own (nothing to run). */
+export function runExchange(ctx: BrainCtx, executor: ExchangeExecutor, kind: ExchangeKind, fromDept: string): boolean {
+  const base = EXCHANGE_BASES[kind]
   if (base.toDept === fromDept) return false
-  const taskId = nextTaskId()
-  const spec: ExchangeSpec = { ...base, fromDept, fromOp: OP_BY_DEPT[fromDept] ?? fromDept }
-  ctx.schedule(exchangeSteps(spec, taskId), 1600)
+
+  const toDept = base.toDept
+  const spec: ExchangeSpecResolved = {
+    kind,
+    fromDept,
+    toDept,
+    requesterId: agentInDept(fromDept, 'operator')?.id ?? fromDept,
+    operatorId: agentInDept(toDept, 'operator')?.id ?? toDept,
+    workerId: resolveWorker(kind, toDept),
+    title: base.title,
+    objective: base.objective,
+    artifact: base.artifact,
+  }
+
+  void performExchange(ctx, executor, spec).catch((err) => console.error(err))
   return true
 }
