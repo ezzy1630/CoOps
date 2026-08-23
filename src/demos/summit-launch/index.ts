@@ -29,8 +29,6 @@ function present(snapshot: RehearsalSnapshot): RehearsalPresentation {
   if (task?.status === 'done') {
     return {
       state: 'complete',
-      taskId,
-      replayLabel: 'Replay the launch',
       holdAmbient: false,
     }
   }
@@ -56,7 +54,6 @@ function present(snapshot: RehearsalSnapshot): RehearsalPresentation {
     state: 'active',
     steps: STEPS,
     current: unblocked ? 3 : 2,
-    taskId,
     detail: unblocked
       ? 'QuickBooks connected. The run resumes from its checkpoint and delivers.'
       : blocked

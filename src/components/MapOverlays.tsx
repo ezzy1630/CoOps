@@ -197,7 +197,7 @@ function ValleyRunNarrative({
       : steps[current - 1] ?? 'Rehearsal running'
   const detail = presentation.state === 'idle'
     ? definition.command[executionMode].description
-    : presentation.detail ?? (presentation.state === 'complete' ? 'The run is ready to replay.' : 'Follow the run as work moves across the company.')
+    : presentation.detail ?? (presentation.state === 'complete' ? 'Explore the completed work or restart the demo.' : 'Follow the run as work moves across the company.')
 
   return (
     <div className="flex min-w-0 max-w-[620px] items-center gap-3">
@@ -307,10 +307,12 @@ function RehearsalAction({
           prominent ? 'btn btn-primary h-8' : 'h-6 border-l border-line text-ink hover:bg-hover',
         )}
         disabled={pending}
+        aria-label={definition.command[executionMode].title}
+        title={definition.command[executionMode].description}
         onClick={() => useStore.getState().runRehearsal(definition.id)}
       >
         <Play size={11} weight="fill" />
-        {pending ? 'Waiting for agent' : definition.command[executionMode].title}
+        {pending ? 'Waiting for agent' : 'Start'}
       </button>
     )
   }
@@ -321,12 +323,10 @@ function RehearsalAction({
           'flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium',
           prominent ? 'btn h-8' : 'h-6 border-l border-line text-ink hover:bg-hover',
         )}
-        onClick={() => presentation.taskId
-          ? useStore.getState().startReplay(presentation.taskId)
-          : useStore.getState().runRehearsal(definition.id)}
+        onClick={() => useStore.getState().openRehearsal(definition.id)}
       >
         <ArrowCounterClockwise size={12} weight="bold" />
-        {presentation.replayLabel ?? (presentation.taskId ? 'Replay rehearsal' : 'Run rehearsal again')}
+        Restart demo
       </button>
     )
   }

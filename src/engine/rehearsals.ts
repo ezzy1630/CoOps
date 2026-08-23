@@ -34,8 +34,6 @@ export interface RehearsalPresentation {
   /** one-based index into steps */
   current?: number
   detail?: string
-  taskId?: string
-  replayLabel?: string
   holdAmbient: boolean
 }
 

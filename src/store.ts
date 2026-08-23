@@ -31,7 +31,8 @@ import {
   executionMode,
   fetchRuntimeInfo,
   liveEnabled,
-  switchExecutionMode as navigateToExecutionMode,
+  openLive as navigateToLive,
+  openRehearsal as navigateToRehearsal,
 } from './live'
 
 // ─── Module-level engine internals (not reactive) ───────────────────────────
@@ -155,7 +156,8 @@ interface Store {
   runRehearsal(id?: string): void
   sendChat(agentId: string, text: string): void
   retryLive(): void
-  switchExecutionMode(mode: ExecutionMode): void
+  openRehearsal(id?: string): void
+  enterLive(personId: string): void
 
   // ui actions
   enter(personId: string): void
@@ -637,8 +639,13 @@ export const useStore = create<Store>()((set, get) => {
       openLiveConnection(get().persona?.id ?? 'maya')
     },
 
-    switchExecutionMode(mode) {
-      navigateToExecutionMode(mode)
+    openRehearsal(id) {
+      const definition = getRehearsal(id)
+      if (definition) navigateToRehearsal(definition.id, definition.ownerId)
+    },
+
+    enterLive(personId) {
+      navigateToLive(personId)
     },
 
     enter(personId) {

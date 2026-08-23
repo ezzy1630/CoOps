@@ -22,7 +22,7 @@ Open http://localhost:5173 in **Chrome on a desktop** (voice input uses the Web 
 1. Open the runtime inspector in the top bar and confirm the active providers.
 2. Pick a persona on the landing screen. The app adapts to Marketing Manager, COO, or Finance Ops Lead authority.
 3. Scroll to zoom the company map: departments → agents → task envelopes on the edges.
-4. In Live mode, press **Start live launch** to ask the Marketing Agent to create a launch worker. For the deterministic path, open `?mode=rehearsal` and press **Run launch rehearsal**.
+4. Choose **Run rehearsal** on the landing screen for the deterministic scripted path. Choosing a persona enters Live mode; press **Start** to ask the Marketing Agent to create a launch worker.
 5. Click any finished task and press **↺ Replay** to replay asynchronous work in seconds.
 6. Open **Activity** to inspect the runtime, event log, tool actions, human gates, artifact provenance, guardrail blocks, and per-task traces.
 7. **⌘K** jumps to any agent, task, person, department, or approval.

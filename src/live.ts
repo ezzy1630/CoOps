@@ -11,11 +11,27 @@ export function liveEnabled(): boolean {
   return executionMode() === 'live'
 }
 
-export function switchExecutionMode(mode: ExecutionMode): void {
+const navigationTarget = (): URL => {
   const url = new URL(window.location.href)
-  if (mode === 'live') url.searchParams.delete('mode')
-  else url.searchParams.set('mode', mode)
   url.searchParams.delete('backend')
+  return url
+}
+
+export function openLive(personId: string): void {
+  const url = navigationTarget()
+  url.searchParams.delete('mode')
+  url.searchParams.delete('demo')
+  url.searchParams.delete('tour')
+  url.searchParams.set('as', personId)
+  window.location.assign(url)
+}
+
+export function openRehearsal(rehearsalId: string, personId: string): void {
+  const url = navigationTarget()
+  url.searchParams.set('mode', 'rehearsal')
+  url.searchParams.set('demo', rehearsalId)
+  url.searchParams.set('as', personId)
+  url.searchParams.set('tour', '0')
   window.location.assign(url)
 }
 
