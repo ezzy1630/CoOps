@@ -282,9 +282,17 @@ html.fun-mode.dark {
   --color-map-canvas: #443227;
 }
 
-/* nearest-neighbour upscale for sprite <img>s and background strips */
+/* nearest-neighbour upscale for sprite <img>s and background strips. Also
+   opts out of Preflight's img{max-width:100%}: these imgs live inside
+   width-less positioning wrappers, so that clamp silently computes them to
+   zero width (the invisible-emote bug). Scoped to the valley root so every
+   current and future sprite img is covered, not just the ones that opt in. */
 .pixelated {
   image-rendering: pixelated;
+  max-width: none;
+}
+.coops-valley img {
+  max-width: none;
 }
 
 /* Two-frame idle bob for villagers: flips the avatar strip between the

@@ -199,7 +199,7 @@ export default function PixelMap() {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 overflow-hidden"
+      className="coops-valley absolute inset-0 overflow-hidden"
       style={{ backgroundColor: 'var(--color-map-canvas)' }}
       onClick={() => useStore.getState().selectTask(null)}
     >
