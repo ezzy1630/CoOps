@@ -64,6 +64,7 @@ const brainCtx: BrainCtx = {
 const RESOLUTION_TYPES = new Set(['AccountConnected', 'ApprovalGranted', 'BlueprintApproved'])
 
 /** The live routing roster: every agent this server can address, seeded plus spawned. */
+const DEPT_OF_AGENT: Record<string, string> = { ...AGENT_DEPT }
 const KNOWN_AGENTS = new Set<string>(Object.keys(DEPT_OF_AGENT))
 
 /** Registers a spawned agent in the routing roster so chats reach it. */
@@ -118,7 +119,7 @@ function onAppended(e: WorldEvent): void {
   spawnFromBlueprintResolution(e)
   if (e.type === 'Chat' && e.from?.kind === 'person' && e.to?.kind === 'agent') {
     const text = typeof e.payload?.text === 'string' ? e.payload.text : ''
-    if (text) brain.handle(brainCtx, e.to.id, AGENT_DEPT[e.to.id] ?? '', text, e.from.id)
+    if (text) brain.handle(brainCtx, e.to.id, DEPT_OF_AGENT[e.to.id] ?? '', text, e.from.id)
   }
 }
 
