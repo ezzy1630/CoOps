@@ -10,30 +10,10 @@ import { openJsonlMemory } from './memory/jsonl.js'
 import { workerIdFromName } from './ids.js'
 import type { BrainCtx } from './brain/types.js'
 import type { WorldEvent } from '../../src/types.js'
+import { AGENT_DEPT } from '../../src/data/company.js'
 
 const cfg = loadConfig()
 const bus = new Bus<WorldEvent>()
-
-const DEPT_OF_AGENT: Record<string, string> = {
-  'op-marketing': 'marketing',
-  'op-finance': 'finance',
-  'op-legal': 'legal',
-  'op-support': 'support',
-  'op-operations': 'operations',
-  'op-hr': 'hr',
-  'w-copy': 'marketing',
-  'w-social': 'marketing',
-  'w-invoice': 'finance',
-  'w-budget': 'finance',
-  'w-contract': 'legal',
-  'w-policy': 'legal',
-  'w-faq': 'support',
-  'w-triage': 'support',
-  'w-inventory': 'operations',
-  'w-vendor': 'operations',
-  'w-onboard': 'hr',
-  'w-launch': 'marketing',
-}
 
 function worldTasks(events: WorldEvent[]): { id: string; title: string; status: string }[] {
   const statusById = new Map<string, string>()
@@ -138,7 +118,7 @@ function onAppended(e: WorldEvent): void {
   spawnFromBlueprintResolution(e)
   if (e.type === 'Chat' && e.from?.kind === 'person' && e.to?.kind === 'agent') {
     const text = typeof e.payload?.text === 'string' ? e.payload.text : ''
-    if (text) brain.handle(brainCtx, e.to.id, DEPT_OF_AGENT[e.to.id] ?? '', text, e.from.id)
+    if (text) brain.handle(brainCtx, e.to.id, AGENT_DEPT[e.to.id] ?? '', text, e.from.id)
   }
 }
 

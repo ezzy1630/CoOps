@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai'
 import type { Content, Tool } from '@google/genai'
 import type { AgentBlueprint, WorldEvent } from '../../../src/types.js'
+import { deptById } from '../../../src/data/company.js'
 import type { GuardrailAdapter } from '../guardrail/types.js'
 import type { DeptMemory } from '../memory/types.js'
 import { createDryRunTools, WORKSPACE_TOOLS } from '../tools/dryrun.js'
@@ -8,16 +9,6 @@ import type { WorkspaceToolAdapter } from '../tools/types.js'
 import { scheduleExchange } from './exchanges.js'
 import { createMockBrain } from './mock.js'
 import type { BrainAdapter, BrainCtx } from './types.js'
-
-// Compact copy of src/data/company.ts departments for prompt building.
-const DEPTS: Record<string, { name: string; blurb: string }> = {
-  marketing: { name: 'Marketing', blurb: 'campaigns, brand, launches' },
-  finance: { name: 'Finance', blurb: 'budgets, invoices, forecasts' },
-  legal: { name: 'Legal', blurb: 'contracts, claims, compliance' },
-  support: { name: 'Support', blurb: 'customers, tickets, FAQs' },
-  operations: { name: 'Operations', blurb: 'inventory, vendors, logistics' },
-  hr: { name: 'HR', blurb: 'people, onboarding, policy' },
-}
 
 const REFUSAL = 'That request was blocked by policy — rephrase or contact your department lead.'
 
@@ -132,7 +123,7 @@ async function runTurn(
   await memory.append(deptId, 'human', text)
   const recent = await memory.read(deptId, 12)
 
-  const dept = DEPTS[deptId]
+  const dept = deptById.get(deptId)
   const deptName = dept?.name ?? deptId
   const systemInstruction = [
     `You are the ${deptName} Agent of Everpeak Outfitters, an outdoor-gear company.`,
