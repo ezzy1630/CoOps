@@ -26,6 +26,12 @@ let presenceAt = 0
 let engineStarted = false
 let engineStartedAt = 0
 let disconnectLive: (() => void) | null = null
+let simulatedToastShown = false
+const notifySimulated = () => {
+  if (simulatedToastShown) return
+  simulatedToastShown = true
+  useStore.getState().toast('Offline demo brain', 'Agent replies are scripted locally — start the backend for real execution.')
+}
 /** For the first minute the company runs hot: judges arrive to a moving map. */
 const WARMUP_MS = 60_000
 
@@ -170,6 +176,21 @@ export const useStore = create<Store>()((set, get) => {
 
   const brainCtx = (): BrainCtx => ({
     ...api,
+    emit: (e) => {
+      notifySimulated()
+      if (Array.isArray(e)) {
+        api.emit(e.map((x) => ({ ...x, payload: { ...x.payload, simulated: true } })))
+        return
+      }
+      api.emit({ ...e, payload: { ...e.payload, simulated: true } })
+    },
+    schedule: (steps, baseDelayMs) => {
+      notifySimulated()
+      api.schedule(
+        steps.map((s) => ({ ...s, e: { ...s.e, payload: { ...s.e.payload, simulated: true } } })),
+        baseDelayMs,
+      )
+    },
     world: () => get().world,
     personaId: () => get().persona?.id ?? 'maya',
     interview: () => get().interview,
