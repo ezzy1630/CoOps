@@ -1,4 +1,5 @@
 import { resolve } from 'node:path'
+import type { GoogleOAuthConfig } from './auth/google.js'
 
 export interface Config {
   port: number
@@ -7,6 +8,7 @@ export interface Config {
   /** Optional so existing Config literals (spine.test.ts) stay valid. */
   enableA2a?: boolean
   geminiApiKey?: string
+  googleOAuth?: GoogleOAuthConfig
 }
 
 export function loadConfig(): Config {
@@ -17,5 +19,13 @@ export function loadConfig(): Config {
     allowDevEmit: process.env.COOPS_ALLOW_DEV_EMIT === '1',
     enableA2a: process.env.COOPS_ENABLE_A2A === '1',
     geminiApiKey: process.env.GEMINI_API_KEY,
+    googleOAuth: googleOAuthFromEnv(),
   }
+}
+
+function googleOAuthFromEnv(): GoogleOAuthConfig | undefined {
+  const clientId = process.env.COOPS_GOOGLE_CLIENT_ID
+  const clientSecret = process.env.COOPS_GOOGLE_CLIENT_SECRET
+  const redirectUri = process.env.COOPS_GOOGLE_REDIRECT_URI
+  return clientId && clientSecret && redirectUri ? { clientId, clientSecret, redirectUri } : undefined
 }
