@@ -7,6 +7,23 @@ export type TaskId = string
 export type ToolId = string
 export type EventId = string
 
+export type ExecutionMode = 'live' | 'rehearsal'
+export type LiveConnection = 'idle' | 'connecting' | 'connected' | 'disconnected'
+
+/** Server-reported execution facts shown verbatim in the runtime inspector. */
+export interface RuntimeInfo {
+  execution: 'live'
+  brain: 'gemini' | 'mock'
+  model: string | null
+  memory: 'firestore' | 'jsonl'
+  guardrail: 'model-armor' | 'heuristic'
+  workspace: 'google-workspace' | 'dry-run'
+  a2a: 'disabled' | 'open' | 'authenticated'
+  revision: string
+  runId: string
+  startedAt: string
+}
+
 export interface Ref {
   kind: 'agent' | 'person' | 'system'
   id: string
@@ -94,7 +111,14 @@ export interface TypedPayload {
   sharedContext?: string
   expected?: string
   visibility?: string
-  artifact?: { name: string; type: string }
+  artifact?: {
+    name: string
+    type: string
+    /** what the worker actually produced */
+    content?: string
+    /** engine that produced it */
+    source?: string
+  }
   tool?: string
   action?: string
   reason?: string
@@ -105,6 +129,8 @@ export interface TypedPayload {
   department?: Department
   text?: string
   author?: Ref
+  /** set on events produced by offline demo scripting rather than the backend */
+  simulated?: boolean
 }
 
 export interface WorldEvent {

@@ -23,21 +23,24 @@ const mockExecutor: ExchangeExecutor = async (spec) => {
     case 'budget':
       return {
         summary: `“${spec.title}” complete: committed vs. actual reconciled and the position summarized in “${spec.artifact.name}”.`,
+        source: 'offline demo fixture',
       }
     case 'legal':
       return {
         summary: `“${spec.title}” complete: compliance review finished, findings captured in “${spec.artifact.name}”.`,
+        source: 'offline demo fixture',
       }
     case 'faq':
       return {
         summary: `“${spec.title}” complete: customer-ready Q&A drafted in “${spec.artifact.name}”.`,
+        source: 'offline demo fixture',
       }
   }
 }
 
 const INTERVIEW_QUESTIONS = [
-  'Happy to set that up. First — what outcome should this agent own? Describe it as a finish line, not a to-do list.',
-  'Got it. What should trigger it — a schedule, an event in one of our systems, or someone asking?',
+  'Happy to set that up. First, what outcome should this agent own? Describe it as a finish line, not a to-do list.',
+  'Got it. What should trigger it: a schedule, an event in one of our systems, or someone asking?',
   'Which systems will it touch, and which departments will it need to pull in?',
   'Last one: who approves its work, and what hard limits should I write into it?',
 ]
@@ -99,7 +102,7 @@ export function createMockBrain(opts?: { memory?: DeptMemory }): BrainAdapter {
           reply(ctx, agentId, personId, INTERVIEW_QUESTIONS[next])
         } else {
           ctx.setInterviewStep(agentId, null)
-          reply(ctx, agentId, personId, 'That’s everything I need. Here’s the blueprint — review the inherited config and approve when ready.')
+          reply(ctx, agentId, personId, 'That’s everything I need. Here’s the blueprint. Review the inherited config and approve when ready.')
           ctx.schedule([{ at: 2200, e: blueprintEvent(personId) }])
         }
         return
@@ -109,7 +112,7 @@ export function createMockBrain(opts?: { memory?: DeptMemory }): BrainAdapter {
       const wantsLaunch = /launch|summit/.test(t) && !/budget|cost|spend|finance|legal|claim|contract|faq|support|status/.test(t)
       if (wantsAgent || wantsLaunch) {
         if (agentId !== 'op-marketing') {
-          reply(ctx, agentId, personId, `That sounds like a Marketing job — I’d route it to the Marketing Agent. Jump over with ⌘K, or ask me for ${deptId} work.`)
+          reply(ctx, agentId, personId, `That sounds like a Marketing job. I’d route it to the Marketing Agent. Jump over with ⌘K, or ask me for ${deptId} work.`)
           return
         }
         ctx.setInterviewStep(agentId, 0)
@@ -120,22 +123,22 @@ export function createMockBrain(opts?: { memory?: DeptMemory }): BrainAdapter {
       if (/budget|cost|spend|finance/.test(t)) {
         const { dispatched } = runExchange(ctx, mockExecutor, 'budget', deptId)
         reply(ctx, agentId, personId, dispatched
-          ? 'On it — asking the Finance Agent for the Q3 budget position. Watch the edge on the map; the artifact lands back here.'
-          : 'That’s our own ledger — pulling it now.')
+          ? 'On it. I’m asking the Finance Agent for the Q3 budget position. Watch the edge on the map; the artifact lands back here.'
+          : 'That’s our own ledger. I’m pulling it now.')
         return
       }
       if (/legal|claim|contract|compliance|policy/.test(t)) {
         const { dispatched } = runExchange(ctx, mockExecutor, 'legal', deptId)
         reply(ctx, agentId, personId, dispatched
-          ? 'Routing a claims check to the Legal Agent with scoped context — request and artifact only, no internal chatter crosses over.'
-          : 'Reviewing locally — Legal is my department.')
+          ? 'Routing a claims check to the Legal Agent with scoped context. Only the request and artifact cross over.'
+          : 'Reviewing locally. Legal is my department.')
         return
       }
       if (/faq|support|customer|help.?center|ticket/.test(t)) {
         const { dispatched } = runExchange(ctx, mockExecutor, 'faq', deptId)
         reply(ctx, agentId, personId, dispatched
           ? 'Asked the Support Agent to prep FAQs. Their FAQ Agent will draft; we get the artifact back.'
-          : 'Drafting FAQs now — that’s us.')
+          : 'Drafting FAQs now. That’s us.')
         return
       }
       if (/status|progress|going on|update|working on/.test(t)) {
@@ -144,16 +147,16 @@ export function createMockBrain(opts?: { memory?: DeptMemory }): BrainAdapter {
         )
         const dept = DEPT_NAMES[deptId] ?? deptId
         reply(ctx, agentId, personId, active.length === 0
-          ? `${dept} is quiet right now — queue is clear. Ambient jobs run on schedule.`
+          ? `${dept} is quiet right now. The queue is clear and scheduled jobs continue to run.`
           : `${dept} has ${active.length} live ${active.length === 1 ? 'task' : 'tasks'}: ${active.slice(0, 3).map((x) => `“${x.title}” (${x.status.replace('_', ' ')})`).join(' · ')}. Click one on the map to focus it.`)
         return
       }
       if (/hello|hey|hi|who are you|what can you/.test(t)) {
         const dept = DEPT_NAMES[deptId] ?? deptId
-        reply(ctx, agentId, personId, `I’m the ${dept} Agent — I run ${dept.toLowerCase()}’s work, pull in other departments when needed, and can draft a new agent for any recurring job. Ask me for a budget check, a legal review, FAQ prep… or “I need an agent for the product launch.”`)
+        reply(ctx, agentId, personId, `I’m the ${dept} Agent. I run ${dept.toLowerCase()}’s work, pull in other departments when needed, and can draft a new agent for any recurring job. Ask me for a budget check, a legal review, FAQ prep… or “I need an agent for the product launch.”`)
         return
       }
-      reply(ctx, agentId, personId, 'I can take that as a task, pull in another department, or draft a dedicated agent for it. Try “ask Finance for the Q3 launch budget” — or “I need an agent for the Summit launch.”')
+      reply(ctx, agentId, personId, 'I can take that as a task, pull in another department, or draft a dedicated agent for it. Try “ask Finance for the Q3 launch budget” or “I need an agent for the Summit launch.”')
     },
   }
 }

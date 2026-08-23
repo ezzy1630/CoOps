@@ -53,6 +53,8 @@ export interface ArtifactDoc {
   blocks: DocBlock[]
   /** e.g. "Marketing desk" — for the footer line */
   recipientDesk: string
+  /** set only when built from real payload content rather than an authored sample */
+  live?: { source: string }
 }
 
 // ─── Small deterministic helpers ─────────────────────────────────────────────
@@ -162,7 +164,7 @@ const VENDOR_LINES: Record<string, [string, string]> = {
 
 function paymentDoc(c: Ctx): ArtifactDoc {
   const inv = c.name.match(/#(\d+)/)?.[1] ?? String(8000 + (c.h % 1900))
-  const vendor = c.task?.title.match(/—\s*(.+)$/)?.[1] ?? 'the vendor'
+  const vendor = c.task?.title.match(/(?:—|:)\s*(.+)$/)?.[1] ?? 'the vendor'
   const lines = VENDOR_LINES[vendor] ?? ['Materials per purchase order', 'Packaging & handling']
   const a1 = int(c.rng, 2800, 13500) + int(c.rng, 0, 99) / 100
   const a2 = int(c.rng, 900, 5200) + int(c.rng, 0, 99) / 100
@@ -387,7 +389,7 @@ const PRODUCT_SKUS: Record<string, string> = {
 }
 
 function restockDoc(c: Ctx): ArtifactDoc {
-  const product = c.task?.title.match(/Stock check — (.+?) backorders/)?.[1] ?? 'the requested product'
+  const product = c.task?.title.match(/Stock check(?: —|:) (.+?) backorders/)?.[1] ?? 'the requested product'
   const sku = PRODUCT_SKUS[product] ?? `EP-SKU-${(c.h % 900) + 100}`
   const backorders = int(c.rng, 40, 140)
   const inbound = int(c.rng, 200, 480)
@@ -445,7 +447,7 @@ const ROLE_KITS: Record<string, { text: string; done: boolean; note?: string }[]
 }
 
 function equipmentDoc(c: Ctx): ArtifactDoc {
-  const role = c.task?.title.match(/new hire — (.+)$/)?.[1] ?? 'new team member'
+  const role = c.task?.title.match(/new hire(?: —|:) (.+)$/)?.[1] ?? 'new team member'
   const kit = ROLE_KITS[role] ?? [
     { text: 'Role equipment per the standard kit list', done: true },
     { text: 'Department tool access requested', done: true },
@@ -737,7 +739,7 @@ function delayNoticeDoc(c: Ctx): ArtifactDoc {
     },
     {
       kind: 'note',
-      text: 'The forwarded carrier advisory contained embedded instructions; Model Armor stripped them at the gateway before drafting began.',
+      text: 'The forwarded carrier advisory contained embedded instructions; the local regex guardrail stripped them at the gateway before drafting began.',
       tone: 'guard',
     },
   ])
@@ -815,6 +817,28 @@ export function buildArtifactDoc(
 ): ArtifactDoc {
   const c = makeCtx(event, opts.task, opts.agents ?? BASE_AGENTS)
   const n = c.name.toLowerCase()
+
+  // Real worker output attached by the engine beats any authored template.
+  const art = event.payload?.artifact
+  if (art?.content && art.content.trim()) {
+    const desk =
+      (event.deptTo && deptById.get(event.deptTo)?.name) ??
+      (opts.task && deptById.get(opts.task.originDept)?.name) ??
+      c.desk
+    return {
+      docType: 'generic',
+      label: 'Live output',
+      title: c.name,
+      meta: c.meta,
+      blocks: art.content
+        .split(/\n\s*\n/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .map((text): DocBlock => ({ kind: 'para', text })),
+      recipientDesk: `${desk} desk`,
+      live: { source: art.source ?? c.preparedBy },
+    }
+  }
 
   if (n.includes('payment confirmation')) return paymentDoc(c)
   if (n.includes('claims review memo')) return summitClaimsDoc(c) // hero — Summit Series

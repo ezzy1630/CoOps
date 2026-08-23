@@ -385,7 +385,7 @@ function TraceModal({ taskId, onClose }: { taskId: string; onClose: () => void }
         </div>
 
         <div className="border-t border-line px-3 py-2 font-mono text-[10.5px] text-dim">
-          OpenTelemetry · Vertex AI Agent Engine · Cloud Trace — demo data
+          Derived from the event log · local trace visualization
         </div>
       </div>
     </div>,

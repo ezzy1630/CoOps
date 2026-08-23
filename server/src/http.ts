@@ -1,20 +1,30 @@
 import http from 'node:http'
 import express from 'express'
 import type { NextFunction, Request, Response } from 'express'
-import type { Config } from './config.js'
+import { DEFAULT_GEMINI_MODEL, type Config } from './config.js'
 import { newId } from './ids.js'
 import type { EventStore } from './store.js'
 import type { Bus } from './bus.js'
 import type { OrgRegistry } from './org.js'
 import { mountA2a } from './a2a/mount.js'
 import { PresenceRegistry } from './presence.js'
-import type { WorldEvent } from '../../src/types.js'
+import { createGoogleOAuth } from './auth/google.js'
+import type { GoogleOAuth } from './auth/google.js'
+import type { RuntimeInfo, WorldEvent } from '../../src/types.js'
 
 type Appendable = Omit<WorldEvent, 'id' | 'ts'> & Partial<Pick<WorldEvent, 'id' | 'ts'>>
 
-export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEvent>, org: OrgRegistry): Promise<{ server: http.Server }> {
+export async function startHttp(
+  cfg: Config,
+  store: EventStore,
+  bus: Bus<WorldEvent>,
+  org: OrgRegistry,
+  oauth?: GoogleOAuth,
+  runtime?: RuntimeInfo,
+): Promise<{ server: http.Server }> {
   const app = express()
   const presence = new PresenceRegistry()
+  const google = oauth ?? createGoogleOAuth()
 
   app.use((req, res, next) => {
     res.setHeader('access-control-allow-origin', '*')
@@ -34,12 +44,20 @@ export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEv
     next()
   })
 
-  if (cfg.enableA2a) mountA2a(app, { store, bus }, org)
+  if (cfg.enableA2a) mountA2a(app, { store, bus, token: cfg.a2aToken, principal: cfg.a2aPrincipal }, org)
 
   app.get('/events', (req, res) => streamEvents(store, bus, sinceOf(req), personIdOf(req), presence, res))
   app.get('/healthz', (_req, res) => send(res, 200, { ok: true, events: store.all().length }))
+  app.get('/runtime', (_req, res) => send(res, 200, runtime ?? fallbackRuntime(cfg, google)))
   app.get('/presence', (_req, res) => send(res, 200, presence.list()))
   app.get('/org', (_req, res) => send(res, 200, org.list()))
+
+  app.get('/auth/google/status', (_req, res) => send(res, 200, { enabled: google.enabled }))
+  app.get('/auth/google/start', (_req, res) => {
+    if (!google.enabled) return send(res, 404, { error: 'not found' })
+    res.redirect(302, google.authorizeUrl(google.issue()))
+  })
+  app.get('/auth/google/callback', wrapped(async (req, res) => getGoogleCallback(google, store, req, res)))
 
   const jsonBody = express.json()
   app.post('/chat', jsonBody, wrapped(async (req, res) => postChat(store, req.body, res)))
@@ -63,6 +81,22 @@ export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEv
     server.listen(cfg.port, () => resolve())
   })
   return { server }
+}
+
+function fallbackRuntime(cfg: Config, google: GoogleOAuth): RuntimeInfo {
+  const brain = cfg.geminiApiKey ? 'gemini' : 'mock'
+  return {
+    execution: 'live',
+    brain,
+    model: brain === 'gemini' ? (cfg.geminiModel ?? DEFAULT_GEMINI_MODEL) : null,
+    memory: cfg.firestore ? 'firestore' : 'jsonl',
+    guardrail: cfg.modelArmor ? 'model-armor' : 'heuristic',
+    workspace: google.enabled ? 'google-workspace' : 'dry-run',
+    a2a: !cfg.enableA2a ? 'disabled' : cfg.a2aToken ? 'authenticated' : 'open',
+    revision: 'local',
+    runId: newId('run'),
+    startedAt: new Date().toISOString(),
+  }
 }
 
 function sinceOf(req: Request): string | null {
@@ -101,6 +135,11 @@ function send(res: Response, status: number, body: unknown): void {
   res.status(status).end(JSON.stringify(body))
 }
 
+function sendHtml(res: Response, status: number, html: string): void {
+  res.setHeader('content-type', 'text/html; charset=utf-8')
+  res.status(status).end(html)
+}
+
 function writeFrame(res: Response, ev: WorldEvent): void {
   res.write(`id: ${ev.id}\ndata: ${JSON.stringify(ev)}\n\n`)
 }
@@ -114,6 +153,9 @@ function streamEvents(store: EventStore, bus: Bus<WorldEvent>, since: string | n
     connection: 'keep-alive',
     'access-control-allow-origin': '*',
   })
+  // Send a frame immediately so proxies flush the stream and the browser can
+  // distinguish an open live connection from a request still in flight.
+  res.write(':connected\n\n')
 
   const events = store.all()
   const sinceIdx = since ? events.findIndex(e => e.id === since) : -1
@@ -189,8 +231,8 @@ async function postDecision(store: EventStore, eventId: string, body: unknown, r
       deptFrom: orig.deptFrom ?? orig.deptTo,
       deptTo: orig.deptTo ?? orig.deptFrom,
       title: kind === 'blueprint'
-        ? `New agent: ${orig.payload?.blueprint?.name ?? what} — rejected`
-        : `${what} — denied`,
+        ? `New agent: ${orig.payload?.blueprint?.name ?? what}: rejected`
+        : `${what}: denied`,
       detail: `Denied by ${b.personId}.`,
       payload: { reason: eventId },
       id: newId('res'),
@@ -205,12 +247,50 @@ async function postDecision(store: EventStore, eventId: string, body: unknown, r
     to: orig.from,
     deptFrom: orig.deptFrom ?? orig.deptTo,
     deptTo: orig.deptTo ?? orig.deptFrom,
-    title: `${what} — approved`,
+    title: `${what}: approved`,
     detail: `Approved by ${b.personId}`,
     payload: { reason: eventId },
     id: newId('res'),
   })
   send(res, 200, ev)
+}
+
+async function getGoogleCallback(oauth: GoogleOAuth, store: EventStore, req: Request, res: Response): Promise<void> {
+  if (!oauth.enabled) return send(res, 404, { error: 'not found' })
+
+  const state = req.query.state
+  if (typeof state !== 'string' || !oauth.consume(state)) return sendHtml(res, 400, googleFailurePage('invalid_state'))
+
+  if (typeof req.query.error === 'string') return sendHtml(res, 400, googleFailurePage('authorization_declined'))
+
+  const code = req.query.code
+  if (typeof code !== 'string' || code.length === 0) return sendHtml(res, 400, googleFailurePage('missing_code'))
+
+  let identity
+  try {
+    identity = await oauth.exchange(code)
+  } catch {
+    console.error('[auth/google] token exchange failed')
+    return sendHtml(res, 400, googleFailurePage('token_exchange'))
+  }
+
+  await store.append({
+    type: 'AccountConnected',
+    from: { kind: 'person', id: 'avery' },
+    deptFrom: 'operations',
+    deptTo: 'operations',
+    title: `${identity.email} connected Google Drive + Sheets`,
+    detail: `Granted scopes: ${identity.scopes.join(', ')}. Access token held server-side only.`,
+    id: newId('res'),
+  })
+  sendHtml(res, 200, GOOGLE_CALLBACK_OK_PAGE)
+}
+
+const GOOGLE_CALLBACK_OK_PAGE =
+  '<!doctype html><html><body><script>window.close()</script><p>Google account connected. Return to CoOps.</p></body></html>'
+
+function googleFailurePage(category: string): string {
+  return `<!doctype html><html><body><p>Connection failed (${category}).</p></body></html>`
 }
 
 async function postDevEmit(cfg: Config, store: EventStore, body: unknown, res: Response): Promise<void> {

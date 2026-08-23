@@ -49,7 +49,7 @@ export class Scheduler {
       from: { kind: 'system', id: 'runtime' },
       deptFrom: step.e.deptFrom,
       deptTo: step.e.deptTo,
-      title: `${step.e.title} — failed`,
+      title: `${step.e.title}: failed`,
       detail: 'The runtime could not commit this step; the task was closed as failed.',
       payload: { reason: 'runtime_error' },
     }).catch(retryErr => console.error('[scheduler] failed to emit TaskFailed:', retryErr))

@@ -59,6 +59,7 @@ export default function CommandPalette() {
   const open = useStore((s) => s.paletteOpen)
   const world = useStore((s) => s.world)
   const theme = useStore((s) => s.theme)
+  const executionMode = useStore((s) => s.executionMode)
 
   const [query, setQuery] = useState('')
   const [index, setIndex] = useState(0)
@@ -74,8 +75,10 @@ export default function CommandPalette() {
       {
         key: 'act:hero',
         group: 'Actions',
-        title: 'Run the launch demo',
-        sub: 'Marketing asks for a new agent — watch it get approved, hired and run',
+        title: executionMode === 'live' ? 'Start the live launch' : 'Run the launch rehearsal',
+        sub: executionMode === 'live'
+          ? 'Ask the live Marketing Agent to propose and run a launch worker'
+          : 'Run the labeled scripted launch path from interview through delivery',
         action: () => st().runHeroAuto(),
       },
       {
@@ -148,7 +151,7 @@ export default function CommandPalette() {
         key: `agent:${a.id}`,
         group: 'Agents',
         title: a.name,
-        sub: `${a.kind === 'operator' ? 'Department Agent' : 'Worker'} — ${deptName(a.deptId)}`,
+        sub: `${a.kind === 'operator' ? 'Department Agent' : 'Worker'} · ${deptName(a.deptId)}`,
         tickHue: personById.get(a.ownerId)?.hue,
         action: () => {
           st().requestCamera({ type: 'agent', agentId: a.id })
@@ -194,7 +197,7 @@ export default function CommandPalette() {
     }
 
     return out
-  }, [world, theme])
+  }, [world, theme, executionMode])
 
   // ── filter: every word of the query must land somewhere in title + sub ──
   const visible = useMemo(() => {

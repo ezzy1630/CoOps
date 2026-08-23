@@ -2,6 +2,7 @@ import { Check, X } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
+import { backendUrl } from '../live'
 import { deptById, personById, TOOLS } from '../data/company'
 import { cx, timeAgo } from '../utils'
 import { Chip, Pill } from './ui'
@@ -121,7 +122,7 @@ function DenyButton({ approval }: { approval: PendingApproval }) {
   return (
     <button
       className="btn h-7 px-2.5 text-[12px] text-mut"
-      title="Deny this request — the task is closed as failed"
+      title="Deny this request; the task is closed as failed"
       onClick={(event) => { event.stopPropagation(); useStore.getState().deny(approval) }}
     >
       {approval.kind === 'blueprint' ? 'Reject' : 'Deny'}
@@ -300,7 +301,7 @@ function ApprovalRow({
               View inheritance
             </button>
           )}
-          {!isMine && person && <div className="mt-1.5 text-[10.5px] text-dim">acting for {person.name} (demo)</div>}
+          {!isMine && person && <div className="mt-1.5 text-[10.5px] text-dim">acting for {person.name} (rehearsal)</div>}
           <div className="mt-1 text-[10.5px] text-task opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">Open on map ↗</div>
         </td>
       </tr>
@@ -385,7 +386,7 @@ function EmptyState() {
 
       <p className="mt-6 text-[14px] font-medium text-ink">Nothing is waiting on a human.</p>
       <p className="mt-1.5 max-w-[25rem] text-[12px] leading-relaxed text-dim">
-        When an agent hits a wall — a credential, a sign-off — it appears here, addressed to the one
+        When an agent hits a wall, such as a credential or sign-off, it appears here, addressed to the one
         person who can clear it.
       </p>
     </div>
@@ -421,18 +422,51 @@ function ResolvedRow({ event }: { event: WorldEvent }) {
   )
 }
 
-// ─── Mock OAuth ──────────────────────────────────────────────────────────────
+// ─── OAuth ───────────────────────────────────────────────────────────────────
 
 const SCOPES = [
   'View Q3 report data (read-only)',
-  'Act as a scoped service capability — CoOps never sees your password',
+  'Act as a scoped service capability; CoOps never sees your password',
 ]
 
+let googleAuthEnabled: boolean | null = null
+
+async function resolveGoogleAuth(): Promise<boolean> {
+  if (googleAuthEnabled !== null) return googleAuthEnabled
+  try {
+    const res = await fetch(`${backendUrl()}/auth/google/status`)
+    const data = (await res.json()) as { enabled?: boolean }
+    googleAuthEnabled = res.ok && data.enabled === true
+  } catch {
+    googleAuthEnabled = false
+  }
+  return googleAuthEnabled
+}
+
 function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose: () => void }) {
+  const [mode, setMode] = useState<'checking' | 'sandbox' | 'redirect'>(() =>
+    googleAuthEnabled === false ? 'sandbox' : 'checking',
+  )
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [connected, setConnected] = useState(false)
   const person = personById.get(approval.personId)
   const email = `${approval.personId}@everpeak.co`
+
+  useEffect(() => {
+    let cancelled = false
+    void resolveGoogleAuth().then((enabled) => {
+      if (cancelled) return
+      if (!enabled) {
+        setMode('sandbox')
+        return
+      }
+      setMode('redirect')
+      window.location.assign(`${backendUrl()}/auth/google/start`)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // keep the latest props without re-arming the connect timer
   const latest = useRef({ approval, onClose, step })
@@ -482,8 +516,10 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/25">
       <div className="panel anim-fadeup w-[420px] overflow-hidden">
         <div className="flex items-center gap-2 border-b border-line px-4 py-3">
-          <GoogleGlyph />
-          <span className="text-[13px] font-medium">Sign in with Google</span>
+          {mode === 'redirect' && <GoogleGlyph />}
+          <span className="text-[13px] font-medium">
+            {mode === 'sandbox' ? 'Simulated connection: sandbox' : mode === 'redirect' ? 'Sign in with Google' : 'Connect account'}
+          </span>
           <div className="flex-1" />
           <button
             className="rounded-sm px-1 py-0.5 text-dim hover:bg-hover hover:text-ink"
@@ -494,7 +530,27 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
           </button>
         </div>
 
-        {step === 1 && (
+        {mode === 'checking' && (
+          <div className="flex flex-col items-center gap-3 px-4 py-10">
+            <span className="h-6 w-0.5 bg-task" aria-hidden />
+            <span className="text-[11px] text-dim">Checking sign-in options…</span>
+          </div>
+        )}
+
+        {mode === 'redirect' && (
+          <div className="flex flex-col items-center gap-3 px-4 py-10">
+            <span className="h-6 w-0.5 bg-task" aria-hidden />
+            <span className="text-[13px] text-mut">Redirecting to Google sign-in…</span>
+          </div>
+        )}
+
+        {mode === 'sandbox' && (
+          <div className="border-b border-human/45 bg-human/10 px-4 py-2 text-[11px] leading-relaxed text-human">
+            No Google credentials are configured on the backend. This rehearsal dialog stays local; nothing is verified.
+          </div>
+        )}
+
+        {mode === 'sandbox' && step === 1 && (
           <div className="p-4">
             <div className="text-[15px] font-medium">Choose an account</div>
             <div className="mt-0.5 text-[11px] text-dim">to continue to CoOps</div>
@@ -520,7 +576,7 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
           </div>
         )}
 
-        {step === 2 && (
+        {mode === 'sandbox' && step === 2 && (
           <div className="p-4">
             <div className="text-[15px] font-medium">CoOps wants access</div>
             <div className="mt-0.5 text-[11.5px] text-dim">
@@ -545,15 +601,15 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
           </div>
         )}
 
-        {step === 3 && !connected && (
+        {mode === 'sandbox' && step === 3 && !connected && (
           <div className="flex flex-col items-center gap-3 px-4 py-10">
-            <span className="size-6 animate-spin rounded-full border-2 border-line border-t-task" />
+            <span className="h-6 w-0.5 bg-task" aria-hidden />
             <span className="text-[13px] text-mut">Connecting {approval.what}…</span>
             <span className="text-[11px] text-dim">Issuing a scoped capability to the agent</span>
           </div>
         )}
 
-        {step === 3 && connected && (
+        {mode === 'sandbox' && step === 3 && connected && (
           <div className="anim-fadeup flex flex-col items-center px-4 pt-7 pb-5">
             <span className="flex size-7 items-center justify-center rounded-full border border-ok/45 bg-ok/10 text-ok">
               <Check size={14} weight="bold" />
@@ -563,10 +619,6 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
             <CapabilityDiagram approval={approval} />
           </div>
         )}
-
-        <div className="border-t border-line px-4 py-2.5 text-[10.5px] leading-relaxed text-dim">
-          Demo OAuth — the agent receives a scoped capability, never the raw credential.
-        </div>
       </div>
     </div>,
     document.body,
@@ -617,7 +669,7 @@ function CapabilityDiagram({ approval }: { approval: PendingApproval }) {
         </span>
       </div>
       <p className="mx-auto mt-3 max-w-72 text-center text-[10.5px] leading-relaxed text-dim">
-        The credential never leaves the vault — the agent holds a scoped, revocable capability.
+        The credential never leaves the vault. The agent holds a scoped, revocable capability.
       </p>
     </div>
   )

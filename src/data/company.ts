@@ -193,7 +193,7 @@ export const LAUNCH_AGENT_ID = 'w-launch'
 export const PERSONAS: Persona[] = [
   {
     personId: 'maya', label: 'Marketing Manager',
-    description: 'Land in your department. Ask your agent for work — or a new agent.',
+    description: 'Land in your department. Ask your agent for work, or a new agent.',
     entry: 'department',
   },
   {

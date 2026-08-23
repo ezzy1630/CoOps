@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type {
-  MapStyle, PendingApproval, Person, TaskId, World, WorldEvent,
+  ExecutionMode, LiveConnection, MapStyle, PendingApproval, Person, RuntimeInfo, TaskId, World, WorldEvent,
 } from './types'
 import { BASE_AGENTS, DEPARTMENTS, personById } from './data/company'
 import { buildWorld } from './engine/reducer'
@@ -13,7 +13,14 @@ import { between, pick } from './engine/rng'
 import { heroInterviewAuto, isHeroEvent, type EngineApi } from './data/hero'
 import { handleChat, type BrainCtx } from './engine/mockBrain'
 import { buildReplayMapping, replayDuration, type ReplayKnot } from './engine/replay'
-import { backendUrl, connectLive, liveEnabled } from './live'
+import {
+  backendUrl,
+  connectLive,
+  executionMode,
+  fetchRuntimeInfo,
+  liveEnabled,
+  switchExecutionMode as navigateToExecutionMode,
+} from './live'
 
 // ─── Module-level engine internals (not reactive) ───────────────────────────
 
@@ -26,6 +33,12 @@ let presenceAt = 0
 let engineStarted = false
 let engineStartedAt = 0
 let disconnectLive: (() => void) | null = null
+let simulatedToastShown = false
+const notifySimulated = () => {
+  if (simulatedToastShown) return
+  simulatedToastShown = true
+  useStore.getState().toast('Rehearsal response', 'This reply comes from the labeled local fixture dataset.')
+}
 /** For the first minute the company runs hot: judges arrive to a moving map. */
 const WARMUP_MS = 60_000
 
@@ -105,6 +118,10 @@ interface Store {
   interview: { step: number } | null
   chatPending: Record<string, boolean>
   presence: PresenceMark[]
+  executionMode: ExecutionMode
+  liveConnection: LiveConnection
+  runtimeInfo: RuntimeInfo | null
+  runtimeError: string | null
   // ui
   persona: Person | null
   entered: boolean
@@ -129,6 +146,8 @@ interface Store {
   deny(approval: PendingApproval, asPersonId?: string): void
   runHeroAuto(): void
   sendChat(agentId: string, text: string): void
+  retryLive(): void
+  switchExecutionMode(mode: ExecutionMode): void
 
   // ui actions
   enter(personId: string): void
@@ -171,6 +190,21 @@ export const useStore = create<Store>()((set, get) => {
 
   const brainCtx = (): BrainCtx => ({
     ...api,
+    emit: (e) => {
+      notifySimulated()
+      if (Array.isArray(e)) {
+        api.emit(e.map((x) => ({ ...x, payload: { ...x.payload, simulated: true } })))
+        return
+      }
+      api.emit({ ...e, payload: { ...e.payload, simulated: true } })
+    },
+    schedule: (steps, baseDelayMs) => {
+      notifySimulated()
+      api.schedule(
+        steps.map((s) => ({ ...s, e: { ...s.e, payload: { ...s.e.payload, simulated: true } } })),
+        baseDelayMs,
+      )
+    },
     world: () => get().world,
     personaId: () => get().persona?.id ?? 'maya',
     interview: () => get().interview,
@@ -181,6 +215,35 @@ export const useStore = create<Store>()((set, get) => {
   })
 
   const rebuild = (log: WorldEvent[]) => buildWorld(BASE_AGENTS, DEPARTMENTS, log, Number.MAX_SAFE_INTEGER)
+
+  const receiveLiveEvent = (event: WorldEvent) => {
+    if (get().log.some((existing) => existing.id === event.id)) return
+    const log = [...get().log, event].sort(sortByTs)
+    const patch: Partial<Store> = { log, world: rebuild(log) }
+    if (event.type === 'Chat' && event.from?.kind === 'agent') {
+      patch.chatPending = { ...get().chatPending, [event.from.id]: false }
+    }
+    set(patch)
+  }
+
+  const refreshRuntime = async () => {
+    try {
+      const runtimeInfo = await fetchRuntimeInfo()
+      set({ runtimeInfo, runtimeError: null })
+    } catch (error) {
+      set({ runtimeInfo: null, runtimeError: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  const openLiveConnection = (personId: string) => {
+    disconnectLive?.()
+    set({ liveConnection: 'connecting' })
+    void refreshRuntime()
+    disconnectLive = connectLive(receiveLiveEvent, personId, {
+      onOpen: () => set({ liveConnection: 'connected' }),
+      onError: () => set({ liveConnection: 'disconnected' }),
+    })
+  }
 
   const tick = () => {
     const now = Date.now()
@@ -214,7 +277,7 @@ export const useStore = create<Store>()((set, get) => {
             const p = personById.get(e.blockedOn.personId)
             get().toast(`Blocked: ${e.blockedOn.what}`, `Only ${p?.name ?? 'its owner'} can unblock this. The map shows the dotted line.`, 'human')
           } else if (e.type === 'GuardrailBlock') {
-            get().toast('Model Armor blocked content', e.detail, 'block')
+            get().toast(e.title, e.detail, 'block')
           } else if (e.type === 'AgentSpawned') {
             get().toast('New agent on the map', e.detail)
           }
@@ -345,6 +408,10 @@ export const useStore = create<Store>()((set, get) => {
     interview: null,
     chatPending: {},
     presence: [],
+    executionMode: executionMode(),
+    liveConnection: 'idle',
+    runtimeInfo: null,
+    runtimeError: null,
 
     persona: null,
     entered: false,
@@ -365,10 +432,7 @@ export const useStore = create<Store>()((set, get) => {
       if (engineStarted) return
       if (liveEnabled()) {
         engineStarted = true
-        disconnectLive = connectLive((e) => {
-          const log = [...get().log, e].sort(sortByTs)
-          set({ log, world: rebuild(log) })
-        }, get().persona?.id ?? 'maya')
+        openLiveConnection(get().persona?.id ?? 'maya')
         setInterval(tick, 300)
         return
       }
@@ -407,9 +471,9 @@ export const useStore = create<Store>()((set, get) => {
     approve(approval, asPersonId) {
       const by = asPersonId ?? approval.personId
       if (liveEnabled()) {
-        const title = approval.kind === 'auth' ? `${approval.what} — connected`
-          : approval.kind === 'blueprint' ? `${approval.blueprint?.name ?? 'Agent'} — blueprint approved`
-            : `${approval.what} — approved`
+        const title = approval.kind === 'auth' ? `${approval.what}: connected`
+          : approval.kind === 'blueprint' ? `${approval.blueprint?.name ?? 'Agent'}: blueprint approved`
+            : `${approval.what}: approved`
         void postLiveDecision(
           approval,
           by,
@@ -422,12 +486,12 @@ export const useStore = create<Store>()((set, get) => {
       const person = personById.get(by)
       const typeMap = { auth: 'AccountConnected', approval: 'ApprovalGranted', blueprint: 'BlueprintApproved' } as const
       const titleMap = {
-        auth: `${approval.what} — connected`,
-        approval: `${approval.what} — approved`,
-        blueprint: `${approval.blueprint?.name ?? 'Agent'} — blueprint approved`,
+        auth: `${approval.what}: connected`,
+        approval: `${approval.what}: approved`,
+        blueprint: `${approval.blueprint?.name ?? 'Agent'}: blueprint approved`,
       }
       const detailMap = {
-        auth: `${person?.name} completed the OAuth flow. The agent received a scoped capability — the raw credential never left the vault.`,
+        auth: `${person?.name} completed the OAuth flow. The agent received a scoped capability; the raw credential never left the vault.`,
         approval: `Approved by ${person?.name}.`,
         blueprint: `${person?.name} approved the blueprint. Creating the worker profile in the shared runtime.`,
       }
@@ -460,8 +524,8 @@ export const useStore = create<Store>()((set, get) => {
     deny(approval, asPersonId) {
       const by = asPersonId ?? approval.personId
       const title = approval.kind === 'blueprint'
-        ? `${approval.blueprint?.name ?? 'Agent'} — rejected`
-        : `${approval.what} — denied`
+        ? `${approval.blueprint?.name ?? 'Agent'}: rejected`
+        : `${approval.what}: denied`
       if (liveEnabled()) {
         void postLiveDecision(approval, by, 'deny', title, 'The task is closed as failed.')
         return
@@ -486,14 +550,16 @@ export const useStore = create<Store>()((set, get) => {
 
     runHeroAuto() {
       if (liveEnabled()) {
-        get().toast('Hero demo runs in simulation mode', 'Reload without ?backend=live to rehearse the scripted launch.')
+        get().sendChat('op-marketing', 'I need a dedicated agent to run the Summit Series launch.')
+        get().openPanel('agent', 'op-marketing')
+        get().toast('Live launch started', 'The request was sent to the Marketing Agent. Follow the live conversation in the Agent Room.')
         return
       }
       const stage = get().heroStage
       if (stage !== 'idle') {
         get().toast(
-          stage === 'done' ? 'Launch demo already complete' : 'Launch demo already running',
-          stage === 'done' ? 'Select the launch task and hit replay to watch it again.' : 'Watch the map — or open the Marketing Agent to follow along.',
+          stage === 'done' ? 'Launch rehearsal complete' : 'Launch rehearsal already running',
+          stage === 'done' ? 'Select the launch task and replay it to watch the path again.' : 'Watch the map, or open the Marketing Agent to follow along.',
         )
         return
       }
@@ -506,17 +572,33 @@ export const useStore = create<Store>()((set, get) => {
         'maya',
       )
       get().openPanel('agent', 'op-marketing')
-      get().toast('Launch demo started', 'Maya is asking the Marketing Agent for a launch agent. The interview runs in the Agent Room.')
+      get().toast('Launch rehearsal started', 'Maya is asking the Marketing Agent for a launch agent. The scripted interview runs in the Agent Room.')
     },
 
     sendChat(agentId, text) {
       const personaId = get().persona?.id ?? 'maya'
       if (liveEnabled()) {
+        set({ chatPending: { ...get().chatPending, [agentId]: true } })
         void fetch(`${backendUrl()}/chat`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ agentId, text, personId: personaId }),
-        }).catch(() => get().toast('Backend unreachable', `Could not reach ${backendUrl()}`, 'block'))
+        }).then(async (response) => {
+          if (response.ok) return
+          const payload: unknown = await response.json().catch(() => null)
+          const detail = typeof payload === 'object'
+            && payload !== null
+            && 'error' in payload
+            && typeof payload.error === 'string'
+            ? payload.error
+            : `The backend returned ${response.status}.`
+          set({ chatPending: { ...get().chatPending, [agentId]: false } })
+          get().toast('Message not sent', detail, 'block')
+        }).catch(() => {
+          set({ chatPending: { ...get().chatPending, [agentId]: false } })
+          get().toast('Backend unreachable', `Could not reach ${backendUrl()}`, 'block')
+        })
+        return
       }
       get().emit({
         id: `chat_${Date.now()}_${Math.round(Math.random() * 1e6)}`,
@@ -527,15 +609,24 @@ export const useStore = create<Store>()((set, get) => {
         payload: { text },
       })
       set({ chatPending: { ...get().chatPending, [agentId]: true } })
-      if (liveEnabled()) return
       const agent = get().world.agents.find((a) => a.id === agentId)
       handleChat(brainCtx(), agentId, agent?.deptId ?? 'marketing', text)
+    },
+
+    retryLive() {
+      if (!liveEnabled()) return
+      openLiveConnection(get().persona?.id ?? 'maya')
+    },
+
+    switchExecutionMode(mode) {
+      navigateToExecutionMode(mode)
     },
 
     enter(personId) {
       const persona = personById.get(personId) ?? null
       const onboarded = localStorage.getItem('coops_onboarded') === '1'
       set({ persona, entered: true, firstRunStep: onboarded ? null : 0 })
+      if (liveEnabled() && engineStarted) openLiveConnection(personId)
       const p = persona
       if (p?.id === 'dana') {
         get().openPanel('approvals')

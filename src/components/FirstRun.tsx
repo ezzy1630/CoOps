@@ -15,13 +15,13 @@ const STEPS: Step[] = [
     kicker: 'ZOOM TO EXPLORE',
     title: 'The map is the company',
     body:
-      'Scroll to zoom, drag to pan. Far out you see departments; closer, their agents; closer still, live tasks traveling between them. The center is empty on purpose — there is no root agent.',
+      'Scroll to zoom, drag to pan. Far out you see departments; closer, their agents; closer still, live tasks traveling between them. The center is empty on purpose because there is no root agent.',
   },
   {
     kicker: 'CLICK TO FOCUS',
     title: 'Every task lights its path',
     body:
-      "Click an agent, an edge, or a traveling envelope. The map dims to that task's path — and when work is blocked, a dotted line points to the one named human who can unblock it. Finished tasks replay end-to-end in seconds.",
+      "Click an agent, an edge, or a traveling envelope. The map dims to that task's path. When work is blocked, a dotted line points to the one named human who can unblock it. Finished tasks replay end-to-end in seconds.",
   },
   {
     kicker: '⌘K TO JUMP',
@@ -38,7 +38,7 @@ const CARD_W = 380
 const VALLEY_STEP_0 = {
   kicker: 'CLICK TO EXPLORE',
   body:
-    'Click buildings and villagers to open their work; the small walkers carry tasks between departments. The plaza stays open on purpose — there is no root agent.',
+    'Click buildings and villagers to open their work; the small walkers carry tasks between departments. The plaza stays open on purpose because there is no root agent.',
 }
 const HEADER = 56 // header height, the map starts below it
 

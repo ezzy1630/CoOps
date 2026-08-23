@@ -18,6 +18,8 @@ export default function MapOverlays() {
   const log = useStore((s) => s.log)
   // the classic camera doesn't exist over the valley — its controls would be dead
   const mapStyle = useStore((s) => s.mapStyle)
+  const executionMode = useStore((s) => s.executionMode)
+  const launchPending = useStore((s) => s.chatPending['op-marketing'] === true)
 
   const task = selectedTaskId ? world.tasks.get(selectedTaskId) : null
   const heroTask = [...world.tasks.values()].find((candidate) => candidate.title.startsWith('Summit Series launch'))
@@ -52,7 +54,15 @@ export default function MapOverlays() {
         <PulseSparkline />
         <div className="min-w-0 flex-1" />
         {!replay && (
-          <DemoAction heroStage={heroStage} heroTask={heroTask} act={act} beat={beat} onReplay={() => heroTask && useStore.getState().startReplay(heroTask.id)} />
+          <DemoAction
+            heroStage={heroStage}
+            heroTask={heroTask}
+            act={act}
+            beat={beat}
+            executionMode={executionMode}
+            launchPending={launchPending}
+            onReplay={() => heroTask && useStore.getState().startReplay(heroTask.id)}
+          />
         )}
       </div>
 
@@ -139,19 +149,31 @@ function DemoAction({
   heroTask,
   act,
   beat,
+  executionMode,
+  launchPending,
   onReplay,
 }: {
   heroStage: ReturnType<typeof useStore.getState>['heroStage']
   heroTask: Task | undefined
   act: number
   beat: string
+  executionMode: ReturnType<typeof useStore.getState>['executionMode']
+  launchPending: boolean
   onReplay: () => void
 }) {
   if (heroStage === 'idle') {
     return (
-      <button className="flex h-6 shrink-0 items-center gap-1.5 border-l border-line px-3 text-[11px] font-medium text-ink hover:bg-hover" onClick={() => useStore.getState().runHeroAuto()}>
+      <button
+        className="flex h-6 shrink-0 items-center gap-1.5 border-l border-line px-3 text-[11px] font-medium text-ink hover:bg-hover disabled:cursor-wait disabled:text-dim"
+        disabled={launchPending}
+        onClick={() => useStore.getState().runHeroAuto()}
+      >
         <Play size={11} weight="fill" />
-        Run the launch demo
+        {launchPending
+          ? 'Waiting for Marketing'
+          : executionMode === 'live'
+            ? 'Start live launch'
+            : 'Run launch rehearsal'}
       </button>
     )
   }
@@ -213,7 +235,7 @@ function PulseSparkline() {
 
   if (quiet) return <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-dim">0 ev/min</span>
   return (
-    <div className="flex shrink-0 items-center gap-2" title="Company activity — events per minute, trailing 12 min">
+    <div className="flex shrink-0 items-center gap-2" title="Company activity: events per minute, trailing 12 min">
       <svg width="64" height="16" viewBox="0 0 64 16" aria-hidden>
         {bars.map((bar, index) => (
           <rect key={index} x={bar.x} y={bar.y} width="4.4" height={bar.height} fill="var(--color-task)" fillOpacity={bar.opacity} />

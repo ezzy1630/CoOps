@@ -206,7 +206,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
                 </button>
                 <button
                   className="rounded-sm px-2 py-1 text-[12px] text-mut transition-colors hover:bg-hover hover:text-ink"
-                  title="Describe the job in chat — the agent interviews you, then drafts a blueprint"
+                  title="Describe the job in chat. The agent interviews you, then drafts a blueprint."
                   onClick={() => useStore.getState().openPanel('agent', operator.id)}
                 >
                   Ask for a new agent →
@@ -219,7 +219,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
         {/* ── workers ── */}
         <Section title="Workers" meta={`${workers.length}`}>
           {workers.length === 0 ? (
-            <Empty>No workers yet — ask the department agent for one.</Empty>
+            <Empty>No workers yet. Ask the department agent for one.</Empty>
           ) : (
             <div className="space-y-px">
               {workers.map((w) => {

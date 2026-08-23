@@ -1,4 +1,4 @@
-import { loadConfig } from './config.js'
+import { DEFAULT_GEMINI_MODEL, loadConfig } from './config.js'
 import { EventStore } from './store.js'
 import { Bus } from './bus.js'
 import { startHttp } from './http.js'
@@ -7,13 +7,16 @@ import { Scheduler } from './runtime/scheduler.js'
 import { createMockBrain } from './brain/mock.js'
 import { createGeminiBrain } from './brain/gemini.js'
 import { createHeuristicGuardrail } from './guardrail/heuristic.js'
+import { createModelArmorGuardrail } from './guardrail/modelarmor.js'
 import { openJsonlMemory } from './memory/jsonl.js'
 import { openFirestoreMemory } from './memory/firestore.js'
-import { workerIdFromName } from './ids.js'
+import { createGoogleOAuth } from './auth/google.js'
+import { createWorkspaceTools } from './tools/google.js'
+import { newId, workerIdFromName } from './ids.js'
 import { cancelExchangeTask } from './brain/exchanges.js'
-import type { BrainCtx } from './brain/types.js'
+import type { BrainAdapter, BrainCtx } from './brain/types.js'
 import { AGENT_DEPT } from '../../src/data/company.js'
-import type { WorldEvent } from '../../src/types.js'
+import type { RuntimeInfo, WorldEvent } from '../../src/types.js'
 
 const cfg = loadConfig()
 const bus = new Bus<WorldEvent>()
@@ -46,14 +49,33 @@ function worldTasks(events: WorldEvent[]): { id: string; title: string; status: 
 
 const interviews = new Map<string, number | null>()
 const scheduler = new Scheduler(e => store.append(e))
-const guardrail = createHeuristicGuardrail()
+const guardrail = cfg.modelArmor ? createModelArmorGuardrail(cfg.modelArmor) : createHeuristicGuardrail()
 const memory = cfg.firestore
   ? openFirestoreMemory({ projectId: cfg.firestore.projectId })
   : openJsonlMemory(cfg.dataDir)
 console.log(`[memory] ${cfg.firestore ? 'firestore' : 'jsonl'}`)
-const brain = cfg.geminiApiKey
-  ? createGeminiBrain({ apiKey: cfg.geminiApiKey, guardrail, memory })
-  : createMockBrain({ memory })
+const google = createGoogleOAuth(cfg.googleOAuth)
+const workspaceTools = createWorkspaceTools({
+  getAccessToken: () => google.accessToken(),
+  sheetsId: cfg.sheetsId,
+})
+const apiKey = cfg.geminiApiKey
+const effectiveBrain =
+  !cfg.brainMode || cfg.brainMode === 'auto' ? (apiKey ? 'gemini' : 'mock') : cfg.brainMode
+const geminiModel = cfg.geminiModel ?? DEFAULT_GEMINI_MODEL
+let brain: BrainAdapter
+if (effectiveBrain === 'gemini') {
+  if (!apiKey) {
+    console.error('[brain] COOPS_BRAIN=gemini set but GEMINI_API_KEY is missing')
+    process.exit(1)
+  }
+  console.log(`[brain] gemini (${geminiModel})`)
+  brain = createGeminiBrain({ apiKey, model: geminiModel, guardrail, memory, workspaceTools })
+} else {
+  const reason = cfg.brainMode === 'mock' ? 'forced by COOPS_BRAIN' : 'no GEMINI_API_KEY'
+  console.log(`[brain] mock fixture (${reason})`)
+  brain = createMockBrain({ memory })
+}
 
 const brainCtx: BrainCtx = {
   emit: e => {
@@ -137,5 +159,17 @@ const store = await EventStore.open(cfg.dataDir, onAppended)
 restoreSpawnedAgents(store.all())
 const org = new OrgRegistry(cfg.dataDir, e => store.append(e))
 await org.load()
-await startHttp(cfg, store, bus, org)
+const runtimeInfo: RuntimeInfo = {
+  execution: 'live',
+  brain: effectiveBrain,
+  model: effectiveBrain === 'gemini' ? geminiModel : null,
+  memory: cfg.firestore ? 'firestore' : 'jsonl',
+  guardrail: cfg.modelArmor ? 'model-armor' : 'heuristic',
+  workspace: google.enabled ? 'google-workspace' : 'dry-run',
+  a2a: !cfg.enableA2a ? 'disabled' : cfg.a2aToken ? 'authenticated' : 'open',
+  revision: process.env.K_REVISION ?? 'local',
+  runId: newId('run'),
+  startedAt: new Date().toISOString(),
+}
+await startHttp(cfg, store, bus, org, google, runtimeInfo)
 console.log(`LISTENING ${cfg.port}`)

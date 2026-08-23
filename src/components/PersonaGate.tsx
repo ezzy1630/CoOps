@@ -1,8 +1,10 @@
-import { ArrowRight } from '@phosphor-icons/react'
+import { ArrowClockwise, ArrowRight, Broadcast, Flask, Warning } from '@phosphor-icons/react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store'
 import { PERSONAS, personById } from '../data/company'
 import { Wordmark } from '../App'
+import RuntimeStatus from './RuntimeStatus'
+import type { RuntimeInfo } from '../types'
 
 const rise = (delay: number) => ({
   initial: { opacity: 0, y: 10 },
@@ -30,6 +32,7 @@ const DEMO_PERSONA = 'dana'
  * paper veil above it. Pick who you are, and the veil lifts.
  */
 export default function PersonaGate() {
+  const executionMode = useStore((state) => state.executionMode)
   return (
     <motion.div
       initial={false}
@@ -41,10 +44,7 @@ export default function PersonaGate() {
         <motion.div {...rise(0)}>
           <Wordmark size={25} />
         </motion.div>
-        <motion.div {...rise(0.04)} className="flex items-center gap-2 text-[11px] text-dim">
-          <span className="size-1.5 rounded-full bg-ok" />
-          <span>Company is live</span>
-        </motion.div>
+        <motion.div {...rise(0.04)}><RuntimeStatus quiet /></motion.div>
       </div>
 
       {/* Editorial column: asymmetric whitespace right, the running map visible there */}
@@ -54,10 +54,16 @@ export default function PersonaGate() {
             Enter Everpeak Outfitters
           </motion.h1>
           <motion.p {...rise(0.12)} className="mt-3 max-w-[46ch] text-[14px] leading-relaxed text-mut">
-            Choose whose authority and department you want to work from. The company keeps running underneath.
+            Choose whose authority and department you want to work from. {executionMode === 'live'
+              ? 'Live work streams from the backend with its runtime identity attached.'
+              : 'The labeled rehearsal runs locally with a deterministic launch scenario.'}
           </motion.p>
 
-          <div className="mt-9 border-t border-linebright/80">
+          <motion.div {...rise(0.16)} className="mt-5 max-w-[520px]">
+            <RuntimeEntryNotice />
+          </motion.div>
+
+          <div className="mt-7 border-t border-linebright/80">
             {PERSONAS.map((p, i) => {
               const person = personById.get(p.personId)
               if (!person) return null
@@ -92,4 +98,65 @@ export default function PersonaGate() {
       </div>
     </motion.div>
   )
+}
+
+function RuntimeEntryNotice() {
+  const mode = useStore((state) => state.executionMode)
+  const connection = useStore((state) => state.liveConnection)
+  const runtime = useStore((state) => state.runtimeInfo)
+
+  if (mode === 'rehearsal') {
+    return (
+      <div className="flex items-start gap-3 border-l-2 border-permission bg-surface/45 px-3 py-2.5">
+        <Flask size={15} className="mt-0.5 shrink-0 text-permission" />
+        <div>
+          <div className="text-[11px] font-medium text-ink">Rehearsal mode</div>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-mut">Every scripted event is labeled. No backend, model, or external system is used.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (connection === 'connected') {
+    const brain = runtime ? runtimeBrainLabel(runtime) : 'a backend whose provider details are still loading'
+    return (
+      <div className="flex items-start gap-3 border-l-2 border-ok bg-surface/45 px-3 py-2.5">
+        <Broadcast size={15} className="mt-0.5 shrink-0 text-ok" />
+        <div>
+          <div className="text-[11px] font-medium text-ink">Live backend connected</div>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-mut">This run is using {brain}. Open the runtime inspector for provider and revision details.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (connection === 'disconnected') {
+    return (
+      <div className="flex items-start gap-3 border-l-2 border-escalation bg-surface/55 px-3 py-2.5">
+        <Warning size={15} className="mt-0.5 shrink-0 text-escalation" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] font-medium text-ink">Live backend unavailable</div>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-mut">CoOps will not substitute scripted activity. Retry the connection or enter the explicit rehearsal.</p>
+          <div className="mt-2 flex gap-2">
+            <button type="button" className="btn h-7 px-2 text-[11px]" onClick={() => useStore.getState().retryLive()}>
+              <ArrowClockwise size={12} weight="bold" /> Retry
+            </button>
+            <button type="button" className="btn h-7 px-2 text-[11px]" onClick={() => useStore.getState().switchExecutionMode('rehearsal')}>Open rehearsal</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-3 border-l-2 border-task bg-surface/45 px-3 py-2.5 text-[11px] text-mut">
+      <Broadcast size={15} className="shrink-0 text-task" /> Connecting to the live backend. No scripted events are running.
+    </div>
+  )
+}
+
+function runtimeBrainLabel(runtime: RuntimeInfo): string {
+  if (runtime.brain === 'mock') return 'the backend mock fixture'
+  if (runtime.model === 'gemini-3.7-flash') return 'Gemini 3.7 Flash'
+  return runtime.model ?? 'Gemini'
 }

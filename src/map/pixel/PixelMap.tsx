@@ -220,7 +220,7 @@ export default function PixelMap() {
       {artState.status !== 'ready' && (
         <div className="absolute inset-0 flex items-center justify-center">
           <p className="font-mono text-[11px] tracking-wide" style={{ color: 'var(--color-map-label)' }}>
-            Valley assets missing — run node scripts/gen-pixel-art.mjs
+            Valley assets missing. Run node scripts/gen-pixel-art.mjs
           </p>
         </div>
       )}
@@ -616,7 +616,7 @@ function Scene({
       {presenceChips.map(({ mark, pt, person }) => (
         <div
           key={`${mark.personId}-${mark.where}`}
-          title={`${person.name} — viewing ${world.departments.get(mark.where)?.name ?? mark.where}`}
+          title={`${person.name}, viewing ${world.departments.get(mark.where)?.name ?? mark.where}`}
           className="pointer-events-auto absolute cursor-default"
           style={{ left: pt.x, top: pt.y, zIndex: Math.round(pt.y), ...dim(dimmed(mark.where)) }}
         >
