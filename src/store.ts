@@ -213,7 +213,7 @@ export const useStore = create<Store>()((set, get) => {
             const p = personById.get(e.blockedOn.personId)
             get().toast(`Blocked: ${e.blockedOn.what}`, `Only ${p?.name ?? 'its owner'} can unblock this. The map shows the dotted line.`, 'human')
           } else if (e.type === 'GuardrailBlock') {
-            get().toast('Model Armor blocked content', e.detail, 'block')
+            get().toast(e.title, e.detail, 'block')
           } else if (e.type === 'AgentSpawned') {
             get().toast('New agent on the map', e.detail)
           }
