@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { PANEL_WIDTH, useStore } from './store'
 import CompanyMap from './map/CompanyMap'
+import PixelMap from './map/pixel/PixelMap'
 import Header from './components/Header'
 import NavRail from './components/NavRail'
 import MapOverlays from './components/MapOverlays'
@@ -25,6 +26,7 @@ export default function App() {
   const entered = useStore((s) => s.entered)
   const view = useStore((s) => s.view)
   const panel = useStore((s) => s.panel)
+  const mapStyle = useStore((s) => s.mapStyle)
   const startEngine = useStore((s) => s.startEngine)
   const [tooSmall, setTooSmall] = useState(false)
 
@@ -93,7 +95,7 @@ export default function App() {
         {entered && <Header />}
         <main className="relative min-h-0 flex-1 overflow-hidden">
           <div className={mapView || !entered ? 'absolute inset-0' : 'invisible absolute inset-0'}>
-            <CompanyMap />
+            {mapStyle === 'fun' ? <PixelMap /> : <CompanyMap />}
           </div>
 
           {entered && !mapView && (

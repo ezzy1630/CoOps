@@ -32,6 +32,14 @@ const STEPS: Step[] = [
 ]
 
 const CARD_W = 380
+
+/** The valley has no camera, so its literacy step teaches clicking instead of
+ *  zooming — same voice, same promise of the open center. */
+const VALLEY_STEP_0 = {
+  kicker: 'CLICK TO EXPLORE',
+  body:
+    'Click buildings and villagers to open their work; the small walkers carry tasks between departments. The plaza stays open on purpose — there is no root agent.',
+}
 const HEADER = 56 // header height, the map starts below it
 
 interface Anchor {
@@ -96,6 +104,7 @@ function anchorFor(step: number, w: number, h: number, panelW: number): Anchor {
 export default function FirstRun() {
   const step = useStore((s) => s.firstRunStep)
   const panel = useStore((s) => s.panel)
+  const mapStyle = useStore((s) => s.mapStyle)
   const [vp, setVp] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }))
 
   useEffect(() => {
@@ -107,7 +116,8 @@ export default function FirstRun() {
   if (step === null) return null
 
   const i = Math.max(0, Math.min(step, STEPS.length - 1))
-  const current = STEPS[i]
+  const current =
+    i === 0 && mapStyle === 'fun' ? { ...STEPS[0], ...VALLEY_STEP_0 } : STEPS[i]
   const last = i === STEPS.length - 1
   const setStep = (n: number | null) => useStore.getState().setFirstRunStep(n)
   const { card, leader, mark } = anchorFor(i, vp.w, vp.h, panel ? PANEL_WIDTH[panel.kind] : 0)

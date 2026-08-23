@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "world": {
+    "w": 960,
+    "h": 600
+  },
+  "background": {
+    "file": "/pixel/background.png"
+  },
+  "plaza": {
+    "x": 480,
+    "y": 280
+  },
+  "buildings": [
+    {
+      "deptId": "marketing",
+      "file": "/pixel/buildings/marketing.png",
+      "w": 96,
+      "h": 84,
+      "x": 140,
+      "y": 70,
+      "door": {
+        "x": 188,
+        "y": 160
+      }
+    },
+    {
+      "deptId": "finance",
+      "file": "/pixel/buildings/finance.png",
+      "w": 120,
+      "h": 100,
+      "x": 420,
+      "y": 45,
+      "door": {
+        "x": 480,
+        "y": 145
+      }
+    },
+    {
+      "deptId": "legal",
+      "file": "/pixel/buildings/legal.png",
+      "w": 112,
+      "h": 96,
+      "x": 720,
+      "y": 65,
+      "door": {
+        "x": 776,
+        "y": 165
+      }
+    },
+    {
+      "deptId": "support",
+      "file": "/pixel/buildings/support.png",
+      "w": 104,
+      "h": 92,
+      "x": 140,
+      "y": 320,
+      "door": {
+        "x": 192,
+        "y": 415
+      }
+    },
+    {
+      "deptId": "operations",
+      "file": "/pixel/buildings/operations.png",
+      "w": 124,
+      "h": 108,
+      "x": 710,
+      "y": 310,
+      "door": {
+        "x": 772,
+        "y": 420
+      }
+    },
+    {
+      "deptId": "hr",
+      "file": "/pixel/buildings/hr.png",
+      "w": 104,
+      "h": 88,
+      "x": 428,
+      "y": 420,
+      "door": {
+        "x": 480,
+        "y": 510
+      }
+    }
+  ],
+  "avatars": {
+    "cell": 24,
+    "frameOrder": [
+      "down0",
+      "down1",
+      "up0",
+      "up1",
+      "right0",
+      "right1"
+    ],
+    "variants": [
+      "/pixel/avatars/v0.png",
+      "/pixel/avatars/v1.png",
+      "/pixel/avatars/v2.png",
+      "/pixel/avatars/v3.png",
+      "/pixel/avatars/v4.png",
+      "/pixel/avatars/v5.png",
+      "/pixel/avatars/v6.png",
+      "/pixel/avatars/v7.png"
+    ]
+  },
+  "emotes": {
+    "cell": 16,
+    "files": {
+      "working": "/pixel/emotes/working.png",
+      "blocked": "/pixel/emotes/blocked.png",
+      "awaiting": "/pixel/emotes/awaiting.png",
+      "escalated": "/pixel/emotes/escalated.png",
+      "delivering": "/pixel/emotes/delivering.png",
+      "reading": "/pixel/emotes/reading.png"
+    }
+  },
+  "mail": {
+    "file": "/pixel/mail.png",
+    "cell": 16
+  },
+  "palette": {
+    "outline": "#2e1f2c",
+    "ink": "#46303e",
+    "paper": "#f2e7cd",
+    "task": "#4a80cb",
+    "artifact": "#48954e",
+    "permission": "#bd8430",
+    "escalation": "#d15a49",
+    "guard": "#8a63c9",
+    "human": "#e3ae52"
+  }
+}

@@ -4,7 +4,8 @@ import { PANEL_WIDTH, useStore } from '../store'
 import { BASE_AGENTS, DEPARTMENTS, personById } from '../data/company'
 import { buildWorld, taskParticipants } from '../engine/reducer'
 import { virtualAt } from '../engine/replay'
-import type { AgentStatus, EdgeKind, EventType, WorldEvent } from '../types'
+import type { EdgeKind, EventType, WorldEvent } from '../types'
+import { statusWord } from './statusWords'
 import {
   backOut, crossPath, districtLabelArc, districtSubArc, easeInOut, easeOut, EDGE_COLOR, fitScale,
   GATEWAY_ARC_BOTTOM, GATEWAY_ARC_TOP, GATEWAY_TICKS, layout, polar, progressArc, qLength, qPoint,
@@ -32,43 +33,6 @@ const shortName = (name: string): string => {
     shortNames.set(name, s)
   }
   return s
-}
-
-/**
- * One-word status for a node. The task *title* lives on the travelling
- * envelope; repeating it under both endpoints put three copies of the same
- * string on screen, so nodes say what they are doing instead.
- */
-const ACTING_WORD: Partial<Record<EventType, string>> = {
-  TaskRequest: 'requesting',
-  TaskAccepted: 'accepted',
-  DelegatedTo: 'delegating',
-  StatusUpdate: 'working',
-  ToolCall: 'using tools',
-  ArtifactDelivered: 'delivering',
-  PermissionRequest: 'awaiting access',
-  AuthRequired: 'awaiting access',
-  Escalation: 'escalated',
-  GuardrailBlock: 'blocked',
-  BlueprintProposed: 'drafting spec',
-  Chat: 'replying',
-}
-const RECEIVING_WORD: Partial<Record<EventType, string>> = {
-  TaskRequest: 'starting',
-  TaskAccepted: 'waiting',
-  DelegatedTo: 'assigned',
-  StatusUpdate: 'reviewing',
-  ArtifactDelivered: 'reviewing',
-  Escalation: 'reviewing',
-  Chat: 'reading',
-}
-const statusWord = (
-  status: AgentStatus,
-  last: { type: EventType; acting: boolean } | undefined,
-): string => {
-  if (status === 'blocked') return 'blocked'
-  if (!last) return 'working'
-  return (last.acting ? ACTING_WORD[last.type] : RECEIVING_WORD[last.type]) ?? 'working'
 }
 
 interface Camera {

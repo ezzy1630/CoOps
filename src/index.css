@@ -6,6 +6,8 @@
 @theme {
   --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* valley chrome only — short labels wear the pixel face, body copy never does */
+  --font-display: "Pixelify Sans", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
 
   /* warm paper, ink, and muted semantic accents — enterprise, not spaceship */
   --color-bg: #f5f4f0;
@@ -255,4 +257,77 @@ input[type="range"].scrub:focus-visible::-webkit-slider-thumb {
 input[type="range"].scrub:focus-visible::-moz-range-thumb {
   outline: 1px solid var(--color-task);
   outline-offset: 1px;
+}
+
+/* ── Valley mode (mapStyle 'fun') — additive only, never touches the tokens
+   above. The --color-fun-* values mirror public/pixel/manifest.json → .palette
+   so in-world chrome (signs, chips) shares the sprites' own ink. ── */
+html.fun-mode {
+  --color-fun-outline: #2e1f2c;
+  --color-fun-ink: #46303e;
+  --color-fun-paper: #f2e7cd;
+  --color-fun-task: #4a80cb;
+  --color-fun-artifact: #48954e;
+  --color-fun-permission: #bd8430;
+  --color-fun-escalation: #d15a49;
+  --color-fun-guard: #8a63c9;
+  --color-fun-human: #e3ae52;
+
+  /* the letterbox around the scaled stage reads as packed earth (a manifest
+     ground tone), part of the valley rather than app chrome; the dark theme
+     drops it to warm earth-shadow so a lit board doesn't glow at midnight */
+  --color-map-canvas: #cdbd97;
+}
+html.fun-mode.dark {
+  --color-map-canvas: #443227;
+}
+
+/* nearest-neighbour upscale for sprite <img>s and background strips. Also
+   opts out of Preflight's img{max-width:100%}: these imgs live inside
+   width-less positioning wrappers, so that clamp silently computes them to
+   zero width (the invisible-emote bug). Scoped to the valley root so every
+   current and future sprite img is covered, not just the ones that opt in. */
+.pixelated {
+  image-rendering: pixelated;
+  max-width: none;
+}
+.coops-valley img {
+  max-width: none;
+}
+
+/* Two-frame idle bob for villagers: flips the avatar strip between the
+   down-facing contact pose (column 0) and its passing pose (column 1). The
+   frame positions arrive as element custom props because the shift depends on
+   SPRITE_SCALE; steps(1,end) makes each half a hard cut, not a slide. */
+@keyframes sprite-bob {
+  0%, 100% { background-position-x: var(--bob-from, 0px); }
+  50% { background-position-x: var(--bob-to, -48px); }
+}
+.sprite-bob {
+  animation: sprite-bob 1.1s steps(1, end) infinite;
+}
+/* walkers reuse the same two-frame flip at a running step; reduced motion
+   freezes them on their contact pose via the element's static position */
+.sprite-walk {
+  animation: sprite-bob 0.38s steps(1, end) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sprite-bob {
+    animation: none;
+  }
+  .sprite-walk {
+    animation: none;
+  }
+}
+
+/* pinned speech bubbles scroll — a hairline ink bar, not a browser slab */
+.speech-bubble-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.speech-bubble-scroll::-webkit-scrollbar-thumb {
+  background: rgb(46 31 44 / 0.35);
+  border-radius: 2px;
+}
+.speech-bubble-scroll::-webkit-scrollbar-track {
+  background: transparent;
 }

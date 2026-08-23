@@ -13,6 +13,8 @@ export default function Header() {
   const presence = useStore((s) => s.presence)
   const replay = useStore((s) => s.replay)
   const view = useStore((s) => s.view)
+  const fun = useStore((s) => s.mapStyle === 'fun')
+  const mapStyle = useStore((s) => s.mapStyle)
 
   const crumbs: Crumb[] = view === 'map'
     ? [{ label: COMPANY.name }]
@@ -35,7 +37,7 @@ export default function Header() {
             {index > 0 && <span className="px-2 text-linebright">/</span>}
             {crumb.hue !== undefined && <span className="mr-1.5 h-3 w-px" style={{ background: `hsl(${crumb.hue} 48% 52%)` }} aria-hidden />}
             <button type="button" onClick={crumb.onClick}
-              className={cx('max-w-64 truncate py-1 text-left', index === crumbs.length - 1 ? 'font-medium text-ink' : 'text-dim hover:text-ink')}>
+              className={cx('max-w-64 truncate py-1 text-left', fun && 'font-display', index === crumbs.length - 1 ? 'font-medium text-ink' : 'text-dim hover:text-ink')}>
               {crumb.label}
             </button>
           </span>
@@ -50,7 +52,33 @@ export default function Header() {
             return <span key={mark.personId} title={`${person.name}, viewing ${deptById.get(mark.where)?.name ?? mark.where}`} className="flex size-5 items-center justify-center border border-surface bg-raised text-[7px] font-semibold text-mut">{person.initials}</span>
           })}
         </div>
-        <button type="button" className="flex h-6 items-center gap-2 border border-line px-2 text-[10px] text-mut hover:border-linebright hover:text-ink"
+        <div className="flex shrink-0 items-center border border-line" role="group" aria-label="Map view style">
+          <button
+            type="button"
+            aria-pressed={mapStyle === 'classic'}
+            onClick={() => useStore.getState().setMapStyle('classic')}
+            className={cx(
+              'h-6 cursor-pointer px-2 text-[10px] transition-colors',
+              fun && 'font-display',
+              mapStyle === 'classic' ? 'bg-raised font-medium text-ink' : 'text-mut hover:text-ink',
+            )}
+          >
+            Blueprint
+          </button>
+          <button
+            type="button"
+            aria-pressed={mapStyle === 'fun'}
+            onClick={() => useStore.getState().setMapStyle('fun')}
+            className={cx(
+              'h-6 cursor-pointer border-l border-line px-2 text-[10px] transition-colors',
+              fun && 'font-display',
+              mapStyle === 'fun' ? 'bg-raised font-medium text-ink' : 'text-mut hover:text-ink',
+            )}
+          >
+            Valley
+          </button>
+        </div>
+        <button type="button" className={cx('flex h-6 items-center gap-2 border border-line px-2 text-[10px] text-mut hover:border-linebright hover:text-ink', fun && 'font-display')}
           onClick={() => useStore.getState().setPaletteOpen(true)} aria-label="Open command palette">
           Commands <span className="font-mono text-[9px] text-dim">⌘K</span>
         </button>
