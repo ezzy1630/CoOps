@@ -114,21 +114,21 @@ export function createMockBrain(): BrainAdapter {
       }
 
       if (/budget|cost|spend|finance/.test(t)) {
-        const dispatched = runExchange(ctx, mockExecutor, 'budget', deptId)
+        const { dispatched } = runExchange(ctx, mockExecutor, 'budget', deptId)
         reply(ctx, agentId, personId, dispatched
           ? 'On it — asking the Finance Agent for the Q3 budget position. Watch the edge on the map; the artifact lands back here.'
           : 'That’s our own ledger — pulling it now.')
         return
       }
       if (/legal|claim|contract|compliance|policy/.test(t)) {
-        const dispatched = runExchange(ctx, mockExecutor, 'legal', deptId)
+        const { dispatched } = runExchange(ctx, mockExecutor, 'legal', deptId)
         reply(ctx, agentId, personId, dispatched
           ? 'Routing a claims check to the Legal Agent with scoped context — request and artifact only, no internal chatter crosses over.'
           : 'Reviewing locally — Legal is my department.')
         return
       }
       if (/faq|support|customer|help.?center|ticket/.test(t)) {
-        const dispatched = runExchange(ctx, mockExecutor, 'faq', deptId)
+        const { dispatched } = runExchange(ctx, mockExecutor, 'faq', deptId)
         reply(ctx, agentId, personId, dispatched
           ? 'Asked the Support Agent to prep FAQs. Their FAQ Agent will draft; we get the artifact back.'
           : 'Drafting FAQs now — that’s us.')

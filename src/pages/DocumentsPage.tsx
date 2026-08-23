@@ -20,17 +20,24 @@ export default function DocumentsPage() {
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto overscroll-contain bg-surface">
       <div className="flex w-full min-w-0 flex-1 flex-col px-6 py-4 lg:px-9">
-        <header className="flex h-10 shrink-0 items-baseline gap-4 border-b border-line">
-          <h2 className="text-[17px] font-semibold tracking-[-0.025em]">Documents</h2>
-          <span className="font-mono text-[10px] tabular-nums text-dim">{documents.length} delivered</span>
-          <span className="ml-auto text-[10px] text-dim">New work appears here when agents deliver it</span>
+        <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-5 gap-y-2 border-b border-line pb-3">
+          <h2 className="text-[21px] leading-none font-semibold tracking-[-0.02em]">Documents</h2>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[21px] leading-none font-semibold tabular-nums">{documents.length}</span>
+            <span className="text-[12px] text-dim">delivered</span>
+          </div>
         </header>
 
-        <div className="min-w-0 flex-1 overflow-x-auto">
+        <div className="min-w-0 flex-1 overflow-x-auto pt-1">
           {documents.length === 0 ? (
-            <div className="px-3 py-14 text-center">
-              <div className="text-[13px] font-medium text-ink">No documents have been delivered yet.</div>
-              <div className="mt-1.5 text-[11px] text-dim">Completed work will appear here as the company runs.</div>
+            <div className="flex flex-col items-center px-3 py-16 text-center">
+              <span className="flex size-10 items-center justify-center border border-line bg-raised text-dim" aria-hidden>
+                <DocumentGlyph />
+              </span>
+              <div className="mt-3.5 text-[14px] font-medium text-ink">No documents yet</div>
+              <div className="mt-1 max-w-xs text-[12px] leading-relaxed text-dim">
+                Delivered work lands here as agents finish their tasks.
+              </div>
             </div>
           ) : (
             <table className="w-full min-w-[1100px] table-fixed border-collapse text-left">
@@ -44,9 +51,9 @@ export default function DocumentsPage() {
               </colgroup>
               <thead>
                 <tr className="border-b border-line">
-                  {['Document', 'Type', 'Desk', 'Task'].map((label) => <th key={label} className="px-3 py-2 text-[10px] font-medium text-dim">{label}</th>)}
-                  <th className="px-3 py-2 text-right text-[10px] font-medium text-dim">Delivered</th>
-                  <th className="px-3 py-2 text-right text-[10px] font-medium text-dim">Open</th>
+                  {['Document', 'Type', 'Desk', 'Task'].map((label) => <th key={label} className="px-3 py-2.5 text-[11px] font-medium text-dim">{label}</th>)}
+                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-dim">Delivered</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-dim">Open</th>
                 </tr>
               </thead>
               <tbody>
@@ -110,31 +117,31 @@ function DocumentRow({ event, world, index }: { event: WorldEvent; world: World;
       }}
       title="Open on map"
     >
-      <td className="px-3 py-1.5">
+      <td className="px-3 py-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="h-5 w-0.5 shrink-0 rounded-full" style={{ background: deptHue == null ? 'var(--color-linebright)' : `hsl(${deptHue} 55% 50%)` }} aria-hidden />
           <span className="relative flex size-5 shrink-0 items-center justify-center border border-artifact/35 text-artifact" aria-hidden>
             <DocumentGlyph />
           </span>
           <div className="min-w-0">
-            <div className="truncate text-[12px] font-medium text-ink" title={doc.title}>{doc.title}</div>
-            <div className="mt-0.5 truncate text-[10px] text-dim" title={from ? `Prepared by ${from}` : name}>{from ? `Prepared by ${from}` : name}</div>
+            <div className="truncate text-[13px] font-medium text-ink" title={doc.title}>{doc.title}</div>
+            <div className="mt-0.5 truncate text-[10.5px] text-dim" title={from ? `Prepared by ${from}` : name}>{from ? `Prepared by ${from}` : name}</div>
           </div>
         </div>
       </td>
-      <td className="px-3 py-1.5"><Pill className="text-[9px] text-artifact">{doc.label}</Pill></td>
-      <td className="px-3 py-1.5 text-[11px] text-mut">{dept?.name ?? 'Company'}</td>
-      <td className="max-w-0 px-3 py-1.5">
-        <div className={cx('truncate text-[11px]', task ? 'text-ink' : 'text-dim')} title={task?.title}>{task?.title ?? 'Unlinked delivery'}</div>
+      <td className="px-3 py-2"><Pill className="text-artifact">{doc.label}</Pill></td>
+      <td className="px-3 py-2 text-[12px] text-mut">{dept?.name ?? 'Company'}</td>
+      <td className="max-w-0 px-3 py-2">
+        <div className={cx('truncate text-[12px]', task ? 'text-ink' : 'text-dim')} title={task?.title}>{task?.title ?? 'Unlinked delivery'}</div>
       </td>
-      <td className="px-3 py-1.5 text-right">
-        <div className="font-mono text-[10px] text-mut tabular-nums">{fmtDay(event.ts)}</div>
-        <div className="mt-0.5 font-mono text-[10px] text-dim tabular-nums">{fmtClock(event.ts)}</div>
+      <td className="px-3 py-2 text-right">
+        <div className="font-mono text-[10.5px] text-mut tabular-nums">{fmtDay(event.ts)}</div>
+        <div className="mt-0.5 font-mono text-[10.5px] text-dim tabular-nums">{fmtClock(event.ts)}</div>
       </td>
-      <td className="px-3 py-1.5 text-right">
+      <td className="px-3 py-2 text-right">
         <div className="flex items-center justify-end gap-2">
-          <span className="pointer-events-none text-[10px] text-task opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">Open on map ↗</span>
-          <button type="button" className="btn h-7 whitespace-nowrap px-2 text-[10px]" onClick={openDocument} title="Open the delivered document">
+          <span className="pointer-events-none text-[10.5px] text-task opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">Open on map ↗</span>
+          <button type="button" className="btn h-7 whitespace-nowrap px-2 text-[11px]" onClick={openDocument} title="Open the delivered document">
             Open
           </button>
         </div>

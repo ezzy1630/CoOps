@@ -213,3 +213,9 @@ export const PERSONAS: Persona[] = [
 export const personById = new Map(PEOPLE.map((p) => [p.id, p]))
 export const deptById = new Map(DEPARTMENTS.map((d) => [d.id, d]))
 export const toolById = new Map(TOOLS.map((t) => [t.id, t]))
+
+/** Agent id → department id, derived from BASE_AGENTS. */
+export const AGENT_DEPT: Readonly<Record<string, string>> = Object.freeze({
+  ...Object.fromEntries(BASE_AGENTS.map((a) => [a.id, a.deptId])),
+  [LAUNCH_AGENT_ID]: 'marketing',
+})

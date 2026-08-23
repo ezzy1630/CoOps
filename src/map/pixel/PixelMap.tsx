@@ -16,7 +16,7 @@ import {
   variantFor,
   type StandSpot,
 } from './layout'
-import { deriveWalkers, emoteFor, lastActs, lastSpeech } from './choreography'
+import { deriveWalkers, emoteFor, lastActs, lastSpeech, walkerWindowMs } from './choreography'
 const CELL = 24 // avatar cell in the strip, manifest avatars.cell
 const CELL_PX = CELL * SPRITE_SCALE
 // bubbles and letters draw at native 1:1 scale for uniform pixel consistency
@@ -160,7 +160,7 @@ export default function PixelMap() {
       const tail = st.log.slice(-40)
       const moving =
         st.replay != null ||
-        tail.some((e) => e.edge && wall - e.ts < (e.travelMs ?? 2400) + 3600) ||
+        tail.some((e) => e.edge && wall - e.ts < walkerWindowMs(e.travelMs ?? 2400)) ||
         tail.some((e) => e.type === 'AgentSpawned' && wall - e.ts < 1800) ||
         tail.some((e) => e.type === 'TaskCompleted' && wall - e.ts < 1100) ||
         tail.some((e) => e.type === 'GuardrailBlock' && wall - e.ts < 2800)
@@ -328,18 +328,31 @@ function Scene({
         style={{ width: art.world.w, height: art.world.h }}
       />
 
-      {/* ground-level ink: walker trails + mail request lines live under everything */}
+      {/* ground-level ink: walked routes + mail request lines live under everything */}
       <svg className="pointer-events-none absolute inset-0" width={art.world.w} height={art.world.h} style={{ zIndex: 1 }}>
         {walkers.map((wk) =>
-          wk.trailOpacity > 0.02 ? (
-            <line
-              key={`trail-${wk.event.id}`}
-              x1={wk.from.x} y1={wk.from.y} x2={wk.to.x} y2={wk.to.y}
-              stroke={wk.color}
-              strokeWidth={1.6}
-              strokeDasharray="2 6"
-              opacity={wk.trailOpacity}
-            />
+          wk.trailFade > 0.02 ? (
+            <g key={`trail-${wk.event.id}`}>
+              {/* where they're headed: faint dashed ghost of the road */}
+              <path
+                d={wk.routeD}
+                fill="none"
+                stroke={wk.color}
+                strokeWidth={1.4}
+                strokeDasharray="2 6"
+                opacity={wk.pinned ? 0.3 : 0.13}
+              />
+              {/* where they've been: solid ink drawn up to the feet */}
+              <path
+                d={wk.routeD}
+                fill="none"
+                stroke={wk.color}
+                strokeWidth={1.6}
+                strokeLinecap="round"
+                strokeDasharray={`${Math.max(0.01, wk.dist)} ${wk.routeLen + 8}`}
+                opacity={0.5 * wk.trailFade}
+              />
+            </g>
           ) : null,
         )}
         {mailBadges.map(({ a, anchor, fromPt }) =>
@@ -353,6 +366,20 @@ function Scene({
               opacity={0.68}
             />
           ) : null,
+        )}
+        {/* road dust: kicked up behind striding feet, burst on landing */}
+        {walkers.flatMap((wk) =>
+          wk.puffs.map((p, i) => (
+            <rect
+              key={`puff-${wk.event.id}-${i}`}
+              x={p.x - p.r}
+              y={p.y - p.r}
+              width={p.r * 2}
+              height={p.r * 2}
+              fill="#b39a72"
+              opacity={p.o}
+            />
+          )),
         )}
       </svg>
 
@@ -493,24 +520,33 @@ function Scene({
                 if (wk.event.taskId) st.selectTask(wk.event.taskId)
                 st.setHighlight(wk.event.id)
               }}
-              className="sprite-walk pixelated absolute cursor-pointer select-none"
+              className="absolute cursor-pointer select-none"
               style={{
                 left: wk.x - CELL_PX / 2,
                 top: wk.y - CELL_PX,
                 width: CELL_PX,
                 height: CELL_PX,
                 zIndex: wk.z,
-                backgroundImage: `url(${wk.variantUrl})`,
-                backgroundSize: `${art.avatars.frameOrder.length * CELL_PX}px ${CELL_PX}px`,
-                // static column keeps reduced-motion (animation off) on the contact pose
-                backgroundPositionX: `${-wk.frameCol * CELL_PX}px`,
-                animationDelay: `${-(wk.hash % 380)}ms`,
                 transformOrigin: '50% 100%',
                 transform: `scale(${wk.scale})${wk.flipX ? ' scaleX(-1)' : ''}`,
                 opacity: wk.opacity * (walkerDim ? 0.15 : 1),
-                ...bobVars,
               }}
-            />
+            >
+              {/* inner strip carries the frames so the step-hop transform
+                  never fights the runner's scale/flip */}
+              <div
+                className="sprite-walk pixelated absolute inset-0"
+                style={{
+                  backgroundImage: `url(${wk.variantUrl})`,
+                  backgroundSize: `${art.avatars.frameOrder.length * CELL_PX}px ${CELL_PX}px`,
+                  // static column keeps reduced-motion (animation off) on the contact pose
+                  backgroundPositionX: `${-wk.frameCol * CELL_PX}px`,
+                  animationDelay: `${-(wk.hash % 380)}ms`,
+                  animationDuration: `${wk.stepMs}ms`,
+                  ...bobVars,
+                }}
+              />
+            </div>
           </Fragment>
         )
       })}
