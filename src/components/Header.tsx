@@ -31,7 +31,7 @@ export default function Header() {
 
   return (
     <header className="z-30 flex h-[42px] shrink-0 items-center border-b border-line bg-surface px-4">
-      <nav className="flex min-w-0 items-center text-[11px]" aria-label="Breadcrumb">
+      <nav className="flex min-w-0 items-center text-[12px]" aria-label="Breadcrumb">
         {crumbs.map((crumb, index) => (
           <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center">
             {index > 0 && <span className="px-2 text-linebright">/</span>}
@@ -44,12 +44,12 @@ export default function Header() {
         ))}
       </nav>
       <div className="ml-auto flex shrink-0 items-center gap-3">
-        {replay && <span className="font-mono text-[9px] tabular-nums text-task">Replay {new Date(virtualAt(replay.knots, replay.wallMs)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+        {replay && <span className="font-mono text-[10px] tabular-nums text-task">Replay {new Date(virtualAt(replay.knots, replay.wallMs)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
         <div className="flex -space-x-1" aria-label="People viewing the company">
           {roaming.map((mark) => {
             const person = personById.get(mark.personId)
             if (!person) return null
-            return <span key={mark.personId} title={`${person.name}, viewing ${deptById.get(mark.where)?.name ?? mark.where}`} className="flex size-5 items-center justify-center border border-surface bg-raised text-[7px] font-semibold text-mut">{person.initials}</span>
+            return <span key={mark.personId} title={`${person.name}, viewing ${deptById.get(mark.where)?.name ?? mark.where}`} className="flex size-6 items-center justify-center border border-surface bg-raised text-[9.5px] font-semibold text-mut">{person.initials}</span>
           })}
         </div>
         <div className="flex shrink-0 items-center border border-line" role="group" aria-label="Map view style">
@@ -58,7 +58,7 @@ export default function Header() {
             aria-pressed={mapStyle === 'classic'}
             onClick={() => useStore.getState().setMapStyle('classic')}
             className={cx(
-              'h-6 cursor-pointer px-2 text-[10px] transition-colors',
+              'h-6 cursor-pointer px-2 text-[11px] transition-colors',
               fun && 'font-display',
               mapStyle === 'classic' ? 'bg-raised font-medium text-ink' : 'text-mut hover:text-ink',
             )}
@@ -70,7 +70,7 @@ export default function Header() {
             aria-pressed={mapStyle === 'fun'}
             onClick={() => useStore.getState().setMapStyle('fun')}
             className={cx(
-              'h-6 cursor-pointer border-l border-line px-2 text-[10px] transition-colors',
+              'h-6 cursor-pointer border-l border-line px-2 text-[11px] transition-colors',
               fun && 'font-display',
               mapStyle === 'fun' ? 'bg-raised font-medium text-ink' : 'text-mut hover:text-ink',
             )}
@@ -78,9 +78,9 @@ export default function Header() {
             Valley
           </button>
         </div>
-        <button type="button" className={cx('flex h-6 items-center gap-2 border border-line px-2 text-[10px] text-mut hover:border-linebright hover:text-ink', fun && 'font-display')}
+        <button type="button" className={cx('flex h-6 items-center gap-2 border border-line px-2 text-[11px] text-mut hover:border-linebright hover:text-ink', fun && 'font-display')}
           onClick={() => useStore.getState().setPaletteOpen(true)} aria-label="Open command palette">
-          Commands <span className="font-mono text-[9px] text-dim">⌘K</span>
+          Commands <span className="font-mono text-[10px] text-dim">⌘K</span>
         </button>
       </div>
     </header>

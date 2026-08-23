@@ -1,5 +1,5 @@
 import type {
-  AgentDef, AgentStatus, Department, PendingApproval, Task, World, WorldEvent,
+  AgentDef, AgentStatus, Department, EventType, PendingApproval, Task, World, WorldEvent,
 } from '../types'
 
 /**
@@ -7,6 +7,9 @@ import type {
  * This single function powers the live map, the activity feed, the approvals
  * queue AND the replay scrubber (replay = fold up to an earlier instant).
  */
+/** Event types whose payload.reason carries the eventId of an approval they resolve. */
+const RESOLVES_APPROVAL = new Set<EventType>(['AccountConnected', 'ApprovalGranted', 'BlueprintApproved', 'TaskFailed'])
+
 export function buildWorld(
   baseAgents: AgentDef[], baseDepartments: Department[], log: WorldEvent[], upTo: number,
 ): World {
@@ -51,6 +54,7 @@ export function buildWorld(
   for (const e of log) {
     if (e.ts > upTo) break
     events.push(e)
+    if (e.payload?.reason && RESOLVES_APPROVAL.has(e.type)) resolved.add(e.payload.reason)
 
     if (e.taskId && e.type !== 'Chat') {
       const t = touch(e)
@@ -88,8 +92,6 @@ export function buildWorld(
         case 'AccountConnected': {
           t.status = 'running'
           t.blockedOn = undefined
-          const target = e.payload?.reason // carries the eventId being resolved
-          if (target) resolved.add(target)
           break
         }
         case 'ArtifactDelivered':
@@ -123,7 +125,6 @@ export function buildWorld(
         blueprint: e.payload.blueprint,
       })
     }
-    if (e.type === 'BlueprintApproved' && e.payload?.reason) resolved.add(e.payload.reason)
     if (e.type === 'AgentSpawned' && e.payload?.agent) {
       agents.push({ ...e.payload.agent, bornAt: e.ts })
     }

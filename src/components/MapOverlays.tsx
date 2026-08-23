@@ -1,3 +1,4 @@
+import { ArrowCounterClockwise, Minus, Play, Plus, X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { PANEL_WIDTH, useStore } from '../store'
 import { deptById, personById } from '../data/company'
@@ -60,7 +61,7 @@ export default function MapOverlays() {
           className="pointer-events-none absolute bottom-[52px] left-0 z-10 flex justify-center px-3 transition-[right] duration-300"
           style={{ right: panelW }}
         >
-          <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 shadow-[0_2px_8px_rgb(23_22_15/0.08)] anim-fadeup">
+          <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-sm border border-line bg-surface px-3 py-2 shadow-[0_2px_8px_rgb(23_22_15/0.08)] anim-fadeup">
             <Chip
               className={cx(
                 'shrink-0',
@@ -73,7 +74,7 @@ export default function MapOverlays() {
               {task.status.replace('_', ' ')}
             </Chip>
             <span className="max-w-56 truncate text-[13px] font-medium">{task.title}</span>
-            <span className="flex items-center gap-1 text-[11px] text-mut">
+            <span className="flex items-center gap-1 text-[12px] text-mut">
               {task.path.map((dept, index) => (
                 <span key={dept} className="flex items-center gap-1">
                   {index > 0 && <span className="text-dim">→</span>}
@@ -83,12 +84,13 @@ export default function MapOverlays() {
               {task.status === 'done' && <span className="text-artifact">→ done</span>}
             </span>
             {task.eventIds.length > 2 && (
-              <button className="btn h-7 text-[11px]" onClick={() => useStore.getState().startReplay(task.id)}>
-                ↺ Replay
+              <button className="btn h-7 text-[12px]" onClick={() => useStore.getState().startReplay(task.id)}>
+                <ArrowCounterClockwise size={11} weight="bold" />
+                Replay
               </button>
             )}
-            <button className="text-[12px] text-dim hover:text-ink" title="Exit focus" onClick={() => useStore.getState().selectTask(null)}>
-              ✕
+            <button className="text-dim hover:text-ink" title="Exit focus" onClick={() => useStore.getState().selectTask(null)}>
+              <X size={13} />
             </button>
           </div>
         </div>
@@ -107,7 +109,7 @@ function Legend() {
   ] as const
 
   return (
-    <div className="flex shrink-0 items-center gap-2 text-[9px] text-dim">
+    <div className="flex shrink-0 items-center gap-2 text-[10px] text-dim">
       {entries.map(([color, label]) => (
         <span key={label} className="flex items-center gap-1.5 whitespace-nowrap">
           <span className="h-2 w-px" style={{ background: color }} />
@@ -120,13 +122,13 @@ function Legend() {
 
 function ZoomControls() {
   return (
-    <div className="flex shrink-0 items-center border-l border-line pl-2 text-[10px] text-mut" aria-label="Map zoom controls">
+    <div className="flex shrink-0 items-center border-l border-line pl-2 text-[11px] text-mut" aria-label="Map zoom controls">
       <button className="flex size-6 items-center justify-center hover:bg-hover hover:text-ink" title="Zoom out" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1 / 1.45 })}>
-        −
+        <Minus size={12} weight="bold" />
       </button>
-      <button className="flex h-6 min-w-9 items-center justify-center font-mono text-[9px] tabular-nums hover:bg-hover hover:text-ink" title="Fit the whole company" onClick={() => useStore.getState().requestCamera({ type: 'fit' })}>Fit</button>
+      <button className="flex h-6 min-w-9 items-center justify-center font-mono text-[10px] tabular-nums hover:bg-hover hover:text-ink" title="Fit the whole company" onClick={() => useStore.getState().requestCamera({ type: 'fit' })}>Fit</button>
       <button className="flex size-6 items-center justify-center hover:bg-hover hover:text-ink" title="Zoom in" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1.45 })}>
-        +
+        <Plus size={12} weight="bold" />
       </button>
     </div>
   )
@@ -147,23 +149,23 @@ function DemoAction({
 }) {
   if (heroStage === 'idle') {
     return (
-      <button className="h-6 shrink-0 border-l border-line px-3 text-[10px] font-medium text-ink hover:bg-hover" onClick={() => useStore.getState().runHeroAuto()}>
-        <PlayIcon />
+      <button className="flex h-6 shrink-0 items-center gap-1.5 border-l border-line px-3 text-[11px] font-medium text-ink hover:bg-hover" onClick={() => useStore.getState().runHeroAuto()}>
+        <Play size={11} weight="fill" />
         Run the launch demo
       </button>
     )
   }
   if (heroStage === 'done' && heroTask) {
     return (
-      <button className="h-6 shrink-0 border-l border-line px-3 text-[10px] font-medium text-ink hover:bg-hover" onClick={onReplay}>
-        <ReplayIcon />
+      <button className="flex h-6 shrink-0 items-center gap-1.5 border-l border-line px-3 text-[11px] font-medium text-ink hover:bg-hover" onClick={onReplay}>
+        <ArrowCounterClockwise size={12} weight="bold" />
         Replay the launch
       </button>
     )
   }
   return (
     <div className="flex min-w-0 max-w-[520px] items-center gap-3" title={beat}>
-      <div className="flex shrink-0 items-center gap-1.5 text-[9px]">
+      <div className="flex shrink-0 items-center gap-1.5 text-[10px]">
         {ACTS.map((label, index) => (
           <span key={label} className="flex items-center gap-1.5">
             {index > 0 && <span className="text-dim">→</span>}
@@ -174,7 +176,7 @@ function DemoAction({
         ))}
       </div>
       <span className="h-4 w-px shrink-0 bg-line" aria-hidden />
-      <span className="min-w-0 truncate text-[11px] text-mut">{beat}</span>
+      <span className="min-w-0 truncate text-[12px] text-mut">{beat}</span>
     </div>
   )
 }
@@ -209,7 +211,7 @@ function PulseSparkline() {
     return { bars, perMin, quiet: perMin < 1 && buckets.every((value) => value <= 1) }
   }, [logLen, tick])
 
-  if (quiet) return <span className="shrink-0 font-mono text-[10px] tabular-nums text-dim">0 ev/min</span>
+  if (quiet) return <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-dim">0 ev/min</span>
   return (
     <div className="flex shrink-0 items-center gap-2" title="Company activity — events per minute, trailing 12 min">
       <svg width="64" height="16" viewBox="0 0 64 16" aria-hidden>
@@ -217,24 +219,7 @@ function PulseSparkline() {
           <rect key={index} x={bar.x} y={bar.y} width="4.4" height={bar.height} fill="var(--color-task)" fillOpacity={bar.opacity} />
         ))}
       </svg>
-      <span className="font-mono text-[10px] tabular-nums text-dim">{perMin} ev/min</span>
+      <span className="font-mono text-[10.5px] tabular-nums text-dim">{perMin} ev/min</span>
     </div>
-  )
-}
-
-function PlayIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
-      <path d="m3 2 7 4-7 4V2Z" />
-    </svg>
-  )
-}
-
-function ReplayIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
-      <path d="M3 6.5A5 5 0 1 1 4.8 11" strokeLinecap="round" />
-      <path d="M3 3.5v3h3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   )
 }

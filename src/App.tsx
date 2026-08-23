@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { PANEL_WIDTH, useStore } from './store'
 import CompanyMap from './map/CompanyMap'
-import PixelMap from './map/pixel/PixelMap'
 import Header from './components/Header'
 import NavRail from './components/NavRail'
 import MapOverlays from './components/MapOverlays'
@@ -21,6 +20,8 @@ import ActivityPage from './pages/ActivityPage'
 import AgentsPage from './pages/AgentsPage'
 import ApprovalsPage from './pages/ApprovalsPage'
 import DocumentsPage from './pages/DocumentsPage'
+
+const PixelMap = lazy(() => import('./map/pixel/PixelMap'))
 
 export default function App() {
   const entered = useStore((s) => s.entered)
@@ -74,7 +75,7 @@ export default function App() {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <Wordmark />
-        <p className="max-w-sm text-sm text-mut">
+        <p className="max-w-sm text-[14px] leading-relaxed text-mut">
           CoOps is a live map of a whole company — it needs a desktop screen.
           Open it on a laptop or larger to explore Everpeak Outfitters.
         </p>
@@ -95,7 +96,13 @@ export default function App() {
         {entered && <Header />}
         <main className="relative min-h-0 flex-1 overflow-hidden">
           <div className={mapView || !entered ? 'absolute inset-0' : 'invisible absolute inset-0'}>
-            {mapStyle === 'fun' ? <PixelMap /> : <CompanyMap />}
+            {mapStyle === 'fun' ? (
+              <Suspense fallback={null}>
+                <PixelMap />
+              </Suspense>
+            ) : (
+              <CompanyMap />
+            )}
           </div>
 
           {entered && !mapView && (
