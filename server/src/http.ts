@@ -6,12 +6,14 @@ import { newId } from './ids.js'
 import type { EventStore } from './store.js'
 import type { Bus } from './bus.js'
 import { mountA2a } from './a2a/mount.js'
+import { PresenceRegistry } from './presence.js'
 import type { WorldEvent } from '../../src/types.js'
 
 type Appendable = Omit<WorldEvent, 'id' | 'ts'> & Partial<Pick<WorldEvent, 'id' | 'ts'>>
 
 export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEvent>): Promise<{ server: http.Server }> {
   const app = express()
+  const presence = new PresenceRegistry()
 
   app.use((req, res, next) => {
     res.setHeader('access-control-allow-origin', '*')
@@ -33,8 +35,9 @@ export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEv
 
   if (cfg.enableA2a) mountA2a(app, { store, bus })
 
-  app.get('/events', (req, res) => streamEvents(store, bus, sinceOf(req), res))
+  app.get('/events', (req, res) => streamEvents(store, bus, sinceOf(req), personIdOf(req), presence, res))
   app.get('/healthz', (_req, res) => send(res, 200, { ok: true, events: store.all().length }))
+  app.get('/presence', (_req, res) => send(res, 200, presence.list()))
 
   const jsonBody = express.json()
   app.post('/chat', jsonBody, wrapped(async (req, res) => postChat(store, req.body, res)))
@@ -63,6 +66,11 @@ function sinceOf(req: Request): string | null {
   return typeof since === 'string' && since.length > 0 ? since : null
 }
 
+function personIdOf(req: Request): string | null {
+  const personId = req.query.personId
+  return typeof personId === 'string' && personId.length > 0 ? personId : null
+}
+
 function eventIdOf(req: Request): string {
   const id = req.params.eventId
   if (typeof id !== 'string' || id.length === 0) throw new Error('missing event id')
@@ -88,7 +96,9 @@ function writeFrame(res: Response, ev: WorldEvent): void {
   res.write(`id: ${ev.id}\ndata: ${JSON.stringify(ev)}\n\n`)
 }
 
-function streamEvents(store: EventStore, bus: Bus<WorldEvent>, since: string | null, res: Response): void {
+function streamEvents(store: EventStore, bus: Bus<WorldEvent>, since: string | null, personId: string | null, presence: PresenceRegistry, res: Response): void {
+  if (personId) presence.connect(personId)
+
   res.writeHead(200, {
     'content-type': 'text/event-stream',
     'cache-control': 'no-cache',
@@ -102,9 +112,13 @@ function streamEvents(store: EventStore, bus: Bus<WorldEvent>, since: string | n
 
   const unsubscribe = bus.subscribe(e => writeFrame(res, e))
   const heartbeat = setInterval(() => res.write(':ka\n\n'), 15000)
+  let cleaned = false
   const cleanup = () => {
+    if (cleaned) return
+    cleaned = true
     clearInterval(heartbeat)
     unsubscribe()
+    if (personId) presence.disconnect(personId)
   }
   res.on('close', cleanup)
   res.on('error', cleanup)
