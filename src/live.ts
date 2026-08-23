@@ -8,8 +8,9 @@ export function backendUrl(): string {
   return import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8080'
 }
 
-export function connectLive(onEvent: (e: WorldEvent) => void): () => void {
-  const source = new EventSource(`${backendUrl()}/events`)
+export function connectLive(onEvent: (e: WorldEvent) => void, personId?: string): () => void {
+  const who = personId ? `?personId=${encodeURIComponent(personId)}` : ''
+  const source = new EventSource(`${backendUrl()}/events${who}`)
   source.onmessage = (msg) => onEvent(JSON.parse(msg.data) as WorldEvent)
   return () => source.close()
 }

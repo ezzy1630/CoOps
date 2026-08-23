@@ -224,65 +224,85 @@ export const useStore = create<Store>()((set, get) => {
 
     // 2. simulated humans act on stale approvals (presence first, then the click)
     const world = get().world
-    const stillPending = new Set(world.approvals.map((a) => a.eventId))
-    autoResolves = autoResolves.filter((ar) => {
-      if (!stillPending.has(ar.eventId)) {
-        // either resolved by the judge, or not yet committed — keep if not yet in world
-        return !get().log.some((e) => e.id === ar.eventId) ? true : false
-      }
-      if (now >= ar.at) {
-        const approval = world.approvals.find((a) => a.eventId === ar.eventId)
-        if (approval) get().approve(approval, ar.personId)
-        return false
-      }
-      if (now >= ar.at - 9000) {
-        const where = `approval:${ar.eventId}`
-        if (!get().presence.some((p) => p.where === where)) {
-          set({ presence: [...get().presence, { personId: ar.personId, where }] })
+    if (!liveEnabled()) {
+      const stillPending = new Set(world.approvals.map((a) => a.eventId))
+      autoResolves = autoResolves.filter((ar) => {
+        if (!stillPending.has(ar.eventId)) {
+          // either resolved by the judge, or not yet committed — keep if not yet in world
+          return !get().log.some((e) => e.id === ar.eventId) ? true : false
         }
-      }
-      return true
-    })
+        if (now >= ar.at) {
+          const approval = world.approvals.find((a) => a.eventId === ar.eventId)
+          if (approval) get().approve(approval, ar.personId)
+          return false
+        }
+        if (now >= ar.at - 9000) {
+          const where = `approval:${ar.eventId}`
+          if (!get().presence.some((p) => p.where === where)) {
+            set({ presence: [...get().presence, { personId: ar.personId, where }] })
+          }
+        }
+        return true
+      })
+    }
 
     // 3. ambient life — hot for the first minute (arrivals must see a moving
     //    map), then it settles; and held entirely during the demo's quiet beats
-    const heroStage = get().heroStage
-    if (heroStage === 'interview' || heroStage === 'blueprint') {
-      // the interview and the blueprint are conversations: no new work starts
-      ambientAt = Math.max(ambientAt, now + 1500)
-    } else if (now >= ambientAt) {
-      const warm = now - engineStartedAt < WARMUP_MS
-      // the standing approval never resolves on its own — it must not eat a slot
-      const activeCount = [...world.tasks.values()].filter(
-        (t) => t.id !== SEED_APPROVAL_TASK_ID && t.status !== 'done' && t.status !== 'failed',
-      ).length
-      if (activeCount < (warm ? 6 : 4)) {
-        const { steps, lengthMs } = nextAmbient(rng)
-        get().schedule(steps, 800)
-        // warm: pace off the *start* of this exchange, so two or three envelopes
-        // overlap in flight. settled: wait for it to finish, then a long beat.
-        ambientAt = now + (warm ? between(rng, 3000, 9000) : lengthMs + between(rng, 16_000, 34_000))
-      } else {
-        ambientAt = now + (warm ? 4000 : 12_000)
+    if (!liveEnabled()) {
+      const heroStage = get().heroStage
+      if (heroStage === 'interview' || heroStage === 'blueprint') {
+        // the interview and the blueprint are conversations: no new work starts
+        ambientAt = Math.max(ambientAt, now + 1500)
+      } else if (now >= ambientAt) {
+        const warm = now - engineStartedAt < WARMUP_MS
+        // the standing approval never resolves on its own — it must not eat a slot
+        const activeCount = [...world.tasks.values()].filter(
+          (t) => t.id !== SEED_APPROVAL_TASK_ID && t.status !== 'done' && t.status !== 'failed',
+        ).length
+        if (activeCount < (warm ? 6 : 4)) {
+          const { steps, lengthMs } = nextAmbient(rng)
+          get().schedule(steps, 800)
+          // warm: pace off the *start* of this exchange, so two or three envelopes
+          // overlap in flight. settled: wait for it to finish, then a long beat.
+          ambientAt = now + (warm ? between(rng, 3000, 9000) : lengthMs + between(rng, 16_000, 34_000))
+        } else {
+          ambientAt = now + (warm ? 4000 : 12_000)
+        }
       }
     }
 
-    // 4. presence rotation (simulated colleagues browsing the map)
+    // 4. presence — live mode mirrors who is actually connected (GET /presence);
+    //    sim mode rotates a synthetic cast around the map
     if (now >= presenceAt) {
-      const personaId = get().persona?.id
-      const pool = ['sofia', 'ethan', 'leo', 'grace', 'sam', 'nina', 'avery', 'maya', 'dana'].filter((p) => p !== personaId)
-      const depts = ['marketing', 'finance', 'legal', 'support', 'operations', 'hr']
-      const roaming: PresenceMark[] = []
-      const n = 2 + Math.floor(rng() * 2)
-      for (let i = 0; i < n; i++) {
-        const person = pick(rng, pool)
-        if (!roaming.some((r) => r.personId === person)) {
-          roaming.push({ personId: person, where: pick(rng, depts) })
+      if (liveEnabled()) {
+        presenceAt = now + 5000
+        void fetch(`${backendUrl()}/presence`)
+          .then((res) => res.json() as Promise<{ people: { personId: string; since: number }[] }>)
+          .then(({ people }) => {
+            set({
+              presence: people.flatMap((p): PresenceMark[] => {
+                const where = personById.get(p.personId)?.deptId
+                return where ? [{ personId: p.personId, where }] : []
+              }),
+            })
+          })
+          .catch(() => {})
+      } else {
+        const personaId = get().persona?.id
+        const simPool = ['sofia', 'ethan', 'leo', 'grace', 'sam', 'nina', 'avery', 'maya', 'dana'].filter((p) => p !== personaId)
+        const depts = ['marketing', 'finance', 'legal', 'support', 'operations', 'hr']
+        const roaming: PresenceMark[] = []
+        const n = 2 + Math.floor(rng() * 2)
+        for (let i = 0; i < n; i++) {
+          const person = pick(rng, simPool)
+          if (!roaming.some((r) => r.personId === person)) {
+            roaming.push({ personId: person, where: pick(rng, depts) })
+          }
         }
+        const approvalsMarks = get().presence.filter((p) => p.where.startsWith('approval:'))
+        set({ presence: [...roaming, ...approvalsMarks] })
+        presenceAt = now + between(rng, 11_000, 21_000)
       }
-      const approvalsMarks = get().presence.filter((p) => p.where.startsWith('approval:'))
-      set({ presence: [...roaming, ...approvalsMarks] })
-      presenceAt = now + between(rng, 11_000, 21_000)
     }
   }
 
@@ -348,7 +368,8 @@ export const useStore = create<Store>()((set, get) => {
         disconnectLive = connectLive((e) => {
           const log = [...get().log, e].sort(sortByTs)
           set({ log, world: rebuild(log) })
-        })
+        }, get().persona?.id ?? 'maya')
+        setInterval(tick, 300)
         return
       }
       engineStarted = true
