@@ -1,3 +1,4 @@
+import { CaretRight, X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useStore } from '../store'
@@ -66,7 +67,7 @@ function Avatar({ personId }: { personId: string }) {
   return (
     <span
       title={`${p.name} — ${p.role}`}
-      className="flex size-6 shrink-0 items-center justify-center rounded-full border border-linebright text-[9px] font-bold"
+      className="flex size-6 shrink-0 items-center justify-center rounded-full border border-linebright text-[10px] font-bold"
       style={{ background: `hsl(${p.hue} 52% 87%)` }}
     >
       {p.initials}
@@ -183,13 +184,13 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
         <StatusDot status={status} className="mt-1.5" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h2 className="truncate text-[14px] font-semibold">{agent.name}</h2>
+            <h2 className="truncate text-[15px] font-semibold tracking-[-0.01em]">{agent.name}</h2>
             <Chip className="shrink-0">{agent.kind === 'operator' ? 'Department Agent' : 'Worker'}</Chip>
           </div>
-          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12px]">
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12.5px]">
             <span aria-hidden className="h-3 w-0.5 shrink-0 rounded-full" style={{ background: departmentHue }} />
             <button
-              className="shrink-0 rounded px-1 py-0.5 text-mut transition-colors hover:bg-hover hover:text-ink"
+              className="shrink-0 rounded-sm px-1 py-0.5 text-mut transition-colors hover:bg-hover hover:text-ink"
               onClick={() => {
                 const st = useStore.getState()
                 st.openPanel('dept', agent.deptId)
@@ -216,21 +217,21 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
         {owner && (
           <div className="flex shrink-0 items-center gap-1.5">
             <Avatar personId={owner.id} />
-            <span className="max-w-28 truncate text-[12px] text-mut">{owner.name}</span>
+            <span className="max-w-28 truncate text-[12.5px] text-mut">{owner.name}</span>
           </div>
         )}
         <button
-          className="shrink-0 rounded px-1.5 py-0.5 text-[14px] text-dim transition-colors hover:bg-hover hover:text-ink"
+          className="shrink-0 rounded-sm px-1.5 py-1 text-dim transition-colors hover:bg-hover hover:text-ink"
           title="Close"
           onClick={() => useStore.getState().closePanel()}
         >
-          ✕
+          <X size={15} />
         </button>
       </div>
 
       {/* ── info strip ── */}
       <div className="shrink-0 border-b border-line px-3 py-2">
-        <p className="text-[12px] leading-snug text-mut">{agent.purpose}</p>
+        <p className="text-[12.5px] leading-snug text-mut">{agent.purpose}</p>
         {agent.skills.length > 0 && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
             <Label>skills</Label>
@@ -242,7 +243,7 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
           <Label>tools</Label>
           {agent.toolIds.length === 0 ? (
-            <span className="text-[11px] text-dim">none granted</span>
+            <span className="text-[11.5px] text-dim">none granted</span>
           ) : (
             agent.toolIds.map((id) => {
               const t = toolById.get(id)
@@ -274,7 +275,7 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
           Timeline
           <span
             className={cx(
-              'ml-1.5 rounded px-1 font-mono text-[10px] tabular-nums',
+              'ml-1.5 rounded-sm px-1 font-mono text-[10px] tabular-nums',
               tab === 'timeline' ? 'bg-task/15 text-task' : 'bg-raised text-dim',
             )}
           >
@@ -287,7 +288,7 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
       {tab === 'chat' ? (
         <div ref={chatScroll} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
           {messages.length === 0 && !blueprint && (
-            <p className="py-6 text-center text-[12px] text-dim">
+            <p className="py-6 text-center text-[12.5px] text-dim">
               No conversation yet. Ask for work, a status read, or a brand-new agent.
             </p>
           )}
@@ -313,7 +314,7 @@ function TabButton({
     <button
       onClick={onClick}
       className={cx(
-        '-mb-px flex items-center border-b-2 px-2.5 py-1.5 text-[12px] transition-colors',
+        '-mb-px flex items-center border-b-2 px-2.5 py-1.5 text-[12.5px] transition-colors',
         active ? 'border-task text-ink' : 'border-transparent text-mut hover:text-ink',
       )}
     >
@@ -354,13 +355,13 @@ function MessageGroup({ group, agentName, now }: { group: ThreadGroup; agentName
             {group.msgs.some((m) => m.payload?.simulated === true) && (
               <span className="rounded-sm border border-linebright bg-surface px-1 py-px font-mono text-[9px] uppercase tracking-wider text-mut">SIM</span>
             )}
-            <span className="font-mono text-[10px] text-dim tabular-nums">{timeAgo(first.ts, now)}</span>
+            <span className="font-mono text-[10.5px] text-dim tabular-nums">{timeAgo(first.ts, now)}</span>
           </span>
         )}
       </div>
       <div className={cx('mt-1.5 space-y-1.5', !group.fromPerson && 'border-l-2 border-linebright pl-3')}>
         {group.msgs.map((e) => (
-          <p key={e.id} className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink">
+          <p key={e.id} className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink">
             {e.payload?.text ?? e.title}
           </p>
         ))}
@@ -372,7 +373,7 @@ function MessageGroup({ group, agentName, now }: { group: ThreadGroup; agentName
 function Thinking({ agentName }: { agentName: string }) {
   return (
     <div className="border-l-2 border-linebright pl-3">
-      <span className="inline-flex items-baseline gap-1.5 text-[12px] text-dim">
+      <span className="inline-flex items-baseline gap-1.5 text-[12.5px] text-dim">
         {agentName} is thinking
         <span className="inline-flex items-center gap-[3px]">
           {[0, 1, 2].map((i) => (
@@ -394,15 +395,15 @@ function BlueprintCard({ approval, now }: { approval: PendingApproval; now: numb
   // same consent note the approval cards carry: you are signing in someone's name
   const actingFor = owner && personaId !== bp.ownerId ? owner.name : null
   return (
-    <div className="anim-fadeup overflow-hidden rounded border border-linebright bg-surface">
+    <div className="anim-fadeup overflow-hidden rounded-sm border border-linebright bg-surface">
       {/* header band */}
       <div className="flex items-center gap-2.5 border-b border-linebright bg-raised px-3 py-2">
-        <span className="shrink-0 font-mono text-[9.5px] font-medium tracking-[0.22em] text-mut">
+        <span className="shrink-0 font-mono text-[10px] font-medium tracking-[0.22em] text-mut">
           BLUEPRINT
         </span>
         <span aria-hidden className="h-3.5 w-px shrink-0 bg-linebright" />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{bp.name}</span>
-        <span className="shrink-0 rounded-sm border border-linebright bg-surface px-1.5 py-px font-mono text-[9px] text-mut tabular-nums">
+        <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">{bp.name}</span>
+        <span className="shrink-0 rounded-sm border border-linebright bg-surface px-1.5 py-px font-mono text-[9.5px] text-mut tabular-nums">
           v1
         </span>
       </div>
@@ -410,7 +411,7 @@ function BlueprintCard({ approval, now }: { approval: PendingApproval; now: numb
       <div className="divide-y divide-line">
         <SpecSection label="Objective">
           <p>{bp.purpose}</p>
-          <p className="mt-1.5 font-mono text-[10px] text-dim">
+          <p className="mt-1.5 font-mono text-[10.5px] text-dim">
             <span className="uppercase tracking-[0.08em]">trigger</span> — {bp.trigger}
           </p>
         </SpecSection>
@@ -433,9 +434,9 @@ function BlueprintCard({ approval, now }: { approval: PendingApproval; now: numb
                 return (
                   <li key={id} className="flex items-baseline gap-2">
                     <span>{t?.name ?? id}</span>
-                    {t?.kind && <span className="font-mono text-[10px] text-dim">{t.kind}</span>}
+                    {t?.kind && <span className="font-mono text-[10.5px] text-dim">{t.kind}</span>}
                     {needsAuth && (
-                      <span className="ml-auto shrink-0 font-mono text-[9px] uppercase tracking-[0.08em] text-permission">
+                      <span className="ml-auto shrink-0 font-mono text-[9.5px] uppercase tracking-[0.08em] text-permission">
                         auth required
                       </span>
                     )}
@@ -481,12 +482,12 @@ function BlueprintCard({ approval, now }: { approval: PendingApproval; now: numb
         <button className="btn" onClick={() => useStore.getState().openPanel('diff')}>
           View inheritance
         </button>
-        <span className="ml-auto text-right text-[10.5px] leading-tight text-dim tabular-nums">
+        <span className="ml-auto text-right text-[11px] leading-tight text-dim tabular-nums">
           {owner ? `${owner.name} signs this off` : deptName}
-          <span className="block font-mono text-[9.5px]">{timeAgo(approval.ts, now)}</span>
+          <span className="block font-mono text-[10px]">{timeAgo(approval.ts, now)}</span>
         </span>
         {actingFor && (
-          <span className="w-full font-mono text-[9.5px] text-dim">acting for {actingFor} (demo)</span>
+          <span className="w-full font-mono text-[10px] text-dim">acting for {actingFor} (demo)</span>
         )}
       </div>
     </div>
@@ -496,10 +497,10 @@ function BlueprintCard({ approval, now }: { approval: PendingApproval; now: numb
 function SpecSection({ label, tone, children }: { label: string; tone?: string; children: ReactNode }) {
   return (
     <section className="px-3 py-2">
-      <h4 className={cx('font-mono text-[9.5px] uppercase tracking-[0.18em]', tone ?? 'text-dim')}>
+      <h4 className={cx('font-mono text-[10px] uppercase tracking-[0.18em]', tone ?? 'text-dim')}>
         {label}
       </h4>
-      <div className="mt-1.5 text-[12.5px] leading-relaxed text-ink">{children}</div>
+      <div className="mt-1.5 text-[13px] leading-relaxed text-ink">{children}</div>
     </section>
   )
 }
@@ -581,7 +582,7 @@ function TimelineList({
   if (events.length === 0) {
     return (
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
-        <p className="text-center text-[12px] text-dim">Nothing on the record for this agent yet.</p>
+        <p className="text-center text-[12.5px] text-dim">Nothing on the record for this agent yet.</p>
       </div>
     )
   }
@@ -608,7 +609,7 @@ function TimelineList({
               onMouseEnter={() => useStore.getState().setHighlight(e.id)}
               onMouseLeave={() => useStore.getState().setHighlight(null)}
               className={cx(
-                'group relative ml-[26px] rounded transition-colors',
+                'group relative ml-[26px] rounded-sm transition-colors',
                 lit ? 'bg-task/8 ring-1 ring-task/25 ring-inset' : 'hover:bg-hover',
               )}
             >
@@ -628,27 +629,27 @@ function TimelineList({
                 >
                   <span className="flex items-baseline gap-2">
                     {isArtifact && <DocGlyph className="self-center text-artifact" />}
-                    <span className={cx('min-w-0 flex-1 truncate text-[12.5px] leading-[18px]', tone.title ?? 'text-ink')}>
+                    <span className={cx('min-w-0 flex-1 truncate text-[13px] leading-[19px]', tone.title ?? 'text-ink')}>
                       {e.title}
                     </span>
                     {isArtifact && (
-                      <span className="hidden shrink-0 font-mono text-[9px] tracking-[0.08em] text-artifact uppercase group-hover:inline">
+                      <span className="hidden shrink-0 font-mono text-[9.5px] tracking-[0.08em] text-artifact uppercase group-hover:inline">
                         open →
                       </span>
                     )}
-                    <span className="shrink-0 font-mono text-[10px] text-dim tabular-nums">{timeAgo(e.ts, now)}</span>
+                    <span className="shrink-0 font-mono text-[10.5px] text-dim tabular-nums">{timeAgo(e.ts, now)}</span>
                   </span>
-                  <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9.5px] tracking-[0.06em]">
+                  <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] tracking-[0.06em]">
                     <span className={tone.label}>{typeLabel(e.type)}</span>
                     {e.taskId && <span className="text-dim/70">· {e.taskId}</span>}
                   </span>
                 </button>
                 <button
-                  className="shrink-0 px-2 pt-[9px] pb-1 text-[8px] text-dim hover:text-ink"
+                  className="shrink-0 px-2 pt-2 pb-1.5 text-dim hover:text-ink"
                   title={isOpen ? 'Collapse' : 'Details'}
                   onClick={() => toggle(e.id)}
                 >
-                  <span className={cx('inline-block transition-transform', isOpen && 'rotate-90')}>▶</span>
+                  <CaretRight size={10} weight="bold" className={cx('inline-block transition-transform', isOpen && 'rotate-90')} />
                 </button>
               </div>
               {isOpen && <EventDetail e={e} />}
@@ -665,8 +666,8 @@ function EventDetail({ e }: { e: WorldEvent }) {
   const blockedPerson = e.blockedOn ? personById.get(e.blockedOn.personId) : undefined
   return (
     <div className="border-t border-line pt-2 pr-2 pb-2.5 pl-2.5">
-      {e.detail && <p className="mb-2 text-[11.5px] leading-snug text-mut">{e.detail}</p>}
-      <dl className="space-y-1 text-[12px]">
+      {e.detail && <p className="mb-2 text-[12px] leading-snug text-mut">{e.detail}</p>}
+      <dl className="space-y-1 text-[12.5px]">
         {pl?.objective && <Row k="objective" v={pl.objective} />}
         {pl?.deadline && <Row k="deadline" v={pl.deadline} />}
         {pl?.sharedContext && <Row k="shared context" v={pl.sharedContext} />}
@@ -764,7 +765,7 @@ function Composer({ agentId }: { agentId: string }) {
     <div className="shrink-0 border-t border-line px-3 py-2">
       <div
         className={cx(
-          'flex items-center gap-2 rounded border bg-raised px-2 py-1 transition-colors',
+          'flex items-center gap-2 rounded-sm border bg-raised px-2 py-1 transition-colors',
           listening ? 'border-task/50' : 'border-line focus-within:border-linebright',
         )}
       >
@@ -781,14 +782,14 @@ function Composer({ agentId }: { agentId: string }) {
             }
           }}
           placeholder="Ask for work, a status, or a new agent…"
-          className="min-w-0 flex-1 bg-transparent py-1 text-[12px] text-ink placeholder:text-dim focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent py-1 text-[12.5px] text-ink placeholder:text-dim focus:outline-none"
         />
         <button
           onClick={toggleMic}
           disabled={!supported}
           title={supported ? (listening ? 'Stop listening' : 'Speak your message') : 'Voice input needs Chrome'}
           className={cx(
-            'flex size-7 shrink-0 items-center justify-center rounded border transition-colors',
+            'flex size-7 shrink-0 items-center justify-center rounded-sm border transition-colors',
             !supported && 'cursor-not-allowed border-line text-dim opacity-40',
             supported && listening && 'border-task/60 bg-task/15 text-task',
             supported && !listening && 'border-line text-mut hover:border-linebright hover:text-ink',
@@ -801,7 +802,7 @@ function Composer({ agentId }: { agentId: string }) {
           disabled={!ready}
           title="Send"
           className={cx(
-            'shrink-0 rounded border px-2.5 py-1 text-[12px] transition-colors',
+            'shrink-0 rounded-sm border px-2.5 py-1 text-[12.5px] transition-colors',
             ready
               ? 'border-task/40 bg-task/10 text-task hover:border-task/60 hover:bg-task/20'
               : 'cursor-not-allowed border-line text-dim',
@@ -810,7 +811,7 @@ function Composer({ agentId }: { agentId: string }) {
           Send
         </button>
       </div>
-      <div className="mt-1 flex items-center gap-1.5 text-[10px] text-dim">
+      <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-dim">
         {listening ? (
           <span className="text-task">Listening — speak now</span>
         ) : (
@@ -819,7 +820,7 @@ function Composer({ agentId }: { agentId: string }) {
             <span>to send</span>
             <span aria-hidden className="text-linebright">·</span>
             <button
-              className="min-w-0 truncate font-mono text-[10px] text-dim hover:text-mut"
+              className="min-w-0 truncate font-mono text-[10.5px] text-dim hover:text-mut"
               title="Use this prompt"
               onClick={() => setText(SUGGESTION)}
             >

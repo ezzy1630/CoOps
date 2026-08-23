@@ -133,6 +133,10 @@ async function postChat(store: EventStore, body: unknown, res: Response): Promis
 async function postDecision(store: EventStore, eventId: string, body: unknown, res: Response): Promise<void> {
   const b = body as Record<string, unknown>
   if (!isNonEmpty(b?.personId)) return send(res, 400, { error: 'personId is a required non-empty string' })
+  const decision = b?.decision ?? 'approve'
+  if (decision !== 'approve' && decision !== 'deny') {
+    return send(res, 400, { error: 'decision must be "approve" or "deny"' })
+  }
 
   const orig = store.get(eventId)
   if (!orig) return send(res, 404, { error: `event ${eventId} not found` })
@@ -150,6 +154,27 @@ async function postDecision(store: EventStore, eventId: string, body: unknown, r
   }
 
   const what = orig.blockedOn?.what ?? orig.payload?.blueprint?.name ?? orig.title
+
+  if (decision === 'deny') {
+    // A denied request is a real terminal outcome: task-bound denials close the
+    // task as failed; blueprint denials close the review itself.
+    const ev = await store.append({
+      type: 'TaskFailed',
+      taskId: kind === 'blueprint' ? undefined : orig.taskId,
+      from: { kind: 'person', id: b.personId },
+      to: orig.from,
+      deptFrom: orig.deptFrom ?? orig.deptTo,
+      deptTo: orig.deptTo ?? orig.deptFrom,
+      title: kind === 'blueprint'
+        ? `New agent: ${orig.payload?.blueprint?.name ?? what} — rejected`
+        : `${what} — denied`,
+      detail: `Denied by ${b.personId}.`,
+      payload: { reason: eventId },
+      id: newId('res'),
+    })
+    return send(res, 200, ev)
+  }
+
   const ev = await store.append({
     type: kind === 'auth' ? 'AccountConnected' : kind === 'approval' ? 'ApprovalGranted' : 'BlueprintApproved',
     taskId: orig.taskId,

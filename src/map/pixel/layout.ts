@@ -131,7 +131,7 @@ export function presencePoint(art: PixelArt, b: PixelBuilding, idx: number): Pt 
 }
 
 /** Keep feet (and the chip under them) inside the stage. */
-function clampToWorld(art: PixelArt, p: Pt): Pt {
+export function clampToWorld(art: PixelArt, p: Pt): Pt {
   return {
     x: Math.max(14, Math.min(art.world.w - 14, p.x)),
     y: Math.max(26, Math.min(art.world.h - 16, p.y)),
