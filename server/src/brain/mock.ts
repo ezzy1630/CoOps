@@ -1,11 +1,38 @@
 import type { AgentBlueprint, WorldEvent } from '../../../src/types.js'
 import type { BrainAdapter, BrainCtx } from './types.js'
-import { scheduleExchange } from './exchanges.js'
+import type { ExchangeExecutor } from './exchanges.js'
+import { runExchange } from './exchanges.js'
 
 type EventBody = Omit<WorldEvent, 'id' | 'ts'>
 
 const agentRef = (id: string) => ({ kind: 'agent' as const, id })
 const personRef = (id: string) => ({ kind: 'person' as const, id })
+
+const hashOf = (s: string) => {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+const mockExecutor: ExchangeExecutor = async (spec) => {
+  await delay(600 + (hashOf(`${spec.kind}|${spec.title}|${spec.objective}`) % 800))
+  switch (spec.kind) {
+    case 'budget':
+      return {
+        summary: `“${spec.title}” complete: committed vs. actual reconciled and the position summarized in “${spec.artifact.name}”.`,
+      }
+    case 'legal':
+      return {
+        summary: `“${spec.title}” complete: compliance review finished, findings captured in “${spec.artifact.name}”.`,
+      }
+    case 'faq':
+      return {
+        summary: `“${spec.title}” complete: customer-ready Q&A drafted in “${spec.artifact.name}”.`,
+      }
+  }
+}
 
 const INTERVIEW_QUESTIONS = [
   'Happy to set that up. First — what outcome should this agent own? Describe it as a finish line, not a to-do list.',
@@ -87,21 +114,21 @@ export function createMockBrain(): BrainAdapter {
       }
 
       if (/budget|cost|spend|finance/.test(t)) {
-        const { dispatched } = scheduleExchange(ctx, 'budget', deptId)
+        const { dispatched } = runExchange(ctx, mockExecutor, 'budget', deptId)
         reply(ctx, agentId, personId, dispatched
           ? 'On it — asking the Finance Agent for the Q3 budget position. Watch the edge on the map; the artifact lands back here.'
           : 'That’s our own ledger — pulling it now.')
         return
       }
       if (/legal|claim|contract|compliance|policy/.test(t)) {
-        const { dispatched } = scheduleExchange(ctx, 'legal', deptId)
+        const { dispatched } = runExchange(ctx, mockExecutor, 'legal', deptId)
         reply(ctx, agentId, personId, dispatched
           ? 'Routing a claims check to the Legal Agent with scoped context — request and artifact only, no internal chatter crosses over.'
           : 'Reviewing locally — Legal is my department.')
         return
       }
       if (/faq|support|customer|help.?center|ticket/.test(t)) {
-        const { dispatched } = scheduleExchange(ctx, 'faq', deptId)
+        const { dispatched } = runExchange(ctx, mockExecutor, 'faq', deptId)
         reply(ctx, agentId, personId, dispatched
           ? 'Asked the Support Agent to prep FAQs. Their FAQ Agent will draft; we get the artifact back.'
           : 'Drafting FAQs now — that’s us.')

@@ -6,7 +6,8 @@ import type { GuardrailAdapter } from '../guardrail/types.js'
 import type { DeptMemory } from '../memory/types.js'
 import { createDryRunTools, WORKSPACE_TOOLS } from '../tools/dryrun.js'
 import type { WorkspaceToolAdapter } from '../tools/types.js'
-import { scheduleExchange } from './exchanges.js'
+import { runExchange } from './exchanges.js'
+import type { ExchangeExecutor } from './exchanges.js'
 import { createMockBrain } from './mock.js'
 import type { BrainAdapter, BrainCtx } from './types.js'
 
@@ -87,10 +88,29 @@ export function createGeminiBrain(opts: {
   const ai = new GoogleGenAI({ apiKey: opts.apiKey })
   const model = opts.model ?? process.env.COOPS_GEMINI_MODEL ?? 'gemini-2.0-flash'
 
+  const geminiExecutor: ExchangeExecutor = async (spec) => {
+    const workerRole = `${spec.workerId} owning “${spec.title}”`
+    const systemInstruction =
+      `You are the ${workerRole} completing a delegated cross-department task. ` +
+      'Produce the deliverable summary asked for. Concise, factual, no roleplay, no preamble.'
+    const res = await ai.models.generateContent({
+      model,
+      contents: [
+        `Task objective: ${spec.objective}`,
+        `Requested deliverable: ${spec.artifact.name} (${spec.artifact.type}).`,
+        `Requesting department: ${deptById.get(spec.fromDept)?.name ?? spec.fromDept}.`,
+      ].join('\n'),
+      config: { systemInstruction },
+    })
+    const text = res.text ?? ''
+    if (opts.guardrail.inspect(text).blocked) throw new Error('exchange output blocked by guardrail')
+    return { summary: text }
+  }
+
   return {
     async handle(ctx, agentId, deptId, text, personId) {
       try {
-        await runTurn(ctx, ai, model, opts.guardrail, opts.memory, workspaceTools, agentId, deptId, text, personId)
+        await runTurn(ctx, ai, model, opts.guardrail, opts.memory, workspaceTools, geminiExecutor, agentId, deptId, text, personId)
       } catch (err) {
         console.error('[gemini-brain] falling back to mock brain for this message:', err)
         createMockBrain().handle(ctx, agentId, deptId, text, personId).catch((fallbackErr) => {
@@ -108,6 +128,7 @@ async function runTurn(
   guardrail: GuardrailAdapter,
   memory: DeptMemory,
   workspaceTools: WorkspaceToolAdapter,
+  geminiExecutor: ExchangeExecutor,
   agentId: string,
   deptId: string,
   text: string,
@@ -205,10 +226,10 @@ async function runTurn(
         contents.push(functionResponse(call.name, 'error: kind must be budget, legal, or faq'))
         continue
       }
-      const { dispatched, taskId } = scheduleExchange(ctx, kind, deptId)
+      const { dispatched, taskId } = runExchange(ctx, geminiExecutor, kind, deptId)
       if (taskId) turnTaskId = taskId
       contents.push({ role: 'model', parts: [{ functionCall: call }] })
-      contents.push(functionResponse(call.name, dispatched ? 'task chain scheduled' : 'handled locally'))
+      contents.push(functionResponse(call.name, dispatched ? 'exchange dispatched' : 'handled locally'))
       replied = await say(dispatched
         ? `On it — dispatching the ${kind} request to the peer department now. Watch the map for the task edge.`
         : 'That sits inside our own department — handling it locally.')

@@ -9,6 +9,7 @@ import { createGeminiBrain } from './brain/gemini.js'
 import { createHeuristicGuardrail } from './guardrail/heuristic.js'
 import { openJsonlMemory } from './memory/jsonl.js'
 import { workerIdFromName } from './ids.js'
+import { cancelExchangeTask } from './brain/exchanges.js'
 import type { BrainCtx } from './brain/types.js'
 import { AGENT_DEPT } from '../../src/data/company.js'
 import type { WorldEvent } from '../../src/types.js'
@@ -54,7 +55,10 @@ const brainCtx: BrainCtx = {
     void store.append(e)
   },
   schedule: (steps, baseDelayMs) => scheduler.schedule(steps, baseDelayMs),
-  cancelTask: taskId => scheduler.cancelTask(taskId),
+  cancelTask: taskId => {
+    scheduler.cancelTask(taskId)
+    cancelExchangeTask(taskId)
+  },
   worldTasks: () => worldTasks(store.all()),
   interviewStep: agentId => interviews.get(agentId) ?? null,
   setInterviewStep: (agentId, step) => {
