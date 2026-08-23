@@ -21,6 +21,7 @@
     "@google-cloud/modelarmor": "^0.8.0",
     "@google/genai": "^2.18.0",
     "express": "^5.2.1",
-    "google-auth-library": "^11.0.2"
+    "google-auth-library": "^11.0.2",
+    "googleapis": "^176.0.0"
   }
 }

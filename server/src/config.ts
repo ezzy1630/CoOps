@@ -12,6 +12,7 @@ export interface Config {
   firestore?: { projectId?: string }
   modelArmor?: { project: string; location: string; templateId: string }
   googleOAuth?: GoogleOAuthConfig
+  sheetsId?: string
 }
 
 export function loadConfig(): Config {
@@ -35,6 +36,7 @@ export function loadConfig(): Config {
       ? { modelArmor: { project: maProject, location: maLocation, templateId: maTemplate } }
       : {}),
     googleOAuth: googleOAuthFromEnv(),
+    sheetsId: process.env.COOPS_SHEETS_ID,
   }
 }
 

@@ -20,6 +20,7 @@ export interface GoogleOAuth {
   exchange(code: string): Promise<GoogleIdentity>
   issue(): string
   consume(state: string): string | null
+  accessToken(): Promise<string | null>
 }
 
 const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
@@ -31,6 +32,13 @@ const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
 ]
 const STATE_TTL_MS = 10 * 60 * 1000
+const EXPIRY_MARGIN_MS = 60_000
+
+interface GoogleGrant {
+  accessToken: string
+  refreshToken?: string
+  expiry?: number
+}
 
 export function createGoogleOAuth(cfg?: GoogleOAuthConfig): GoogleOAuth {
   if (!cfg) return disabledGoogleOAuth()
@@ -38,6 +46,7 @@ export function createGoogleOAuth(cfg?: GoogleOAuthConfig): GoogleOAuth {
 
   const client = new OAuth2Client({ clientId, clientSecret, redirectUri })
   const pendingStates = new Map<string, number>()
+  let grant: GoogleGrant | null = null
 
   function sweepExpiredStates(): void {
     const now = Date.now()
@@ -66,6 +75,13 @@ export function createGoogleOAuth(cfg?: GoogleOAuthConfig): GoogleOAuth {
       const ticket = await client.verifyIdToken({ idToken })
       const payload = ticket.getPayload()
       if (!payload?.sub || !payload.email) throw new Error('unverified identity')
+      if (tokens.access_token) {
+        grant = {
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token ?? undefined,
+          expiry: tokens.expiry_date ?? undefined,
+        }
+      }
       return {
         sub: payload.sub,
         email: payload.email,
@@ -85,6 +101,28 @@ export function createGoogleOAuth(cfg?: GoogleOAuthConfig): GoogleOAuth {
       if (issuedAt === undefined || Date.now() - issuedAt > STATE_TTL_MS) return null
       return state
     },
+    async accessToken(): Promise<string | null> {
+      if (!grant) return null
+      if (grant.expiry === undefined || grant.expiry - Date.now() >= EXPIRY_MARGIN_MS) {
+        return grant.accessToken
+      }
+      if (!grant.refreshToken) {
+        return grant.expiry > Date.now() ? grant.accessToken : null
+      }
+      try {
+        client.setCredentials({ refresh_token: grant.refreshToken })
+        const { credentials } = await client.refreshAccessToken()
+        if (!credentials.access_token) return null
+        grant = {
+          accessToken: credentials.access_token,
+          refreshToken: credentials.refresh_token ?? grant.refreshToken,
+          expiry: credentials.expiry_date ?? undefined,
+        }
+        return grant.accessToken
+      } catch {
+        return null
+      }
+    },
   }
 }
 
@@ -98,5 +136,8 @@ function disabledGoogleOAuth(): GoogleOAuth {
     exchange: unavailable,
     issue: unavailable,
     consume: unavailable,
+    async accessToken() {
+      return null
+    },
   }
 }

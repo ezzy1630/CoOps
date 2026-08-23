@@ -11,6 +11,7 @@ import { createModelArmorGuardrail } from './guardrail/modelarmor.js'
 import { openJsonlMemory } from './memory/jsonl.js'
 import { openFirestoreMemory } from './memory/firestore.js'
 import { createGoogleOAuth } from './auth/google.js'
+import { createWorkspaceTools } from './tools/google.js'
 import { workerIdFromName } from './ids.js'
 import { cancelExchangeTask } from './brain/exchanges.js'
 import type { BrainAdapter, BrainCtx } from './brain/types.js'
@@ -53,6 +54,11 @@ const memory = cfg.firestore
   ? openFirestoreMemory({ projectId: cfg.firestore.projectId })
   : openJsonlMemory(cfg.dataDir)
 console.log(`[memory] ${cfg.firestore ? 'firestore' : 'jsonl'}`)
+const google = createGoogleOAuth(cfg.googleOAuth)
+const workspaceTools = createWorkspaceTools({
+  getAccessToken: () => google.accessToken(),
+  sheetsId: cfg.sheetsId,
+})
 const apiKey = cfg.geminiApiKey
 const effectiveBrain =
   !cfg.brainMode || cfg.brainMode === 'auto' ? (apiKey ? 'gemini' : 'mock') : cfg.brainMode
@@ -63,7 +69,7 @@ if (effectiveBrain === 'gemini') {
     process.exit(1)
   }
   console.log('[brain] gemini')
-  brain = createGeminiBrain({ apiKey, guardrail, memory })
+  brain = createGeminiBrain({ apiKey, guardrail, memory, workspaceTools })
 } else {
   const reason = cfg.brainMode === 'mock' ? 'forced by COOPS_BRAIN' : 'no GEMINI_API_KEY'
   console.log(`[brain] mock fixture (${reason})`)
@@ -152,5 +158,5 @@ const store = await EventStore.open(cfg.dataDir, onAppended)
 restoreSpawnedAgents(store.all())
 const org = new OrgRegistry(cfg.dataDir, e => store.append(e))
 await org.load()
-await startHttp(cfg, store, bus, org, createGoogleOAuth(cfg.googleOAuth))
+await startHttp(cfg, store, bus, org, google)
 console.log(`LISTENING ${cfg.port}`)
