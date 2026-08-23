@@ -37,12 +37,23 @@ export default function App() {
   useEffect(() => {
     startEngine()
     // deep-link entry: ?as=maya|avery|dana (&tour=0 to skip the intro tour)
+    // ?demo=1 runs the deterministic default; any other value is an exact id.
     const params = new URLSearchParams(window.location.search)
     const as = params.get('as')
     if (as && !useStore.getState().entered) {
       if (params.get('tour') === '0') localStorage.setItem('coops_onboarded', '1')
       useStore.getState().enter(as)
-      if (params.get('demo') === '1') setTimeout(() => useStore.getState().runHeroAuto(), 1200)
+    }
+    const demo = params.get('demo')
+    let demoTimer: number | undefined
+    if (demo) {
+      demoTimer = window.setTimeout(
+        () => useStore.getState().runRehearsal(demo === '1' ? undefined : demo),
+        1200,
+      )
+    }
+    return () => {
+      if (demoTimer !== undefined) window.clearTimeout(demoTimer)
     }
   }, [startEngine])
 

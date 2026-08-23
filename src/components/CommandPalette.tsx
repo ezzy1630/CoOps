@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useStore } from '../store'
 import { DEPARTMENTS, PEOPLE, deptById, personById } from '../data/company'
+import { rehearsals } from '../engine/rehearsals'
 import type { Task } from '../types'
 import { cx } from '../utils'
 
@@ -71,16 +72,18 @@ export default function CommandPalette() {
     const out: Entry[] = []
     const st = () => useStore.getState()
 
-    out.push(
-      {
-        key: 'act:hero',
+    for (const rehearsal of rehearsals) {
+      const command = rehearsal.command[executionMode]
+      out.push({
+        key: `act:rehearsal:${rehearsal.id}`,
         group: 'Actions',
-        title: executionMode === 'live' ? 'Start the live launch' : 'Run the launch rehearsal',
-        sub: executionMode === 'live'
-          ? 'Ask the live Marketing Agent to propose and run a launch worker'
-          : 'Run the labeled scripted launch path from interview through delivery',
-        action: () => st().runHeroAuto(),
-      },
+        title: command.title,
+        sub: command.description,
+        action: () => st().runRehearsal(rehearsal.id),
+      })
+    }
+
+    out.push(
       {
         key: 'act:fit',
         group: 'Actions',

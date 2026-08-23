@@ -1,54 +1,58 @@
 import { X } from '@phosphor-icons/react'
 import { useStore } from '../store'
-import { personById } from '../data/company'
+import { deptById, personById, toolById } from '../data/company'
+import type { AgentBlueprint } from '../types'
 import { cx } from '../utils'
 import { Chip, Pill } from './ui'
 
-const MARKETING_HUE = personById.get('maya')?.hue ?? 330
-
-/**
- * Configuration inheritance for one worker — the Summit Launch Agent.
- * Hand-authored: this is the demo's "inheritance diff on one worker", showing
- * how company baseline → department overrides → worker-local settings compose.
- */
 export default function InheritanceDiff() {
+  const proposalEventId = useStore((state) => state.panel?.kind === 'diff' ? state.panel.id : undefined)
+  const proposal = useStore((state) => proposalEventId
+    ? state.log.find((event) => event.id === proposalEventId && event.type === 'BlueprintProposed')
+    : undefined)
+  const world = useStore((state) => state.world)
+  const blueprint = proposal?.payload?.blueprint
+
+  if (!blueprint) {
+    return (
+      <div className="flex h-full flex-col">
+        <PanelHeader title="Configuration inheritance" subtitle="Blueprint unavailable" />
+        <div className="flex flex-1 items-center justify-center px-6 text-center text-[12.5px] text-dim">
+          The blueprint event for this worker is not available in the current event log.
+        </div>
+      </div>
+    )
+  }
+
+  const department = world.departments.get(blueprint.deptId) ?? deptById.get(blueprint.deptId)
+  const owner = personById.get(blueprint.ownerId)
+  const departmentLead = department ? personById.get(department.leadId) : undefined
+  const hue = departmentLead?.hue ?? owner?.hue
+  const sections = sectionsFor(blueprint, department?.name ?? blueprint.deptId)
+
   return (
     <div className="flex h-full flex-col">
-      <header className="flex shrink-0 items-start gap-2 border-b border-line px-3 py-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span aria-hidden className="h-3.5 w-0.5 shrink-0 rounded-full" style={{ background: `hsl(${MARKETING_HUE} 56% 52%)` }} />
-            <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Configuration inheritance</h2>
-          </div>
-          <p className="truncate text-[12.5px] text-dim">Summit Launch Agent · Marketing / Everpeak baseline</p>
-        </div>
-        <div className="flex-1" />
-        <button
-          className="rounded-sm px-1.5 py-0.5 text-dim transition-colors hover:bg-hover hover:text-ink"
-          title="Close"
-          onClick={() => useStore.getState().closePanel()}
-        >
-          <X size={15} />
-        </button>
-      </header>
+      <PanelHeader
+        title="Configuration inheritance"
+        subtitle={`${blueprint.name} · ${department?.name ?? blueprint.deptId} / Everpeak baseline`}
+        hue={hue}
+      />
 
       <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-line px-3 py-1.5">
         <LegendChip label="Company baseline" cls={BASELINE_TINT} />
-        <LegendChip label="Marketing overrides" cls={DEPT_TINT} />
-        <LegendChip label="Worker local" cls={LOCAL_TINT} />
+        <LegendChip label={department?.name ?? 'Department'} cls={DEPT_TINT} />
+        <LegendChip label="Blueprint local" cls={LOCAL_TINT} />
         <span className="text-dim">·</span>
-        <LegendChip label="denied" cls={DENIED_TINT} />
+        <LegendChip label="constrained" cls={CONSTRAINED_TINT} />
       </div>
 
       <div className="flex-1 overflow-y-auto overscroll-contain">
-        {SECTIONS.map((s) => (
-          <section key={s.label}>
+        {sections.map((section) => (
+          <section key={section.label}>
             <div className="sticky top-0 z-10 border-b border-line bg-surface/95 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-dim">
-              {s.label}
+              {section.label}
             </div>
-            {s.rows.map((r) => (
-              <SettingRow key={r.name} row={r} />
-            ))}
+            {section.rows.map((row) => <SettingRow key={row.name} row={row} />)}
           </section>
         ))}
       </div>
@@ -61,14 +65,37 @@ export default function InheritanceDiff() {
   )
 }
 
-// ─── Model ───────────────────────────────────────────────────────────────────
+function PanelHeader({ title, subtitle, hue }: { title: string; subtitle: string; hue?: number }) {
+  return (
+    <header className="flex shrink-0 items-start gap-2 border-b border-line px-3 py-2">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="h-3.5 w-0.5 shrink-0 rounded-full"
+            style={{ background: hue == null ? 'var(--color-linebright)' : `hsl(${hue} 56% 52%)` }}
+          />
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
+        </div>
+        <p className="truncate text-[12.5px] text-dim">{subtitle}</p>
+      </div>
+      <div className="flex-1" />
+      <button
+        className="rounded-sm px-1.5 py-0.5 text-dim transition-colors hover:bg-hover hover:text-ink"
+        title="Close"
+        onClick={() => useStore.getState().closePanel()}
+      >
+        <X size={15} />
+      </button>
+    </header>
+  )
+}
 
 type Layer = 'baseline' | 'dept' | 'local'
-type RowState = 'inherited' | 'overridden' | 'narrowed' | 'denied'
+type RowState = 'inherited' | 'configured' | 'constrained'
 
 interface DiffRow {
   name: string
-  /** value chain: earlier entries are superseded, the last one is effective */
   chain: string[]
   source: Layer
   state: RowState
@@ -80,124 +107,93 @@ interface Section {
   rows: DiffRow[]
 }
 
-const SECTIONS: Section[] = [
-  {
-    label: 'Security & guardrails',
-    rows: [
-      {
-        name: 'Model Armor policy',
-        chain: ['strict: prompt injection, tool poisoning, PII'],
-        source: 'baseline',
-        state: 'inherited',
-      },
-      { name: 'Audit logging', chain: ['full event log → Cloud Logging'], source: 'baseline', state: 'inherited' },
-      { name: 'Agent identity', chain: ['workload identity, zero-trust peer auth'], source: 'baseline', state: 'inherited' },
-    ],
-  },
-  {
-    label: 'Model policy',
-    rows: [
-      { name: 'Reasoning model', chain: ['gemini-3.7-flash'], source: 'baseline', state: 'inherited' },
-      {
-        name: 'Drafting model',
-        chain: ['gemini-3.7-flash'],
-        source: 'baseline',
-        state: 'inherited',
-        note: 'One production model across operator and worker turns',
-      },
-      { name: 'Temperature ceiling', chain: ['1.0', '0.6'], source: 'local', state: 'overridden' },
-    ],
-  },
-  {
-    label: 'Budget & limits',
-    rows: [
-      {
-        name: 'Daily model budget',
-        chain: ['$50', '$25'],
-        source: 'local',
-        state: 'narrowed',
-        note: 'Set by Maya Chen at creation',
-      },
-      { name: 'Runtime limit', chain: ['30 min/run'], source: 'baseline', state: 'inherited' },
-      { name: 'External sends', chain: ['allowed with approval', 'denied'], source: 'local', state: 'denied' },
-    ],
-  },
-  {
-    label: 'Memory scope',
-    rows: [
-      {
-        name: 'Memory Bank scope',
-        chain: ['company', 'marketing', 'launch-2026 partition'],
-        source: 'local',
-        state: 'narrowed',
-        note: 'Narrowed twice: department, then worker',
-      },
-      {
-        name: 'Cross-dept sharing',
-        chain: ['scoped context only, never full memory'],
-        source: 'baseline',
-        state: 'inherited',
-      },
-    ],
-  },
-  {
-    label: 'Tools',
-    rows: [
-      { name: 'Google Drive', chain: ['granted'], source: 'dept', state: 'inherited' },
-      { name: 'Google Sheets', chain: ['granted'], source: 'dept', state: 'inherited' },
-      { name: 'QuickBooks', chain: ['not requested; denied by default'], source: 'baseline', state: 'denied' },
-      {
-        name: 'Payment initiation',
-        chain: ['denied; cannot be broadened'],
-        source: 'baseline',
-        state: 'denied',
-        note: 'Only Dana Whitfield can grant this, in person',
-      },
-    ],
-  },
-  {
-    label: 'Approvals',
-    rows: [
-      {
-        name: 'Artifact sign-off',
-        chain: ['department lead', 'Maya Chen'],
-        source: 'local',
-        state: 'narrowed',
-        note: 'Named on the blueprint: a person, not a role',
-      },
-      { name: 'Blueprint changes', chain: ['human approval required'], source: 'baseline', state: 'inherited' },
-    ],
-  },
-]
+function sectionsFor(blueprint: AgentBlueprint, departmentName: string): Section[] {
+  const owner = personById.get(blueprint.ownerId)
+  const tools = blueprint.toolIds.map((id) => toolById.get(id))
 
-// ─── Row ─────────────────────────────────────────────────────────────────────
+  return [
+    {
+      label: 'Security & guardrails',
+      rows: [
+        { name: 'Capability broadening', chain: ['named human approval required'], source: 'baseline', state: 'inherited' },
+        { name: 'Audit logging', chain: ['full event log'], source: 'baseline', state: 'inherited' },
+      ],
+    },
+    {
+      label: 'Worker configuration',
+      rows: [
+        { name: 'Name', chain: [blueprint.name], source: 'local', state: 'configured' },
+        { name: 'Department', chain: [departmentName], source: 'dept', state: 'inherited' },
+        { name: 'Owner', chain: [owner?.name ?? blueprint.ownerId], source: 'local', state: 'configured' },
+        { name: 'Purpose', chain: [blueprint.purpose], source: 'local', state: 'configured' },
+        { name: 'Trigger', chain: [blueprint.trigger], source: 'local', state: 'configured' },
+        {
+          name: 'Skills',
+          chain: [blueprint.skills.length > 0 ? blueprint.skills.join(' · ') : 'none declared'],
+          source: 'local',
+          state: 'configured',
+        },
+        {
+          name: 'Collaborators',
+          chain: [blueprint.collaborators.length > 0 ? blueprint.collaborators.join(' · ') : 'none declared'],
+          source: 'local',
+          state: 'configured',
+        },
+      ],
+    },
+    {
+      label: 'Tools',
+      rows: tools.length > 0
+        ? tools.map((tool, index) => ({
+            name: tool?.name ?? blueprint.toolIds[index],
+            chain: ['denied by default', 'requested by blueprint'],
+            source: 'local' as const,
+            state: 'configured' as const,
+            note: tool?.requiresAuth ? 'Account access still requires its named owner to connect.' : undefined,
+          }))
+        : [{ name: 'Tool access', chain: ['none requested'], source: 'local', state: 'constrained' }],
+    },
+    {
+      label: 'Approvals',
+      rows: blueprint.approvals.length > 0
+        ? blueprint.approvals.map((approval, index) => ({
+            name: `Approval ${index + 1}`,
+            chain: [approval],
+            source: 'local' as const,
+            state: 'constrained' as const,
+          }))
+        : [{ name: 'Additional approvals', chain: ['none declared beyond baseline'], source: 'baseline', state: 'inherited' }],
+    },
+    {
+      label: 'Limits',
+      rows: blueprint.limits.length > 0
+        ? blueprint.limits.map((limit, index) => ({
+            name: `Limit ${index + 1}`,
+            chain: [limit],
+            source: 'local' as const,
+            state: 'constrained' as const,
+          }))
+        : [{ name: 'Worker limits', chain: ['company and department defaults'], source: 'baseline', state: 'inherited' }],
+    },
+  ]
+}
 
-/**
- * Layer tints for the shared Chip/Pill atoms. `!` where the tint would otherwise
- * lose to the atom's own base utility at equal specificity.
- */
 const BASELINE_TINT = 'border-linebright bg-raised! text-dim!'
 const DEPT_TINT = 'border-task/35 bg-task/6 text-task'
 const LOCAL_TINT = 'border-artifact/35! bg-artifact/6! text-artifact!'
-const DENIED_TINT = 'border-escalation/35! bg-escalation/6! text-escalation!'
+const CONSTRAINED_TINT = 'border-escalation/35! bg-escalation/6! text-escalation!'
 
-const SOURCE_LABEL: Record<Layer, string> = { baseline: 'baseline', dept: 'dept', local: 'local' }
-const SOURCE_CLS: Record<Layer, string> = {
-  baseline: BASELINE_TINT,
-  dept: DEPT_TINT,
-  local: LOCAL_TINT,
-}
+const SOURCE_LABEL: Record<Layer, string> = { baseline: 'baseline', dept: 'dept', local: 'blueprint' }
+const SOURCE_CLS: Record<Layer, string> = { baseline: BASELINE_TINT, dept: DEPT_TINT, local: LOCAL_TINT }
 const STATE_CLS: Record<RowState, string> = {
   inherited: 'text-dim',
-  overridden: 'text-task',
-  narrowed: 'text-artifact',
-  denied: 'text-escalation',
+  configured: 'text-artifact',
+  constrained: 'text-escalation',
 }
 const VALUE_CLS: Record<RowState, string> = {
   inherited: 'text-mut',
-  overridden: 'text-task',
-  narrowed: 'text-artifact',
-  denied: 'text-escalation line-through decoration-escalation/60',
+  configured: 'text-artifact',
+  constrained: 'text-escalation',
 }
 
 function LockGlyph() {
@@ -213,26 +209,26 @@ function SettingRow({ row }: { row: DiffRow }) {
   return (
     <div className="grid grid-cols-[142px_1fr_140px] items-start gap-3 border-b border-line/50 px-3 py-2 hover:bg-raised/50">
       <div className="text-[12.5px] leading-snug text-ink">{row.name}</div>
-
       <div className="min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[12.5px] leading-snug">
-          {row.chain.map((v, i) => {
-            const last = i === row.chain.length - 1
+          {row.chain.map((value, index) => {
+            const last = index === row.chain.length - 1
             return (
-              <span key={i} className="flex items-baseline gap-1.5">
-                {i > 0 && <span className="text-dim">→</span>}
-                <span className={cx('tabular-nums', last ? VALUE_CLS[row.state] : 'text-dim line-through decoration-dim/50')}>{v}</span>
+              <span key={index} className="flex items-baseline gap-1.5">
+                {index > 0 && <span className="text-dim">→</span>}
+                <span className={cx('tabular-nums', last ? VALUE_CLS[row.state] : 'text-dim line-through decoration-dim/50')}>
+                  {value}
+                </span>
               </span>
             )
           })}
         </div>
         {row.note && <div className="mt-0.5 text-[11.5px] text-dim">{row.note}</div>}
       </div>
-
       <div className="flex items-center justify-end gap-1.5">
         <Pill className={SOURCE_CLS[row.source]}>{SOURCE_LABEL[row.source]}</Pill>
         <span className={cx('flex items-center gap-1 text-[10.5px]', STATE_CLS[row.state])}>
-          {row.state === 'denied' && <LockGlyph />}
+          {row.state === 'constrained' && <LockGlyph />}
           {row.state}
         </span>
       </div>

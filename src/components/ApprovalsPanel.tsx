@@ -296,7 +296,7 @@ function ApprovalRow({
           {bp && (
             <button
               className="mt-2 text-[11px] text-dim underline decoration-linebright underline-offset-2 hover:text-ink"
-              onClick={(event) => { event.stopPropagation(); useStore.getState().openPanel('diff') }}
+              onClick={(event) => { event.stopPropagation(); useStore.getState().openPanel('diff', approval.eventId) }}
             >
               View inheritance
             </button>

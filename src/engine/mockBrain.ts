@@ -9,12 +9,6 @@ import type { EngineApi } from './rehearsals'
 export interface BrainCtx extends EngineApi {
   world(): World
   personaId(): string
-  /** Transitional store surface; removed with the registry-driven store commit. */
-  interview(): { step: number } | null
-  setInterview(v: { step: number } | null): void
-  heroStage(): string
-  setHeroStage(s: 'idle' | 'interview' | 'blueprint' | 'running' | 'done'): void
-  onBlueprintApproved(eventId: string): void
 }
 
 const reply = (ctx: BrainCtx, agentId: string, text: string, delay = 1100) =>
