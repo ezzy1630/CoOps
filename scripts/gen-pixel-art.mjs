@@ -48,6 +48,23 @@ const GLOW = '#f4cf7e'; const GLOW_L = '#fbeab2';
 const SHOE = '#3b2f28';
 const WHITE = '#ffffff';
 
+const PALETTE = {
+  grass: { dark: '#5a8c38', base: '#75a843', light: '#8fc456', hi: '#a8de6d', shadow: '#436b28' },
+  cliff: { top: '#98c55e', face: '#8a775e', faceD: '#6e5d47', edge: '#4e3f2f', hi: '#ab967b' },
+  dirt: { rim: '#9a7547', base: '#c59f66', light: '#dcb880', dark: '#af8852', gravel: '#846237', pebble: '#e6cca0' },
+  stone: { dark: '#685942', mid: '#96866b', base: '#b4a58b', light: '#d0c3ab', hi: '#e8dcce', joint: '#4d402e' },
+  water: { sand: '#dec691', sandD: '#bda672', shallow: '#6ea6c4', mid: '#5089a4', deep: '#366982', spark: '#e6f5fb' },
+  wood: { shadow: '#3e2612', dark: '#5a3b1e', base: '#875d34', light: '#a87c4e', hi: '#c69966' },
+  foliage: { shadow: '#224818', dark: '#346626', base: '#4c8738', light: '#69aa4f', hi: '#88c96b', autumn: '#d4782b' },
+  pine: { shadow: '#143012', dark: '#1e441c', base: '#2d5e2a', light: '#427c3c', hi: '#5b9e54' },
+  trunk: { dark: '#4c301a', base: '#6e4727', light: '#8f6139' },
+  farm: { soil: '#54361e', furrow: '#3a2211', soilL: '#6e4a2c', pumpkin: '#e28020', pumpkinL: '#f59c3e', pumpkinD: '#b55d10', carrot: '#e07424', carrotL: '#ff8c38', cabbage: '#5ea836', cabbageL: '#7ec752' },
+  flowers: { pink: '#e88eb0', pinkL: '#f8bed2', yellow: '#e8b838', yellowL: '#f7d468', white: '#f2ece2', red: '#d6483c', blue: '#5c96d4', purple: '#9268cf' },
+  white: '#ffffff',
+  apple: '#c83426',
+  appleL: '#ea5a4c',
+};
+
 function hex(s) {
   return [parseInt(s.slice(1, 3), 16), parseInt(s.slice(3, 5), 16), parseInt(s.slice(5, 7), 16)];
 }
@@ -217,14 +234,14 @@ function stampOutlined(dst, w, h, ax, ay, draw) {
 
 /* Pinned world layout — must stay in sync with src/map/pixel/layout.ts. */
 const WORLD = { w: 960, h: 600 };
-const PLAZA = { x: 480, y: 330, r: 90 };
+const PLAZA = { x: 480, y: 280, r: 85 };
 const DEPTS = [
-  { id: 'marketing',  x: 96,  y: 128, w: 96,  h: 84,  door: { x: 144, y: 220 }, hue: '#d76fa4', kind: 'stall' },
-  { id: 'finance',    x: 392, y: 64,  w: 120, h: 100, door: { x: 452, y: 172 }, hue: '#d9a83e', kind: 'bank' },
-  { id: 'legal',      x: 700, y: 110, w: 112, h: 96,  door: { x: 756, y: 214 }, hue: '#5b87c5', kind: 'court' },
-  { id: 'support',    x: 140, y: 372, w: 104, h: 92,  door: { x: 192, y: 472 }, hue: '#3f9e85', kind: 'tavern' },
-  { id: 'operations', x: 668, y: 380, w: 124, h: 108, door: { x: 730, y: 496 }, hue: '#d07a35', kind: 'mill' },
-  { id: 'hr',         x: 420, y: 430, w: 104, h: 88,  door: { x: 472, y: 526 }, hue: '#9067bf', kind: 'hall' },
+  { id: 'marketing',  x: 140, y: 70,  w: 96,  h: 84,  door: { x: 188, y: 160 }, hue: '#d76fa4', kind: 'stall' },
+  { id: 'finance',    x: 420, y: 45,  w: 120, h: 100, door: { x: 480, y: 145 }, hue: '#d9a83e', kind: 'bank' },
+  { id: 'legal',      x: 720, y: 65,  w: 112, h: 96,  door: { x: 776, y: 165 }, hue: '#5b87c5', kind: 'court' },
+  { id: 'support',    x: 140, y: 320, w: 104, h: 92,  door: { x: 192, y: 415 }, hue: '#3f9e85', kind: 'tavern' },
+  { id: 'operations', x: 710, y: 310, w: 124, h: 108, door: { x: 772, y: 420 }, hue: '#d07a35', kind: 'mill' },
+  { id: 'hr',         x: 428, y: 420, w: 104, h: 88,  door: { x: 480, y: 510 }, hue: '#9067bf', kind: 'hall' },
 ];
 function segDist(px, py, ax, ay, bx, by) {
   const vx = bx - ax, vy = by - ay;
@@ -253,239 +270,475 @@ function makeValueNoise(seed, gw, gh) {
 function buildBackground() {
   const cv = new Cv(WORLD.w, WORLD.h);
 
-  // mottled grass base
-  const n1 = makeValueNoise(101, 40, 25);
-  const n2 = makeValueNoise(202, 96, 60);
-  for (let y = 0; y < WORLD.h; y++)
+  // 1. Organic Base Grass Terrain
+  const nGrass1 = makeValueNoise(42, 30, 20);
+  const nGrass2 = makeValueNoise(1337, 80, 50);
+  for (let y = 0; y < WORLD.h; y++) {
     for (let x = 0; x < WORLD.w; x++) {
-      const t = n1(x / 24, y / 24) * 0.65 + n2(x / 8, y / 8) * 0.35;
-      cv.set(x, y, t < 0.42 ? GRASS.dark : t > 0.6 ? GRASS.light : GRASS.base);
+      const v = nGrass1(x / 26, y / 26) * 0.65 + nGrass2(x / 8, y / 8) * 0.35;
+      const col = v < 0.35 ? PALETTE.grass.dark : v > 0.62 ? PALETTE.grass.light : PALETTE.grass.base;
+      cv.set(x, y, col);
     }
-
-  // blade specks (texture under everything)
-  const rng = mulberry32(0xA11CE);
-  for (let i = 0; i < 2600; i++) {
-    const x = (rng() * WORLD.w) | 0, y = (rng() * WORLD.h) | 0;
-    cv.set(x, y, rng() < 0.55 ? BLADE_DARK : BLADE_LIGHT);
   }
 
-  // pond, bottom-left
-  stampOutlined(cv, 110, 64, 16, 496, (p) => {
-    p.ellipse(55, 30, 46, 22, WATER.sand);
-    p.ellipse(54, 31, 43, 20, WATER.shallow);
-    p.ellipse(57, 33, 34, 15, WATER.deep);
-    p.set(40, 24, WATER.spark); p.set(47, 22, WATER.spark); p.set(35, 29, WATER.spark); p.set(52, 27, WATER.spark);
-    p.rect(72, 44, 2, 1, CANOPY.base); p.rect(30, 42, 2, 1, CANOPY.base);
-    p.set(73, 43, '#e08ab0');
-    p.vline(16, 10, 22, CANOPY.dark); p.set(16, 9, TRUNK);
-    p.vline(21, 14, 25, CANOPY.dark); p.set(21, 13, TRUNK);
-    p.vline(94, 16, 26, CANOPY.dark); p.set(94, 15, TRUNK);
+  // Authentic Stardew clover & grass tufts
+  const rng = mulberry32(0xCAFE);
+  for (let i = 0; i < 3200; i++) {
+    const x = 12 + ((rng() * (WORLD.w - 24)) | 0);
+    const y = 12 + ((rng() * (WORLD.h - 24)) | 0);
+    cv.set(x, y, PALETTE.grass.shadow);
+    cv.set(x - 1, y - 1, PALETTE.grass.dark);
+    cv.set(x + 1, y - 1, PALETTE.grass.dark);
+    cv.set(x, y - 2, PALETTE.grass.hi);
+  }
+
+  // 2. Horizon Forest Treeline (Dense natural canopy layer framing the valley)
+  for (let x = -10; x < WORLD.w + 20; x += 12) {
+    const pr = mulberry32(0x9812 + x * 41);
+    const depth = 28 + Math.floor(pr() * 10);
+    cv.rect(x + 4, depth, 4, 18, PALETTE.trunk.dark);
+    cv.rect(x + 5, depth, 2, 18, PALETTE.trunk.base);
+    cv.disc(x + 6, depth - 6, 20, PALETTE.foliage.shadow);
+    cv.disc(x + 6, depth - 10, 16, PALETTE.foliage.dark);
+    cv.disc(x + 5, depth - 13, 13, PALETTE.foliage.base);
+    cv.disc(x + 4, depth - 16, 8, PALETTE.foliage.light);
+  }
+
+  // 3. Central Town Square Plaza (x: 380..580, y: 190..370)
+  const psq = { x0: 380, y0: 190, x1: 580, y1: 370 };
+  for (let y = psq.y0 - 3; y <= psq.y1 + 3; y++)
+    for (let x = psq.x0 - 3; x <= psq.x1 + 3; x++)
+      cv.set(x, y, PALETTE.stone.joint);
+
+  for (let y = psq.y0; y <= psq.y1; y++) {
+    for (let x = psq.x0; x <= psq.x1; x++) {
+      const gx = Math.floor((x - psq.x0) / 12);
+      const gy = Math.floor((y - psq.y0) / 8);
+      const offset = (gy % 2) * 6;
+      const lx = (x - psq.x0 + offset) % 12;
+      const ly = (y - psq.y0) % 8;
+      const isJoint = lx === 0 || ly === 0;
+      const h = hash2i(gx * 19 + 7, gy * 31 + 13);
+      let col = h < 0.35 ? PALETTE.stone.mid : h < 0.7 ? PALETTE.stone.base : PALETTE.stone.light;
+      if (lx === 1 && ly > 1 && ly < 7) col = mix(col, PALETTE.white, 0.2);
+      if (ly === 1 && lx > 1 && lx < 11) col = mix(col, PALETTE.white, 0.2);
+      if (isJoint) col = PALETTE.stone.joint;
+      cv.set(x, y, col);
+    }
+  }
+
+  // Stone curbs framing the entire plaza perimeter
+  cv.rect(psq.x0, psq.y0, psq.x1 - psq.x0 + 1, 3, PALETTE.stone.dark);
+  cv.rect(psq.x0, psq.y1 - 2, psq.x1 - psq.x0 + 1, 3, PALETTE.stone.dark);
+  cv.rect(psq.x0, psq.y0, 3, psq.y1 - psq.y0 + 1, PALETTE.stone.dark);
+  cv.rect(psq.x1 - 2, psq.y0, 3, psq.y1 - psq.y0 + 1, PALETTE.stone.dark);
+
+  // Central Stone Fountain in Plaza
+  stampOutlined(cv, 40, 40, 460, 260, (p) => {
+    p.disc(20, 20, 18, PALETTE.stone.joint);
+    p.disc(20, 20, 16, PALETTE.stone.dark);
+    p.disc(20, 20, 14, PALETTE.stone.mid);
+    p.disc(20, 20, 12, PALETTE.water.deep);
+    p.disc(20, 20, 9, PALETTE.water.shallow);
+    p.disc(20, 20, 5, PALETTE.stone.light);
+    p.disc(20, 20, 3, PALETTE.water.spark);
+    p.set(20, 20, PALETTE.white);
   });
 
-  // dirt paths: each door → plaza (~14px wide, soft wobble, dark rim)
-  const halfW = 7;
-  DEPTS.forEach((dept, di) => {
-    const d = dept.door;
-    const pr = mulberry32(0xBEEF + di * 7919);
-    const wobF = pr() < 0.5 ? 2 : 3, amp = 1.5 + pr() * 1.8, phase = pr() * Math.PI * 2;
-    const dx = PLAZA.x - d.x, dy = PLAZA.y - d.y;
+  // 4. Rich, Detailed Village Roads
+  function roadDisc(cx, cy, r, seed) {
+    const rimR = r + 2;
+    for (let dy = -rimR; dy <= rimR; dy++) {
+      for (let dx = -rimR; dx <= rimR; dx++) {
+        const d2 = dx * dx + dy * dy;
+        const px = Math.round(cx + dx);
+        const py = Math.round(cy + dy);
+        if (d2 <= r * r) {
+          const n = hash2i(px * 17, py * 23);
+          const isRut = Math.abs(dy) > r * 0.3 && Math.abs(dy) < r * 0.7;
+          let col = isRut ? PALETTE.dirt.dark : (n < 0.25 ? PALETTE.dirt.light : (n < 0.75 ? PALETTE.dirt.base : PALETTE.dirt.dark));
+          if (n > 0.94) col = PALETTE.dirt.pebble;
+          else if (n < 0.04) col = PALETTE.dirt.gravel;
+          cv.set(px, py, col);
+        } else if (d2 <= rimR * rimR) {
+          if (hash2i(px * 31, py * 47) > 0.35) {
+            cv.set(px, py, PALETTE.dirt.rim);
+          }
+        }
+      }
+    }
+  }
+
+  function detailedRoad(ax, ay, bx, by, width = 22) {
+    const dx = bx - ax, dy = by - ay;
     const len = Math.hypot(dx, dy);
-    const nx = -dy / len, ny = dx / len;
-    const steps = Math.ceil(len / 1.6);
-    const centers = [];
+    const steps = Math.ceil(len / 1.5);
+    const halfW = width / 2;
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
-      if (Math.hypot(d.x + dx * t - PLAZA.x, d.y + dy * t - PLAZA.y) < PLAZA.r + 4) break;
-      const wob = Math.sin(t * Math.PI * wobF + phase) * amp + Math.sin(t * Math.PI * 7 + phase * 2) * 0.7;
-      centers.push([d.x + dx * t + nx * wob, d.y + dy * t + ny * wob]);
+      roadDisc(ax + dx * t, ay + dy * t, halfW, Math.floor(0xFEED + i * 37));
     }
-    for (const [cx, cy] of centers) cv.disc(cx, cy, halfW + 1, DIRT.rim);
-    for (const [cx, cy] of centers) cv.disc(cx, cy, halfW, DIRT.base);
-    for (const [cx, cy] of centers)
-      for (let k = 0; k < 3; k++) {
-        const a = pr() * Math.PI * 2, rr = pr() * (halfW - 2);
-        cv.set(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, pr() < 0.4 ? DIRT.light : DIRT.dark);
-      }
-  });
-
-  // plaza: cobble ring pattern outside a calm packed-earth core (r<60 kept
-  // clear so the HTML sign overlay reads cleanly)
-  const stoneTones = [STONE.mid, STONE.light, mix(STONE.mid, STONE.joint, 0.4)];
-  for (let y = PLAZA.y - PLAZA.r - 2; y <= PLAZA.y + PLAZA.r + 2; y++)
-    for (let x = PLAZA.x - PLAZA.r - 2; x <= PLAZA.x + PLAZA.r + 2; x++) {
-      const dx = x - PLAZA.x, dy = y - PLAZA.y;
-      const dd = Math.hypot(dx, dy);
-      if (dd > PLAZA.r) continue;
-      if (dd < 58) {
-        const t = hash2i(x >> 1, y >> 1);
-        cv.set(x, y, mix(mix(STONE.earth, STONE.joint, 0.35), STONE.earth, t * 0.5));
-        continue;
-      }
-      const ringW = 8;
-      const ring = Math.floor((dd - 58) / ringW);
-      const fr = (dd - 58) / ringW - ring;
-      const stones = Math.max(12, Math.round((2 * Math.PI * Math.max(dd, 1)) / 9));
-      const ang01 = (Math.atan2(dy, dx) + Math.PI) / (2 * Math.PI);
-      const sid = Math.floor(ang01 * stones);
-      const sf = ang01 * stones - sid;
-      const joint = fr < 0.16 || fr > 0.84 || sf < 0.12 || sf > 0.88;
-      let tone = stoneTones[Math.floor(hash2i(ring * 131 + 7, sid * 17 + 3) * stoneTones.length)];
-      if (dx < 0 && dy < 0 && !joint) tone = mix(tone, WHITE, 0.16);
-      if (joint) tone = STONE.joint;
-      if (dd > PLAZA.r - 3) tone = mix(tone, STONE.joint, 0.55);
-      cv.set(x, y, tone);
-      if (!joint && hash2i(x * 3 + 1, y * 5 + 2) > 0.965) cv.set(x, y, mix(tone, WHITE, 0.3));
-    }
-
-  /* decor placement constraints: plots(+6), door strips, path corridors,
-   * plaza(+16), pond box, and spacing between placed items */
-  const plotRects = DEPTS.map((d) => ({ x0: d.x - 6, y0: d.y - 6, x1: d.x + d.w + 6, y1: d.y + d.h + 6 }));
-  const doorStrips = DEPTS.map((d) => ({ x0: d.door.x - 18, y0: d.door.y - 4, x1: d.door.x + 18, y1: d.door.y + 18 }));
-  const pathSegs = DEPTS.map((d) => [d.door.x, d.door.y, PLAZA.x, PLAZA.y]);
-  const pondBox = { x0: 8, y0: 488, x1: 134, y1: 566 };
-  const placedBoxes = [];
-  function canPlace(cx, cy, rw, rh, gap = 6) {
-    const bx0 = cx - rw / 2 - gap, bx1 = cx + rw / 2 + gap;
-    const by0 = cy - rh - gap, by1 = cy + gap;
-    for (const b of [...plotRects, ...doorStrips, pondBox])
-      if (!(bx1 < b.x0 || bx0 > b.x1 || by1 < b.y0 || by0 > b.y1)) return false;
-    for (const [ax, ay, bx, by] of pathSegs)
-      if (segDist(cx, cy, ax, ay, bx, by) < 15 + Math.max(rw, rh) / 2) return false;
-    if (Math.hypot(cx - PLAZA.x, cy - PLAZA.y) < PLAZA.r + 16) return false;
-    for (const b of placedBoxes)
-      if (!(bx1 < b.x0 || bx0 > b.x1 || by1 < b.y0 || by0 > b.y1)) return false;
-    placedBoxes.push({ x0: bx0, y0: by0, x1: bx1, y1: by1 });
-    return true;
   }
 
-  // fences near plots
-  stampOutlined(cv, 70, 10, 214, 224, (p) => {
-    p.hline(0, 68, 4, WOOD_D);
-    p.hline(0, 68, 7, WOOD_D);
-    for (let px = 0; px <= 68; px += 9) {
-      p.rect(px, 1, 2, 8, WOOD);
-      p.set(px, 1, WOOD_L);
-      p.set(px + 1, 1, WOOD_D);
-    }
+  // Main village roads (flush with junctions and plaza)
+  detailedRoad(140, 165, 820, 165, 22); // North Street
+  detailedRoad(140, 415, 820, 415, 22); // South Street
+  detailedRoad(480, 140, 480, 178, 24); // North Avenue
+  detailedRoad(480, 382, 480, 415, 24); // South Avenue
+  detailedRoad(150, 165, 150, 415, 18); // West Lane
+  detailedRoad(810, 165, 810, 415, 18); // East Lane
+  detailedRoad(150, 415, 110, 475, 14); // Lakeside Path
+
+  // 5. Building Aprons & Courtyards
+  stampOutlined(cv, 104, 26, 136, 148, (p) => {
+    p.rect(0, 0, 104, 22, PALETTE.wood.dark);
+    p.rect(1, 1, 102, 20, PALETTE.wood.base);
+    for (let x = 6; x < 100; x += 6) p.vline(x, 1, 20, PALETTE.wood.dark);
+    p.hline(1, 102, 1, PALETTE.wood.light);
+    p.rect(6, 4, 16, 12, PALETTE.wood.dark); p.rect(7, 5, 14, 10, PALETTE.farm.soilL);
+    for (let x = 9; x <= 17; x += 3) { p.set(x, 8, PALETTE.apple); p.set(x + 1, 8, PALETTE.appleL); }
+    p.rect(26, 4, 16, 12, PALETTE.wood.dark); p.rect(27, 5, 14, 10, PALETTE.farm.soilL);
+    for (let x = 29; x <= 37; x += 3) { p.set(x, 8, PALETTE.farm.cabbage); p.set(x + 1, 8, PALETTE.farm.cabbageL); }
   });
-  stampOutlined(cv, 58, 10, 544, 454, (p) => {
-    p.hline(0, 56, 4, WOOD_D);
-    p.hline(0, 56, 7, WOOD_D);
-    for (let px = 0; px <= 56; px += 9) {
-      p.rect(px, 1, 2, 8, WOOD);
-      p.set(px, 1, WOOD_L);
-      p.set(px + 1, 1, WOOD_D);
-    }
+
+  stampOutlined(cv, 134, 28, 413, 138, (p) => {
+    p.rect(0, 0, 134, 26, PALETTE.stone.dark);
+    p.rect(2, 2, 130, 22, PALETTE.stone.base);
+    p.hline(2, 131, 2, PALETTE.stone.light);
+    p.rect(42, 14, 50, 12, PALETTE.stone.mid);
+    p.hline(42, 91, 14, PALETTE.stone.hi);
+    p.hline(42, 91, 25, PALETTE.stone.dark);
+    p.disc(24, 10, 8, PALETTE.foliage.dark); p.disc(24, 8, 6, PALETTE.foliage.base); p.disc(23, 6, 3, PALETTE.foliage.light);
+    p.disc(110, 10, 8, PALETTE.foliage.dark); p.disc(110, 8, 6, PALETTE.foliage.base); p.disc(109, 6, 3, PALETTE.foliage.light);
   });
-  stampOutlined(cv, 70, 10, 818, 236, (p) => {
-    p.hline(0, 68, 4, WOOD_D);
-    p.hline(0, 68, 7, WOOD_D);
-    for (let px = 0; px <= 68; px += 9) {
-      p.rect(px, 1, 2, 8, WOOD);
-      p.set(px, 1, WOOD_L);
-      p.set(px + 1, 1, WOOD_D);
+
+  stampOutlined(cv, 124, 26, 714, 153, (p) => {
+    p.rect(0, 0, 124, 22, PALETTE.stone.dark);
+    p.rect(2, 2, 120, 18, PALETTE.stone.mid);
+    for (let x = 12; x < 114; x += 12) p.vline(x, 2, 19, PALETTE.stone.joint);
+    p.hline(2, 121, 2, PALETTE.stone.light);
+  });
+
+  stampOutlined(cv, 114, 24, 135, 403, (p) => {
+    p.rect(0, 0, 114, 20, PALETTE.wood.dark);
+    p.rect(1, 1, 112, 18, PALETTE.wood.base);
+    for (let x = 6; x < 110; x += 6) p.vline(x, 1, 18, PALETTE.wood.dark);
+    p.hline(1, 112, 1, PALETTE.wood.light);
+    p.ellipse(14, 9, 6, 8, PALETTE.wood.dark); p.ellipse(14, 9, 4, 6, PALETTE.wood.light);
+    p.ellipse(26, 9, 6, 8, PALETTE.wood.dark); p.ellipse(26, 9, 4, 6, PALETTE.wood.light);
+  });
+
+  stampOutlined(cv, 120, 32, 420, 496, (p) => {
+    p.rect(0, 0, 120, 28, PALETTE.farm.soilL);
+    p.rect(2, 2, 116, 24, PALETTE.grass.light);
+    const fls = [PALETTE.flowers.pink, PALETTE.flowers.yellow, PALETTE.flowers.red, PALETTE.flowers.white];
+    for (let x = 8; x <= 42; x += 6) {
+      p.disc(x, 10, 3, fls[x % fls.length]); p.set(x, 9, PALETTE.white);
+    }
+    for (let x = 78; x <= 112; x += 6) {
+      p.disc(x, 10, 3, fls[x % fls.length]); p.set(x, 9, PALETTE.white);
+    }
+    p.rect(50, 0, 20, 28, PALETTE.stone.mid);
+    p.hline(50, 69, 1, PALETTE.stone.light);
+  });
+
+  // 6. Scenic Lily Pond & Fishing Dock
+  stampOutlined(cv, 165, 115, 16, 455, (p) => {
+    p.ellipse(82, 60, 75, 48, PALETTE.water.sand);
+    p.ellipse(82, 60, 68, 42, PALETTE.water.sandD);
+    p.ellipse(82, 60, 64, 38, PALETTE.water.shallow);
+    p.ellipse(84, 62, 52, 30, PALETTE.water.mid);
+    p.ellipse(87, 64, 40, 22, PALETTE.water.deep);
+    const sparks = [[55, 52], [72, 47], [98, 54], [112, 62], [82, 67], [68, 72], [100, 74]];
+    for (const [sx, sy] of sparks) {
+      p.set(sx, sy, PALETTE.water.spark); p.set(sx + 1, sy, PALETTE.white);
+    }
+    p.rect(106, 46, 44, 20, PALETTE.wood.dark);
+    p.rect(107, 47, 42, 18, PALETTE.wood.base);
+    for (let x = 112; x <= 144; x += 5) p.vline(x, 47, 64, PALETTE.wood.dark);
+    p.hline(107, 148, 47, PALETTE.wood.light);
+    p.rect(109, 65, 4, 9, PALETTE.trunk.dark);
+    p.rect(145, 65, 4, 9, PALETTE.trunk.dark);
+    p.ellipse(122, 84, 15, 7, PALETTE.wood.dark);
+    p.ellipse(122, 84, 13, 5, PALETTE.wood.base);
+    p.set(122, 84, PALETTE.wood.light);
+    const lilies = [[45, 54], [62, 64], [88, 52], [105, 74], [50, 78]];
+    for (const [lx, ly] of lilies) {
+      p.disc(lx, ly, 4, PALETTE.foliage.base);
+      p.set(lx, ly, PALETTE.flowers.pink);
+      p.set(lx + 1, ly - 1, PALETTE.white);
+    }
+    const reeds = [[25, 38], [34, 44], [146, 34], [154, 40]];
+    for (const [rx, ry] of reeds) {
+      p.vline(rx, ry, ry + 18, PALETTE.foliage.dark);
+      p.vline(rx + 1, ry + 2, ry + 18, PALETTE.foliage.base);
+      p.rect(rx, ry, 2, 6, PALETTE.trunk.base);
     }
   });
 
-  // trees (anchor = trunk base centre); big first, small after
-  function tree(bx, by, big) {
-    const w = big ? 34 : 24, h = big ? 48 : 32;
+  // 7. Farmstead Garden Plots (Spaced, prominent pumpkin vines and carrot clusters)
+  function farmPlot(x, y, w, h, crop) {
+    stampOutlined(cv, w, h, x, y, (p) => {
+      p.rect(0, 0, w, h, PALETTE.farm.soil);
+      p.rect(1, 1, w - 2, h - 2, PALETTE.farm.furrow);
+
+      if (crop === 'pumpkin') {
+        for (let row = 7; row < h - 8; row += 16) {
+          p.rect(3, row - 3, w - 6, 8, PALETTE.farm.soilL);
+          p.hline(3, w - 4, row + 5, PALETTE.farm.furrow);
+          for (let col = 12; col < w - 10; col += 20) {
+            p.line(col - 6, row + 1, col + 6, row - 1, PALETTE.foliage.base, 1);
+            p.set(col - 4, row, PALETTE.foliage.light);
+            p.disc(col, row, 4, PALETTE.farm.pumpkin);
+            p.disc(col - 1, row - 1, 3, PALETTE.farm.pumpkinL);
+            p.set(col + 2, row + 2, PALETTE.farm.pumpkinD);
+            p.set(col, row - 3, PALETTE.foliage.dark);
+          }
+        }
+      } else if (crop === 'carrot') {
+        for (let row = 6; row < h - 6; row += 14) {
+          p.rect(3, row - 2, w - 6, 7, PALETTE.farm.soilL);
+          p.hline(3, w - 4, row + 4, PALETTE.farm.furrow);
+          for (let col = 10; col < w - 8; col += 14) {
+            p.disc(col, row + 2, 2, PALETTE.farm.carrot);
+            p.set(col, row + 1, PALETTE.farm.carrotL);
+            p.disc(col, row - 1, 3, PALETTE.foliage.light);
+            p.disc(col, row - 2, 2, PALETTE.foliage.hi);
+            p.set(col - 1, row, PALETTE.foliage.base);
+            p.set(col + 1, row, PALETTE.foliage.dark);
+          }
+        }
+      }
+    });
+  }
+
+  farmPlot(835, 310, 96, 56, 'pumpkin');
+  farmPlot(835, 380, 96, 56, 'carrot');
+
+  // --- Northwest Market Flower & Berry Nursery Yard ---
+  stampOutlined(cv, 92, 70, 24, 75, (p) => {
+    p.rect(10, 10, 72, 50, PALETTE.farm.soilL);
+    p.rect(12, 12, 68, 46, PALETTE.farm.soil);
+    const fls = [PALETTE.flowers.pink, PALETTE.flowers.yellow, PALETTE.flowers.red, PALETTE.flowers.blue, PALETTE.flowers.purple];
+    for (let row = 18; row <= 48; row += 12) {
+      p.hline(14, 76, row + 3, PALETTE.farm.furrow);
+      for (let col = 18; col <= 72; col += 10) {
+        const c = fls[(col * 7 + row * 13) % fls.length];
+        p.disc(col, row, 3, c);
+        p.set(col, row - 1, PALETTE.white);
+        p.set(col, row + 2, PALETTE.foliage.dark);
+      }
+    }
+  });
+
+  // --- Southwest Tavern Lakeside Beer Garden & Picnic Yard ---
+  stampOutlined(cv, 92, 72, 24, 325, (p) => {
+    p.rect(8, 8, 76, 56, PALETTE.grass.light);
+    p.rect(12, 12, 68, 48, PALETTE.stone.base);
+    for (let px = 12; px <= 80; px += 10) p.vline(px, 12, 59, PALETTE.stone.joint);
+    for (let py = 12; py <= 60; py += 8) p.hline(12, 79, py, PALETTE.stone.joint);
+    p.rect(26, 26, 36, 16, PALETTE.wood.dark);
+    p.rect(28, 28, 32, 12, PALETTE.wood.base);
+    p.hline(28, 59, 28, PALETTE.wood.light);
+    p.rect(22, 29, 4, 10, PALETTE.wood.base);
+    p.rect(62, 29, 4, 10, PALETTE.wood.base);
+    p.set(38, 32, '#fae38e'); p.set(48, 32, '#fae38e');
+    p.set(38, 31, PALETTE.white); p.set(48, 31, PALETTE.white);
+    p.rect(14, 14, 20, 6, PALETTE.wood.dark); p.rect(15, 15, 18, 4, PALETTE.wood.base);
+    p.set(18, 14, PALETTE.flowers.pink); p.set(24, 14, PALETTE.flowers.yellow); p.set(30, 14, PALETTE.flowers.red);
+    p.rect(54, 14, 20, 6, PALETTE.wood.dark); p.rect(55, 15, 18, 4, PALETTE.wood.base);
+    p.set(58, 14, PALETTE.flowers.blue); p.set(64, 14, PALETTE.flowers.purple); p.set(70, 14, PALETTE.flowers.yellow);
+  });
+
+  // 8. Sensible Enclosing Fences
+  function fenceH(x, y, len) {
+    stampOutlined(cv, len, 9, x, y, (p) => {
+      p.hline(0, len - 1, 2, PALETTE.wood.dark);
+      p.hline(0, len - 1, 3, PALETTE.wood.base);
+      p.hline(0, len - 1, 6, PALETTE.wood.dark);
+      p.hline(0, len - 1, 7, PALETTE.wood.base);
+      for (let px = 2; px <= len - 4; px += 10) {
+        p.rect(px, 0, 3, 8, PALETTE.wood.base);
+        p.vline(px, 0, 8, PALETTE.wood.light);
+        p.vline(px + 2, 0, 8, PALETTE.wood.dark);
+      }
+    });
+  }
+
+  function fenceV(x, y, len) {
+    stampOutlined(cv, 9, len, x, y, (p) => {
+      p.vline(2, 0, len - 1, PALETTE.wood.dark);
+      p.vline(3, 0, len - 1, PALETTE.wood.base);
+      p.vline(6, 0, len - 1, PALETTE.wood.dark);
+      p.vline(7, 0, len - 1, PALETTE.wood.base);
+      for (let py = 2; py <= len - 4; py += 10) {
+        p.rect(0, py, 8, 3, PALETTE.wood.base);
+        p.hline(0, 8, py, PALETTE.wood.light);
+        p.hline(0, 8, py + 2, PALETTE.wood.dark);
+      }
+    });
+  }
+
+  // A. Farmstead Enclosure
+  fenceH(830, 298, 105);
+  fenceV(934, 298, 148);
+  fenceH(830, 444, 105);
+  fenceV(830, 298, 50);
+  fenceV(830, 394, 52); // Gate gap
+
+  // B. Marketplace Nursery Yard Enclosure (Fully enclosing the flower nursery)
+  fenceH(24, 75, 96);
+  fenceV(24, 75, 72);
+  fenceH(24, 145, 96);
+  fenceV(116, 75, 30);
+
+  // C. Tavern Beer Garden Enclosure (Fully enclosing the picnic patio)
+  fenceH(24, 325, 96);
+  fenceV(24, 325, 74);
+  fenceH(24, 397, 96);
+  fenceV(116, 325, 32);
+
+  // D. Town Hall Garden Pickets
+  fenceH(420, 526, 45);
+  fenceH(495, 526, 45);
+
+  // 9. Hand-Crafted Tree Generators
+  function pineTree(bx, by) {
+    const w = 32, h = 56;
+    stampOutlined(cv, w, h, bx - 16, by - h + 1, (p) => {
+      p.rect(14, h - 10, 4, 9, PALETTE.trunk.base);
+      p.vline(17, h - 10, h - 2, PALETTE.trunk.dark);
+      p.disc(16, 36, 12, PALETTE.pine.base);
+      p.disc(15, 35, 11, PALETTE.pine.dark);
+      p.disc(14, 34, 9, PALETTE.pine.base);
+      p.disc(13, 33, 6, PALETTE.pine.light);
+      p.disc(16, 24, 10, PALETTE.pine.base);
+      p.disc(15, 23, 9, PALETTE.pine.dark);
+      p.disc(14, 22, 7, PALETTE.pine.light);
+      p.disc(13, 21, 4, PALETTE.pine.hi);
+      p.disc(16, 13, 7, PALETTE.pine.base);
+      p.disc(15, 12, 6, PALETTE.pine.light);
+      p.disc(14, 11, 3, PALETTE.pine.hi);
+      p.set(16, 3, PALETTE.pine.hi);
+      p.vline(16, 4, 10, PALETTE.pine.light);
+    });
+  }
+
+  function oakTree(bx, by, big = true) {
+    const w = big ? 50 : 36, h = big ? 62 : 44;
     stampOutlined(cv, w, h, bx - (w >> 1), by - h + 1, (p) => {
-      const tw = big ? 4 : 3;
-      p.rect((w - tw) >> 1, h - 10, tw, 9, TRUNK);
-      p.vline(((w - tw) >> 1) + tw - 1, h - 10, h - 2, TRUNK_D);
-      const cr = big ? 13 : 9;
-      const ccx = w >> 1, ccy = h - 12 - cr + (big ? 2 : 1);
-      const blobs = big
-        ? [[0, 0, cr], [-cr + 3, 5, 8], [cr - 3, 5, 8], [-5, -cr + 4, 8], [5, -cr + 4, 8]]
-        : [[0, 0, cr], [-cr + 4, 4, 6], [cr - 4, 4, 6]];
-      for (const [ox, oy, r] of blobs) p.disc(ccx + ox, ccy + oy, r, CANOPY.base);
-      for (const [ox, oy, r] of blobs) p.disc(ccx + ox - 1, ccy + oy - 1, r - 1, CANOPY.dark);
-      for (const [ox, oy, r] of blobs) {
-        p.disc(ccx + ox - 1, ccy + oy - 2, r - 3, CANOPY.base);
-        p.disc(ccx + ox - 2, ccy + oy - 3, Math.max(2, r - 5), CANOPY.light);
+      const tw = big ? 6 : 4;
+      const tx = (w - tw) >> 1;
+      p.rect(tx, h - 14, tw, 13, PALETTE.trunk.base);
+      p.vline(tx + tw - 1, h - 14, h - 2, PALETTE.trunk.dark);
+      p.set(tx - 1, h - 2, PALETTE.trunk.base); p.set(tx + tw, h - 2, PALETTE.trunk.dark);
+      const cr = big ? 18 : 13;
+      const ccx = w >> 1, ccy = h - 16 - cr + (big ? 2 : 1);
+      const lobes = big
+        ? [[0, 0, cr], [-cr + 3, 5, 13], [cr - 3, 5, 13], [-9, -cr + 4, 12], [9, -cr + 4, 12], [0, -cr + 2, 11]]
+        : [[0, 0, cr], [-cr + 3, 4, 10], [cr - 3, 4, 10], [0, -cr + 3, 9]];
+      for (const [ox, oy, r] of lobes) p.disc(ccx + ox, ccy + oy, r, PALETTE.foliage.base);
+      for (const [ox, oy, r] of lobes) p.disc(ccx + ox + 1, ccy + oy + 1, r - 1, PALETTE.foliage.dark);
+      for (const [ox, oy, r] of lobes) {
+        p.disc(ccx + ox - 1, ccy + oy - 1, Math.max(2, r - 2), PALETTE.foliage.base);
+        p.disc(ccx + ox - 2, ccy + oy - 2, Math.max(2, r - 4), PALETTE.foliage.light);
+        p.disc(ccx + ox - 3, ccy + oy - 3, Math.max(1, r - 6), PALETTE.foliage.hi);
       }
-      p.set(ccx - 3, ccy - 5, CANOPY.hi); p.set(ccx - 4, ccy - 4, CANOPY.hi);
-      p.set(ccx + 3, ccy + 5, CANOPY.dark); p.set(ccx + 5, ccy + 3, CANOPY.dark);
     });
   }
-  tree(70, 112, true);
-  tree(892, 104, true);
-  tree(58, 344, true);
-  tree(892, 442, true);
-  tree(204, 52, false);
-  tree(930, 334, false);
-  tree(308, 568, true);
-  tree(436, 560, false);
 
-  // bushes (anchor = base centre)
-  function bush(bx, by, berries) {
-    stampOutlined(cv, 18, 15, bx - 9, by - 13, (p) => {
-      p.disc(9, 8, 5, CANOPY.base);
-      p.disc(5, 9, 4, CANOPY.base);
-      p.disc(13, 9, 4, CANOPY.base);
-      p.disc(8, 7, 3, CANOPY.dark);
-      p.disc(5, 6, 2, CANOPY.light);
-      p.set(7, 4, CANOPY.light);
-      if (berries) { p.set(6, 8, SEMANTIC.escalation); p.set(12, 9, SEMANTIC.escalation); p.set(9, 6, SEMANTIC.human); }
+  function appleTree(bx, by) {
+    const w = 38, h = 48;
+    stampOutlined(cv, w, h, bx - 19, by - h + 1, (p) => {
+      p.rect(17, h - 11, 4, 10, PALETTE.trunk.base);
+      p.vline(20, h - 11, h - 2, PALETTE.trunk.dark);
+      p.disc(19, 21, 15, PALETTE.foliage.base);
+      p.disc(20, 22, 14, PALETTE.foliage.dark);
+      p.disc(18, 19, 13, PALETTE.foliage.light);
+      p.disc(16, 17, 10, PALETTE.foliage.hi);
+      const apples = [
+        [14, 16], [25, 15], [17, 23], [28, 22],
+        [12, 23], [20, 12], [23, 27], [14, 27],
+      ];
+      for (const [ax, ay] of apples) {
+        p.disc(ax, ay, 2, PALETTE.apple);
+        p.set(ax - 1, ay - 1, PALETTE.appleL);
+        p.set(ax + 1, ay + 1, INK);
+      }
     });
   }
-  bush(252, 168, true);
-  bush(614, 176, false);
-  bush(884, 250, true);
-  bush(348, 512, false);
-  bush(94, 436, true);
-  bush(566, 592, false);
-  bush(842, 546, true);
 
-  // flower patches (no outline — meadow accents) + grass tufts, seeded scatter
+  // Clustered Tree Groves
+  oakTree(35, 60, false);
+  appleTree(265, 60);
+
+  pineTree(370, 45);
+  pineTree(590, 45);
+
+  pineTree(885, 75);
+  oakTree(915, 95, true);
+  appleTree(645, 55);
+
+  oakTree(270, 260, true);
+  appleTree(320, 280);
+  pineTree(240, 310);
+
+  oakTree(690, 260, true);
+  pineTree(730, 290);
+  appleTree(650, 240);
+
+  appleTree(270, 480);
+  oakTree(320, 520, false);
+  pineTree(230, 540);
+
+  oakTree(690, 490, true);
+  pineTree(735, 530);
+  appleTree(645, 520);
+
+  pineTree(925, 250);
+  pineTree(925, 480);
+  oakTree(895, 530, false);
+  appleTree(480, 580);
+
+  // 10. Street Lanterns along the roads
+  function streetLamp(x, y) {
+    stampOutlined(cv, 10, 22, x - 5, y - 20, (p) => {
+      p.rect(4, 8, 2, 12, PALETTE.stone.dark);
+      p.rect(3, 18, 4, 2, PALETTE.stone.dark);
+      p.rect(2, 4, 6, 4, PALETTE.stone.dark);
+      p.rect(3, 5, 4, 2, '#fae38e');
+      p.set(4, 5, PALETTE.white);
+      p.rect(3, 2, 4, 2, PALETTE.stone.dark);
+      p.set(4, 1, PALETTE.stone.dark);
+    });
+  }
+
+  streetLamp(370, 152);
+  streetLamp(590, 152);
+  streetLamp(370, 404);
+  streetLamp(590, 404);
+  streetLamp(138, 280);
+  streetLamp(822, 280);
+
+  // 11. Wildflower Meadows
   const fr = mulberry32(0xF10E);
-  const flowerColors = ['#e08ab0', '#f2ead8', '#e3ae52', '#d15a49'];
-  let patchesPlaced = 0, guard = 0;
-  while (patchesPlaced < 11 && guard++ < 6000) {
-    const x = 20 + Math.floor(fr() * (WORLD.w - 40));
-    const y = 90 + Math.floor(fr() * (WORLD.h - 120));
-    if (!canPlace(x, y, 16, 10, 4)) continue;
-    const n = 4 + Math.floor(fr() * 3);
-    for (let i = 0; i < n; i++) {
-      const fx = x + Math.floor(fr() * 12) - 6;
-      const fy = y + Math.floor(fr() * 8) - 4;
-      const ci = Math.floor(fr() * flowerColors.length);
-      const pet = flowerColors[ci];
-      cv.set(fx, fy - 1, pet); cv.set(fx, fy + 1, pet);
-      cv.set(fx - 1, fy, pet); cv.set(fx + 1, fy, pet);
-      cv.set(fx, fy, ci === 2 ? SEMANTIC.escalation : SEMANTIC.human);
-      cv.set(fx, fy + 2, CANOPY.dark);
+  const flist = [
+    PALETTE.flowers.pink, PALETTE.flowers.yellow, PALETTE.flowers.white,
+    PALETTE.flowers.red, PALETTE.flowers.blue, PALETTE.flowers.purple,
+  ];
+  for (let p = 0; p < 28; p++) {
+    const px = 30 + Math.floor(fr() * (WORLD.w - 60));
+    const py = 60 + Math.floor(fr() * (WORLD.h - 100));
+    if (px > psq.x0 - 15 && px < psq.x1 + 15 && py > psq.y0 - 15 && py < psq.y1 + 15) continue;
+    const col = flist[p % flist.length];
+    for (let f = 0; f < 4; f++) {
+      const fx = px + Math.floor(fr() * 12) - 6;
+      const fy = py + Math.floor(fr() * 8) - 4;
+      cv.set(fx, fy, col);
+      cv.set(fx, fy - 1, PALETTE.white);
+      cv.set(fx, fy + 1, PALETTE.foliage.dark);
     }
-    patchesPlaced++;
   }
-
-  // rocks
-  stampOutlined(cv, 12, 9, 336, 250, (p) => {
-    p.ellipse(6, 5, 5, 3, ROCK.base);
-    p.ellipse(5, 4, 4, 2, ROCK.light);
-    p.ellipse(7, 6, 3, 1, ROCK.dark);
-  });
-  stampOutlined(cv, 12, 9, 552, 210, (p) => {
-    p.ellipse(6, 5, 5, 3, ROCK.base);
-    p.ellipse(5, 4, 4, 2, ROCK.light);
-    p.ellipse(7, 6, 3, 1, ROCK.dark);
-  });
-  stampOutlined(cv, 9, 7, 656, 566, (p) => {
-    p.ellipse(4, 4, 3, 2, ROCK.base);
-    p.ellipse(3, 3, 2, 1, ROCK.light);
-    p.set(5, 5, ROCK.dark);
-  });
-  stampOutlined(cv, 9, 7, 116, 552, (p) => {
-    p.ellipse(4, 4, 3, 2, ROCK.base);
-    p.ellipse(3, 3, 2, 1, ROCK.light);
-    p.set(5, 5, ROCK.dark);
-  });
-  stampOutlined(cv, 9, 7, 906, 176, (p) => {
-    p.ellipse(4, 4, 3, 2, ROCK.base);
-    p.ellipse(3, 3, 2, 1, ROCK.light);
-    p.set(5, 5, ROCK.dark);
-  });
 
   return cv;
 }
