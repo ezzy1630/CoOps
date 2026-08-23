@@ -1,5 +1,4 @@
 import {
-  ArrowClockwise,
   Broadcast,
   CaretDown,
   Flask,
@@ -101,11 +100,6 @@ export default function RuntimeStatus({ quiet = false }: { quiet?: boolean }) {
             {live ? <Broadcast size={16} className="mt-0.5 text-task" /> : <Flask size={16} className="mt-0.5 text-permission" />}
           </div>
 
-          <div className="grid grid-cols-2 border-b border-line p-1" role="group" aria-label="Execution mode">
-            <ModeButton active={live} onClick={() => useStore.getState().switchExecutionMode('live')}>Live</ModeButton>
-            <ModeButton active={!live} onClick={() => useStore.getState().switchExecutionMode('rehearsal')}>Rehearsal</ModeButton>
-          </div>
-
           {!live ? (
             <div className="border-l-2 border-permission px-4 py-3">
               <div className="text-[12px] font-medium text-ink">Labeled scripted data</div>
@@ -120,14 +114,6 @@ export default function RuntimeStatus({ quiet = false }: { quiet?: boolean }) {
               <p className="mt-1 text-[11px] leading-relaxed text-mut">
                 {runtimeError ?? `Waiting for ${backendUrl()}. No scripted events will be substituted.`}
               </p>
-              <div className="mt-3 flex gap-2">
-                <button type="button" className="btn h-7 px-2 text-[11px]" onClick={() => useStore.getState().retryLive()}>
-                  <ArrowClockwise size={12} weight="bold" /> Retry
-                </button>
-                <button type="button" className="btn h-7 px-2 text-[11px]" onClick={() => useStore.getState().switchExecutionMode('rehearsal')}>
-                  Open rehearsal
-                </button>
-              </div>
             </div>
           ) : runtime ? (
             <dl className="divide-y divide-line px-4 py-1">
@@ -144,9 +130,6 @@ export default function RuntimeStatus({ quiet = false }: { quiet?: boolean }) {
             <div className="border-l-2 border-escalation px-4 py-3">
               <div className="text-[12px] font-medium text-ink">Runtime details unavailable</div>
               <p className="mt-1 text-[11px] leading-relaxed text-mut">{runtimeError}</p>
-              <button type="button" className="btn mt-3 h-7 px-2 text-[11px]" onClick={() => useStore.getState().retryLive()}>
-                <ArrowClockwise size={12} weight="bold" /> Retry
-              </button>
             </div>
           ) : (
             <div className="px-4 py-4 text-[11px] text-mut">Reading runtime details...</div>
@@ -154,22 +137,6 @@ export default function RuntimeStatus({ quiet = false }: { quiet?: boolean }) {
         </section>
       )}
     </div>
-  )
-}
-
-function ModeButton({ active, children, onClick }: { active: boolean; children: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cx(
-        'h-7 text-[11px] transition-colors',
-        active ? 'bg-raised font-medium text-ink' : 'text-mut hover:bg-hover hover:text-ink',
-      )}
-    >
-      {children}
-    </button>
   )
 }
 

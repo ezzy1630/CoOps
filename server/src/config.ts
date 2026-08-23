@@ -31,7 +31,7 @@ export function loadConfig(): Config {
     brainEnv === 'mock' || brainEnv === 'gemini' || brainEnv === 'auto' ? brainEnv : undefined
   return {
     port: Number.isNaN(portEnv) ? 8080 : portEnv,
-    dataDir: process.env.COOPS_DATA_DIR ?? resolve('server/data'),
+    dataDir: process.env.COOPS_DATA_DIR ?? resolve('data'),
     allowDevEmit: process.env.COOPS_ALLOW_DEV_EMIT === '1',
     enableA2a: process.env.COOPS_ENABLE_A2A === '1',
     geminiApiKey: process.env.GEMINI_API_KEY,

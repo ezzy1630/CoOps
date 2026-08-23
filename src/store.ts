@@ -30,8 +30,8 @@ import {
   connectLive,
   executionMode,
   fetchRuntimeInfo,
-  liveEnabled,
-  switchExecutionMode as navigateToExecutionMode,
+  showLiveLocation,
+  showRehearsalLocation,
 } from './live'
 
 // ─── Module-level engine internals (not reactive) ───────────────────────────
@@ -39,7 +39,7 @@ import {
 const continuations = new Map<string, () => void>()
 interface AutoResolve { eventId: string; at: number; personId: string }
 let autoResolves: AutoResolve[] = []
-const rng = ambientRng()
+let rng = ambientRng()
 let ambientAt = 0
 let presenceAt = 0
 let engineStarted = false
@@ -155,7 +155,8 @@ interface Store {
   runRehearsal(id?: string): void
   sendChat(agentId: string, text: string): void
   retryLive(): void
-  switchExecutionMode(mode: ExecutionMode): void
+  openRehearsal(id?: string): void
+  enterLive(personId: string): void
 
   // ui actions
   enter(personId: string): void
@@ -179,6 +180,40 @@ interface Store {
   toast(title: string, detail?: string, kind?: Toast['kind']): void
   dismissToast(id: number): void
 }
+
+type EntryState = Pick<
+  Store,
+  'persona' | 'entered' | 'view' | 'panel' | 'selectedTaskId' | 'replay' | 'firstRunStep' | 'cameraRequest'
+>
+
+const entryState = (persona: Person, onboarded: boolean, cameraSeq: number): EntryState => ({
+  persona,
+  entered: true,
+  view: persona.id === 'dana' ? 'approvals' : 'map',
+  panel: persona.id === 'maya' ? { kind: 'dept', id: persona.deptId } : null,
+  selectedTaskId: null,
+  replay: null,
+  firstRunStep: onboarded ? null : 0,
+  cameraRequest: {
+    seq: cameraSeq,
+    target: persona.id === 'maya'
+      ? { type: 'dept', deptId: persona.deptId }
+      : { type: 'fit' },
+  },
+})
+
+const initialExecutionMode = executionMode()
+const initialParams = new URLSearchParams(window.location.search)
+const initialDemoParam = initialParams.get('demo')
+const initialDemo = initialExecutionMode === 'rehearsal' && initialDemoParam
+  ? getRehearsal(initialDemoParam === '1' ? undefined : initialDemoParam)
+  : undefined
+const initialPersonId = initialParams.get('as') ?? initialDemo?.ownerId
+const initialPersona = initialPersonId ? personById.get(initialPersonId) ?? null : null
+const initialOnboarded = localStorage.getItem('coops_onboarded') === '1'
+  || initialParams.get('tour') === '0'
+  || initialDemo !== undefined
+const initialEntry = initialPersona ? entryState(initialPersona, initialOnboarded, 0) : null
 
 const sortByTs = (a: WorldEvent, b: WorldEvent) => a.ts - b.ts
 
@@ -227,6 +262,7 @@ export const useStore = create<Store>()((set, get) => {
   const rebuild = (log: WorldEvent[]) => buildWorld(BASE_AGENTS, DEPARTMENTS, log, Number.MAX_SAFE_INTEGER)
 
   const receiveLiveEvent = (event: WorldEvent) => {
+    if (get().executionMode !== 'live') return
     if (get().log.some((existing) => existing.id === event.id)) return
     const log = [...get().log, event].sort(sortByTs)
     const patch: Partial<Store> = { log, world: rebuild(log) }
@@ -239,8 +275,10 @@ export const useStore = create<Store>()((set, get) => {
   const refreshRuntime = async () => {
     try {
       const runtimeInfo = await fetchRuntimeInfo()
+      if (get().executionMode !== 'live') return
       set({ runtimeInfo, runtimeError: null })
     } catch (error) {
+      if (get().executionMode !== 'live') return
       set({ runtimeInfo: null, runtimeError: error instanceof Error ? error.message : String(error) })
     }
   }
@@ -250,9 +288,45 @@ export const useStore = create<Store>()((set, get) => {
     set({ liveConnection: 'connecting' })
     void refreshRuntime()
     disconnectLive = connectLive(receiveLiveEvent, personId, {
-      onOpen: () => set({ liveConnection: 'connected' }),
-      onError: () => set({ liveConnection: 'disconnected' }),
+      onOpen: () => {
+        if (get().executionMode === 'live') set({ liveConnection: 'connected' })
+      },
+      onError: () => {
+        if (get().executionMode === 'live') set({ liveConnection: 'disconnected' })
+      },
     })
+  }
+
+  const resetRehearsalRuntime = () => {
+    disconnectLive?.()
+    disconnectLive = null
+    continuations.clear()
+    autoResolves = []
+    simulatedToastShown = false
+    rng = ambientRng()
+
+    const t0 = Date.now()
+    engineStartedAt = t0
+    ambientAt = t0 + 9000
+    presenceAt = t0 + 900
+    const log = buildHistory(t0).sort(sortByTs)
+    set({
+      executionMode: 'rehearsal',
+      liveConnection: 'idle',
+      runtimeInfo: null,
+      runtimeError: null,
+      log,
+      scheduled: [],
+      world: rebuild(log),
+      chatPending: {},
+      presence: [],
+    })
+
+    for (const delay of [1000, 5000]) {
+      const { steps } = nextAmbient(rng)
+      get().schedule(steps, delay)
+    }
+    continuations.set(SEED_APPROVAL_EVENT_ID, () => get().schedule(standingApprovalFollowUp()))
   }
 
   const tick = () => {
@@ -293,16 +367,16 @@ export const useStore = create<Store>()((set, get) => {
 
     // 2. simulated humans act on stale approvals (presence first, then the click)
     const world = get().world
-    if (!liveEnabled()) {
+    if (s.executionMode === 'rehearsal') {
       const stillPending = new Set(world.approvals.map((a) => a.eventId))
+      const dueAutoResolves: AutoResolve[] = []
       autoResolves = autoResolves.filter((ar) => {
         if (!stillPending.has(ar.eventId)) {
           // either resolved by the judge, or not yet committed — keep if not yet in world
           return !get().log.some((e) => e.id === ar.eventId) ? true : false
         }
         if (now >= ar.at) {
-          const approval = world.approvals.find((a) => a.eventId === ar.eventId)
-          if (approval) get().approve(approval, ar.personId)
+          dueAutoResolves.push(ar)
           return false
         }
         if (now >= ar.at - 9000) {
@@ -313,11 +387,15 @@ export const useStore = create<Store>()((set, get) => {
         }
         return true
       })
+      for (const ar of dueAutoResolves) {
+        const approval = get().world.approvals.find((a) => a.eventId === ar.eventId)
+        if (approval) get().approve(approval, ar.personId)
+      }
     }
 
     // 3. ambient life — hot for the first minute (arrivals must see a moving
     //    map), then it settles; and held entirely during the demo's quiet beats
-    if (!liveEnabled()) {
+    if (s.executionMode === 'rehearsal') {
       const holdAmbient = rehearsals.some((definition) => presentRehearsal(definition, snapshot()).holdAmbient)
       if (holdAmbient) {
         // the interview and the blueprint are conversations: no new work starts
@@ -343,11 +421,12 @@ export const useStore = create<Store>()((set, get) => {
     // 4. presence — live mode mirrors who is actually connected (GET /presence);
     //    sim mode rotates a synthetic cast around the map
     if (now >= presenceAt) {
-      if (liveEnabled()) {
+      if (s.executionMode === 'live') {
         presenceAt = now + 5000
         void fetch(`${backendUrl()}/presence`)
           .then((res) => res.json() as Promise<{ people: { personId: string; since: number }[] }>)
           .then(({ people }) => {
+            if (get().executionMode !== 'live') return
             set({
               presence: people.flatMap((p): PresenceMark[] => {
                 const where = personById.get(p.personId)?.deptId
@@ -375,6 +454,13 @@ export const useStore = create<Store>()((set, get) => {
     }
   }
 
+  const startEngineLoop = (): boolean => {
+    if (engineStarted) return false
+    engineStarted = true
+    setInterval(tick, 300)
+    return true
+  }
+
   const postLiveDecision = async (
     approval: PendingApproval,
     personId: string,
@@ -388,6 +474,7 @@ export const useStore = create<Store>()((set, get) => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ personId, decision }),
       })
+      if (get().executionMode !== 'live') return
       if (!response.ok) {
         const payload: unknown = await response.json().catch(() => null)
         const message = typeof payload === 'object'
@@ -402,6 +489,7 @@ export const useStore = create<Store>()((set, get) => {
       set({ presence: get().presence.filter((p) => p.where !== `approval:${approval.eventId}`) })
       get().toast(successTitle, successDetail, 'human')
     } catch {
+      if (get().executionMode !== 'live') return
       get().toast('Backend unreachable', `Could not reach ${backendUrl()}`, 'block')
     }
   }
@@ -412,51 +500,33 @@ export const useStore = create<Store>()((set, get) => {
     world: rebuild([]),
     chatPending: {},
     presence: [],
-    executionMode: executionMode(),
+    executionMode: initialExecutionMode,
     liveConnection: 'idle',
     runtimeInfo: null,
     runtimeError: null,
 
-    persona: null,
-    entered: false,
-    view: 'map',
-    panel: null,
-    selectedTaskId: null,
+    persona: initialEntry?.persona ?? null,
+    entered: initialEntry?.entered ?? false,
+    view: initialEntry?.view ?? 'map',
+    panel: initialEntry?.panel ?? null,
+    selectedTaskId: initialEntry?.selectedTaskId ?? null,
     highlightEventId: null,
     artifactEventId: null,
-    replay: null,
+    replay: initialEntry?.replay ?? null,
     paletteOpen: false,
-    firstRunStep: null,
+    firstRunStep: initialEntry?.firstRunStep ?? null,
     toasts: [],
-    cameraRequest: { seq: 0, target: { type: 'fit' } },
+    cameraRequest: initialEntry?.cameraRequest ?? { seq: 0, target: { type: 'fit' } },
     theme: theme0,
     mapStyle: mapStyle0,
 
     startEngine() {
-      if (engineStarted) return
-      if (liveEnabled()) {
-        engineStarted = true
+      if (!startEngineLoop()) return
+      if (get().executionMode === 'live') {
         openLiveConnection(get().persona?.id ?? 'maya')
-        setInterval(tick, 300)
         return
       }
-      engineStarted = true
-      const t0 = Date.now()
-      engineStartedAt = t0
-      const log = buildHistory(t0).sort(sortByTs)
-      set({ log, world: rebuild(log) })
-      // two exchanges are already in flight while the gate is still up — the
-      // first thing anyone sees is a company at work, not a still diagram
-      for (const delay of [1000, 5000]) {
-        const { steps } = nextAmbient(rng)
-        get().schedule(steps, delay)
-      }
-      // the standing approval is the one thing already waiting on a human; when
-      // it is granted, Finance finishes the renewal instead of hanging open
-      continuations.set(SEED_APPROVAL_EVENT_ID, () => get().schedule(standingApprovalFollowUp()))
-      ambientAt = t0 + 9000
-      presenceAt = t0 + 900
-      setInterval(tick, 300)
+      resetRehearsalRuntime()
     },
 
     emit(e) {
@@ -474,7 +544,7 @@ export const useStore = create<Store>()((set, get) => {
 
     approve(approval, asPersonId) {
       const by = asPersonId ?? approval.personId
-      if (liveEnabled()) {
+      if (get().executionMode === 'live') {
         const title = approval.kind === 'auth' ? `${approval.what}: connected`
           : approval.kind === 'blueprint' ? `${approval.blueprint?.name ?? 'Agent'}: blueprint approved`
             : `${approval.what}: approved`
@@ -533,7 +603,7 @@ export const useStore = create<Store>()((set, get) => {
       const title = approval.kind === 'blueprint'
         ? `${approval.blueprint?.name ?? 'Agent'}: rejected`
         : `${approval.what}: denied`
-      if (liveEnabled()) {
+      if (get().executionMode === 'live') {
         void postLiveDecision(approval, by, 'deny', title, 'The task is closed as failed.')
         return
       }
@@ -563,11 +633,8 @@ export const useStore = create<Store>()((set, get) => {
     runRehearsal(id) {
       const definition = getRehearsal(id)
       if (!definition) return
-      if (liveEnabled()) {
-        if (!definition.live) return
-        get().sendChat(definition.live.agentId, definition.live.prompt)
-        get().openPanel('agent', definition.live.agentId)
-        get().toast(definition.live.startedTitle, definition.live.startedDetail)
+      if (get().executionMode === 'live') {
+        get().openRehearsal(definition.id)
         return
       }
       const presentation = presentRehearsal(definition, snapshot())
@@ -581,19 +648,20 @@ export const useStore = create<Store>()((set, get) => {
         return
       }
       startRehearsal(definition, api, definition.ownerId)
-      if (definition.live?.agentId) get().openPanel('agent', definition.live.agentId)
+      if (definition.focusAgentId) get().openPanel('agent', definition.focusAgentId)
       get().toast('Rehearsal started', definition.command.rehearsal.description)
     },
 
     sendChat(agentId, text) {
       const personaId = get().persona?.id ?? 'maya'
-      if (liveEnabled()) {
+      if (get().executionMode === 'live') {
         set({ chatPending: { ...get().chatPending, [agentId]: true } })
         void fetch(`${backendUrl()}/chat`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ agentId, text, personId: personaId }),
         }).then(async (response) => {
+          if (get().executionMode !== 'live') return
           if (response.ok) return
           const payload: unknown = await response.json().catch(() => null)
           const detail = typeof payload === 'object'
@@ -605,6 +673,7 @@ export const useStore = create<Store>()((set, get) => {
           set({ chatPending: { ...get().chatPending, [agentId]: false } })
           get().toast('Message not sent', detail, 'block')
         }).catch(() => {
+          if (get().executionMode !== 'live') return
           set({ chatPending: { ...get().chatPending, [agentId]: false } })
           get().toast('Backend unreachable', `Could not reach ${backendUrl()}`, 'block')
         })
@@ -633,29 +702,42 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     retryLive() {
-      if (!liveEnabled()) return
+      if (get().executionMode !== 'live') return
       openLiveConnection(get().persona?.id ?? 'maya')
     },
 
-    switchExecutionMode(mode) {
-      navigateToExecutionMode(mode)
+    openRehearsal(id) {
+      const definition = getRehearsal(id)
+      const persona = definition ? personById.get(definition.ownerId) : undefined
+      if (!definition || !persona) return
+
+      startEngineLoop()
+      showRehearsalLocation(definition.id, definition.ownerId)
+      localStorage.setItem('coops_onboarded', '1')
+      resetRehearsalRuntime()
+      set({
+        ...entryState(persona, true, get().cameraRequest.seq + 1),
+        highlightEventId: null,
+        artifactEventId: null,
+        paletteOpen: false,
+        toasts: [],
+      })
+      startRehearsal(definition, api, definition.ownerId)
+      if (definition.focusAgentId) get().openPanel('agent', definition.focusAgentId)
+      get().toast('Rehearsal started', definition.command.rehearsal.description)
+    },
+
+    enterLive(personId) {
+      showLiveLocation(personId)
+      get().enter(personId)
     },
 
     enter(personId) {
       const persona = personById.get(personId) ?? null
+      if (!persona) return
       const onboarded = localStorage.getItem('coops_onboarded') === '1'
-      set({ persona, entered: true, firstRunStep: onboarded ? null : 0 })
-      if (liveEnabled() && engineStarted) openLiveConnection(personId)
-      const p = persona
-      if (p?.id === 'dana') {
-        get().openPanel('approvals')
-        get().requestCamera({ type: 'fit' })
-      } else if (p?.id === 'avery') {
-        get().requestCamera({ type: 'fit' })
-      } else {
-        get().requestCamera({ type: 'dept', deptId: p?.deptId ?? 'marketing' })
-        get().openPanel('dept', p?.deptId ?? 'marketing')
-      }
+      set(entryState(persona, onboarded, get().cameraRequest.seq + 1))
+      if (get().executionMode === 'live' && engineStarted) openLiveConnection(personId)
     },
 
     switchPersona(personId) {

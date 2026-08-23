@@ -8,6 +8,7 @@ import MapOverlays from './components/MapOverlays'
 import ReplayScrubber from './components/ReplayScrubber'
 import Toasts from './components/Toasts'
 import PersonaGate from './components/PersonaGate'
+import { getRehearsal } from './engine/rehearsals'
 
 const PixelMap = lazy(() => import('./map/pixel/PixelMap'))
 const AgentRoom = lazy(() => import('./components/AgentRoom'))
@@ -36,19 +37,20 @@ export default function App() {
 
   useEffect(() => {
     startEngine()
-    // deep-link entry: ?as=maya|avery|dana (&tour=0 to skip the intro tour)
-    // ?demo=1 runs the deterministic default; any other value is an exact id.
+    // Deep-link entry: ?as=maya|avery|dana (&tour=0 to skip the intro tour).
+    // In explicit rehearsal mode, ?demo=1 resolves the registry default and an
+    // exact demo id resolves that definition. A guided rehearsal supplies its
+    // owner viewpoint when the URL does not name one.
     const params = new URLSearchParams(window.location.search)
-    const as = params.get('as')
-    if (as && !useStore.getState().entered) {
-      if (params.get('tour') === '0') localStorage.setItem('coops_onboarded', '1')
-      useStore.getState().enter(as)
-    }
-    const demo = params.get('demo')
+    const demoParam = params.get('demo')
+    const demo = demoParam && useStore.getState().executionMode === 'rehearsal'
+      ? getRehearsal(demoParam === '1' ? undefined : demoParam)
+      : undefined
+    if (demo || params.get('tour') === '0') localStorage.setItem('coops_onboarded', '1')
     let demoTimer: number | undefined
     if (demo) {
       demoTimer = window.setTimeout(
-        () => useStore.getState().runRehearsal(demo === '1' ? undefined : demo),
+        () => useStore.getState().runRehearsal(demo.id),
         1200,
       )
     }

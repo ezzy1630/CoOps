@@ -1,7 +1,8 @@
-import { ArrowClockwise, ArrowRight, Broadcast, Flask, Warning } from '@phosphor-icons/react'
+import { ArrowClockwise, ArrowRight, Broadcast, Flask, Play, Warning } from '@phosphor-icons/react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store'
 import { PERSONAS, personById } from '../data/company'
+import { rehearsals } from '../engine/rehearsals'
 import { Wordmark } from '../App'
 import RuntimeStatus from './RuntimeStatus'
 import type { RuntimeInfo } from '../types'
@@ -24,8 +25,8 @@ const VEIL =
   ' color-mix(in srgb, var(--color-bg) 72%, transparent) 68%,' +
   ' color-mix(in srgb, var(--color-bg) 42%, transparent) 100%)'
 
-/** The persona whose route through the demo lands an approval in the viewer's lap. */
-const DEMO_PERSONA = 'dana'
+/** The live persona whose route lands directly on approvals. */
+const APPROVER_PERSONA = 'dana'
 
 /**
  * Title sequence: the live company map runs underneath; this is a translucent
@@ -68,7 +69,7 @@ export default function PersonaGate() {
                 <motion.button
                   key={p.personId}
                   {...rise(0.2 + i * 0.06)}
-                  onClick={() => useStore.getState().enter(p.personId)}
+                  onClick={() => useStore.getState().enterLive(p.personId)}
                   className="group grid w-full cursor-pointer grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 border-b border-line px-3 py-3.5 text-left transition-colors hover:bg-hover/70 focus:bg-hover/70 focus:outline-none"
                 >
                   <span className="flex size-9 items-center justify-center border border-linebright bg-surface/80 text-[10px] font-semibold text-ink">
@@ -82,10 +83,10 @@ export default function PersonaGate() {
                     </span>
                     <span className="mt-1 block truncate text-[12px] leading-snug text-mut">{p.description.replace(' — ', ', ')}</span>
                   </span>
-                  <span className={p.personId === DEMO_PERSONA
+                  <span className={p.personId === APPROVER_PERSONA
                     ? 'inline-flex items-center gap-1 text-[11px] font-medium text-human'
                     : 'text-dim transition-transform group-hover:translate-x-0.5'}>
-                    {p.personId === DEMO_PERSONA ? <>Approval route <ArrowRight size={12} weight="bold" /></> : <ArrowRight size={14} />}
+                    {p.personId === APPROVER_PERSONA ? <>Approval route <ArrowRight size={12} weight="bold" /></> : <ArrowRight size={14} />}
                   </span>
                 </motion.button>
               )
@@ -101,14 +102,24 @@ function RuntimeEntryNotice() {
   const mode = useStore((state) => state.executionMode)
   const connection = useStore((state) => state.liveConnection)
   const runtime = useStore((state) => state.runtimeInfo)
+  const rehearsalAction = rehearsals.length > 0 && (
+    <button
+      type="button"
+      className="btn btn-primary h-7 px-2 text-[11px]"
+      onClick={() => useStore.getState().openRehearsal()}
+    >
+      <Play size={11} weight="fill" /> Run rehearsal
+    </button>
+  )
 
   if (mode === 'rehearsal') {
     return (
       <div className="flex items-start gap-3 border-l-2 border-permission bg-surface/45 px-3 py-2.5">
         <Flask size={15} className="mt-0.5 shrink-0 text-permission" />
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="text-[11px] font-medium text-ink">Rehearsal mode</div>
           <p className="mt-0.5 text-[11px] leading-relaxed text-mut">Every scripted event is labeled. No backend, model, or external system is used.</p>
+          {rehearsalAction && <div className="mt-2">{rehearsalAction}</div>}
         </div>
       </div>
     )
@@ -119,9 +130,10 @@ function RuntimeEntryNotice() {
     return (
       <div className="flex items-start gap-3 border-l-2 border-ok bg-surface/45 px-3 py-2.5">
         <Broadcast size={15} className="mt-0.5 shrink-0 text-ok" />
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="text-[11px] font-medium text-ink">Live backend connected</div>
           <p className="mt-0.5 text-[11px] leading-relaxed text-mut">This run is using {brain}. Open the runtime inspector for provider and revision details.</p>
+          {rehearsalAction && <div className="mt-2">{rehearsalAction}</div>}
         </div>
       </div>
     )
@@ -138,7 +150,7 @@ function RuntimeEntryNotice() {
             <button type="button" className="btn h-7 px-2 text-[11px]" onClick={() => useStore.getState().retryLive()}>
               <ArrowClockwise size={12} weight="bold" /> Retry
             </button>
-            <button type="button" className="btn h-7 px-2 text-[11px]" onClick={() => useStore.getState().switchExecutionMode('rehearsal')}>Open rehearsal</button>
+            {rehearsalAction}
           </div>
         </div>
       </div>
@@ -146,8 +158,12 @@ function RuntimeEntryNotice() {
   }
 
   return (
-    <div className="flex items-center gap-3 border-l-2 border-task bg-surface/45 px-3 py-2.5 text-[11px] text-mut">
-      <Broadcast size={15} className="shrink-0 text-task" /> Connecting to the live backend. No scripted events are running.
+    <div className="flex items-start gap-3 border-l-2 border-task bg-surface/45 px-3 py-2.5">
+      <Broadcast size={15} className="mt-0.5 shrink-0 text-task" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] leading-relaxed text-mut">Connecting to the live backend. No scripted events are running.</p>
+        {rehearsalAction && <div className="mt-2">{rehearsalAction}</div>}
+      </div>
     </div>
   )
 }

@@ -18,7 +18,6 @@ export default function MapOverlays() {
   // the classic camera doesn't exist over the valley — its controls would be dead
   const mapStyle = useStore((s) => s.mapStyle)
   const executionMode = useStore((s) => s.executionMode)
-  const chatPending = useStore((s) => s.chatPending)
   const [selectedRehearsalId, setSelectedRehearsalId] = useState(() => getRehearsal()?.id ?? '')
 
   const task = selectedTaskId ? world.tasks.get(selectedTaskId) : null
@@ -36,10 +35,6 @@ export default function MapOverlays() {
     presentations.find(({ presentation }) => presentation.state === 'active') ??
     presentations.find(({ definition }) => definition.id === selectedRehearsalId) ??
     presentations[0]
-  const rehearsalPending = selectedRehearsal?.definition.live?.agentId
-    ? chatPending[selectedRehearsal.definition.live.agentId] === true
-    : false
-
   return (
     <>
       <div
@@ -74,7 +69,6 @@ export default function MapOverlays() {
                 definition={selectedRehearsal.definition}
                 presentation={selectedRehearsal.presentation}
                 executionMode={executionMode}
-                pending={rehearsalPending}
               />
             )}
           </>
@@ -97,7 +91,6 @@ export default function MapOverlays() {
                 definition={selectedRehearsal.definition}
                 presentation={selectedRehearsal.presentation}
                 executionMode={executionMode}
-                pending={rehearsalPending}
               />
             )}
           </>
@@ -197,7 +190,7 @@ function ValleyRunNarrative({
       : steps[current - 1] ?? 'Rehearsal running'
   const detail = presentation.state === 'idle'
     ? definition.command[executionMode].description
-    : presentation.detail ?? (presentation.state === 'complete' ? 'The run is ready to replay.' : 'Follow the run as work moves across the company.')
+    : presentation.detail ?? (presentation.state === 'complete' ? 'Explore the completed work or restart the demo.' : 'Follow the run as work moves across the company.')
 
   return (
     <div className="flex min-w-0 max-w-[620px] items-center gap-3">
@@ -290,13 +283,11 @@ function RehearsalAction({
   definition,
   presentation,
   executionMode,
-  pending,
   prominent = false,
 }: {
   definition: RehearsalDefinition
   presentation: RehearsalPresentation
   executionMode: ReturnType<typeof useStore.getState>['executionMode']
-  pending: boolean
   prominent?: boolean
 }) {
   if (presentation.state === 'idle') {
@@ -306,11 +297,12 @@ function RehearsalAction({
           'flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium disabled:cursor-wait disabled:text-dim',
           prominent ? 'btn btn-primary h-8' : 'h-6 border-l border-line text-ink hover:bg-hover',
         )}
-        disabled={pending}
+        aria-label={definition.command[executionMode].title}
+        title={definition.command[executionMode].description}
         onClick={() => useStore.getState().runRehearsal(definition.id)}
       >
         <Play size={11} weight="fill" />
-        {pending ? 'Waiting for agent' : definition.command[executionMode].title}
+        Start demo
       </button>
     )
   }
@@ -321,12 +313,12 @@ function RehearsalAction({
           'flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium',
           prominent ? 'btn h-8' : 'h-6 border-l border-line text-ink hover:bg-hover',
         )}
-        onClick={() => presentation.taskId
-          ? useStore.getState().startReplay(presentation.taskId)
-          : useStore.getState().runRehearsal(definition.id)}
+        aria-label="Restart demo"
+        title="Clear this rehearsal and start it again from the beginning"
+        onClick={() => useStore.getState().openRehearsal(definition.id)}
       >
         <ArrowCounterClockwise size={12} weight="bold" />
-        {presentation.replayLabel ?? (presentation.taskId ? 'Replay rehearsal' : 'Run rehearsal again')}
+        Restart demo
       </button>
     )
   }
