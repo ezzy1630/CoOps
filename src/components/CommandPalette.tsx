@@ -1,3 +1,4 @@
+import { MagnifyingGlass } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useStore } from '../store'
@@ -255,13 +256,10 @@ export default function CommandPalette() {
       <div className="absolute inset-0 bg-ink/25" onClick={close} />
 
       <div className="absolute top-[18vh] left-1/2 w-[560px] -translate-x-1/2">
-        <div className="panel anim-fadeup flex max-h-[60vh] flex-col overflow-hidden rounded-md">
+        <div className="panel anim-fadeup flex max-h-[60vh] flex-col overflow-hidden rounded-sm">
           {/* search */}
           <div className="flex shrink-0 items-center gap-2.5 border-b border-line px-3">
-            <svg width="14" height="14" viewBox="0 0 16 16" className="shrink-0 text-dim">
-              <circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M10.6 10.6 L14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
+            <MagnifyingGlass size={14} className="shrink-0 text-dim" />
             <input
               ref={inputRef}
               value={query}
@@ -271,7 +269,7 @@ export default function CommandPalette() {
               }}
               onKeyDown={onKeyDown}
               placeholder="Jump to any agent, task, person, department, or approval…"
-              className="h-11 w-full bg-transparent text-[13px] text-ink outline-none placeholder:text-dim"
+              className="h-12 w-full bg-transparent text-[14px] text-ink outline-none placeholder:text-dim"
               spellCheck={false}
               autoComplete="off"
             />
@@ -280,7 +278,7 @@ export default function CommandPalette() {
           {/* results */}
           <div className="min-h-0 flex-1 overflow-y-auto p-1">
             {visible.length === 0 && (
-              <div className="px-3 py-8 text-center text-[12px] text-dim">
+              <div className="px-3 py-8 text-center text-[12.5px] text-dim">
                 Nothing matches that. Try a department, a person, or a task.
               </div>
             )}
@@ -298,7 +296,7 @@ export default function CommandPalette() {
                   onClick={() => run(e)}
                   onMouseMove={() => setIndex(i)}
                   className={cx(
-                    'flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-left transition-colors',
+                    'flex w-full items-center gap-2.5 rounded-sm px-2 py-1.5 text-left transition-colors',
                     i === index ? 'bg-hover ring-1 ring-linebright/80' : 'hover:bg-hover/50',
                   )}
                 >
@@ -314,8 +312,8 @@ export default function CommandPalette() {
                   </span>
                   {e.group === 'Approvals' && <CapabilityGlyph />}
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px]">{e.title}</span>
-                    <span className="block truncate text-[11px] text-dim">{e.sub}</span>
+                    <span className="block truncate text-[13.5px]">{e.title}</span>
+                    <span className="block truncate text-[11.5px] text-dim">{e.sub}</span>
                   </span>
                 </button>
               </div>
@@ -323,7 +321,7 @@ export default function CommandPalette() {
           </div>
 
           {/* footer */}
-          <div className="flex shrink-0 items-center gap-1.5 border-t border-line bg-raised/60 px-3 py-1.5 text-[11px] text-dim">
+          <div className="flex shrink-0 items-center gap-1.5 border-t border-line bg-raised/60 px-3 py-2 text-[11.5px] text-dim">
             <span className="kbd">↑↓</span>
             navigate
             <span className="px-1">·</span>

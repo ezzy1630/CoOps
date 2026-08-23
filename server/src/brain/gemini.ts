@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai'
 import type { Content, Tool } from '@google/genai'
 import type { AgentBlueprint, WorldEvent } from '../../../src/types.js'
+import { deptById } from '../../../src/data/company.js'
 import type { GuardrailAdapter } from '../guardrail/types.js'
 import type { DeptMemory } from '../memory/types.js'
 import { createDryRunTools, WORKSPACE_TOOLS } from '../tools/dryrun.js'
@@ -8,16 +9,6 @@ import type { WorkspaceToolAdapter } from '../tools/types.js'
 import { scheduleExchange } from './exchanges.js'
 import { createMockBrain } from './mock.js'
 import type { BrainAdapter, BrainCtx } from './types.js'
-
-// Compact copy of src/data/company.ts departments for prompt building.
-const DEPTS: Record<string, { name: string; blurb: string }> = {
-  marketing: { name: 'Marketing', blurb: 'campaigns, brand, launches' },
-  finance: { name: 'Finance', blurb: 'budgets, invoices, forecasts' },
-  legal: { name: 'Legal', blurb: 'contracts, claims, compliance' },
-  support: { name: 'Support', blurb: 'customers, tickets, FAQs' },
-  operations: { name: 'Operations', blurb: 'inventory, vendors, logistics' },
-  hr: { name: 'HR', blurb: 'people, onboarding, policy' },
-}
 
 const REFUSAL = 'That request was blocked by policy — rephrase or contact your department lead.'
 
@@ -102,7 +93,9 @@ export function createGeminiBrain(opts: {
         await runTurn(ctx, ai, model, opts.guardrail, opts.memory, workspaceTools, agentId, deptId, text, personId)
       } catch (err) {
         console.error('[gemini-brain] falling back to mock brain for this message:', err)
-        void createMockBrain().handle(ctx, agentId, deptId, text, personId)
+        createMockBrain().handle(ctx, agentId, deptId, text, personId).catch((fallbackErr) => {
+          console.error('[gemini-brain] mock fallback failed:', fallbackErr)
+        })
       }
     },
   }
@@ -130,7 +123,7 @@ async function runTurn(
   await memory.append(deptId, 'human', text)
   const recent = await memory.read(deptId, 12)
 
-  const dept = DEPTS[deptId]
+  const dept = deptById.get(deptId)
   const deptName = dept?.name ?? deptId
   const systemInstruction = [
     `You are the ${deptName} Agent of Everpeak Outfitters, an outdoor-gear company.`,
@@ -156,11 +149,18 @@ async function runTurn(
   }]
 
   let replied = false
+  // taskId of an exchange dispatched during this turn, so a guardrail block on
+  // the reply can abort the whole request instead of leaving it running forever
+  let turnTaskId: string | null = null
 
   const say = async (raw: string): Promise<boolean> => {
     const verdict = guardrail.inspect(raw)
     if (verdict.blocked) {
       emitBlocked(ctx, deptId, verdict.category)
+      if (turnTaskId) {
+        ctx.cancelTask(turnTaskId)
+        emitExchangeAborted(ctx, turnTaskId, deptId, verdict.category)
+      }
       finishWithRefusal(ctx, agentId, personId)
       return true
     }
@@ -205,7 +205,8 @@ async function runTurn(
         contents.push(functionResponse(call.name, 'error: kind must be budget, legal, or faq'))
         continue
       }
-      const dispatched = scheduleExchange(ctx, kind, deptId)
+      const { dispatched, taskId } = scheduleExchange(ctx, kind, deptId)
+      if (taskId) turnTaskId = taskId
       contents.push({ role: 'model', parts: [{ functionCall: call }] })
       contents.push(functionResponse(call.name, dispatched ? 'task chain scheduled' : 'handled locally'))
       replied = await say(dispatched
@@ -245,7 +246,9 @@ async function runTurn(
     if (call.name === 'workspace_write') {
       const tool = asString(args.tool).trim().toLowerCase()
       const action = asString(args.action).trim()
+      const startedAt = performance.now()
       const result = await workspaceTools.call(tool, action)
+      const latencyMs = Math.round(performance.now() - startedAt)
       contents.push({ role: 'model', parts: [{ functionCall: call }] })
       if (!result.ok) {
         contents.push(functionResponse(call.name, `error: ${result.detail}`))
@@ -258,7 +261,8 @@ async function runTurn(
         taskId: undefined,
         title: `${tool}: ${action}`,
         detail: result.detail,
-        payload: { tool, action, costUsd: 0.01, latencyMs: 420 },
+        // latency is measured; cost is omitted because no billing data exists
+        payload: { tool, action, latencyMs },
       })
       contents.push(functionResponse(call.name, result.detail))
       replied = await say(`Recorded ${tool}.${action} as a dry-run write — no external system was touched.`)
@@ -283,6 +287,20 @@ function emitBlocked(ctx: BrainCtx, deptId: string, category?: string): void {
     payload: { reason },
   }
   ctx.emit(e)
+}
+
+/** A guardrail block after an exchange was dispatched aborts the request:
+ * the task is closed as failed so it cannot hang open forever. */
+function emitExchangeAborted(ctx: BrainCtx, taskId: string, deptId: string, category?: string): void {
+  ctx.emit({
+    type: 'TaskFailed',
+    taskId,
+    from: { kind: 'system', id: 'gateway' },
+    deptFrom: deptId,
+    title: 'Cross-department request aborted by policy',
+    detail: `The exchange was blocked before work started (category: ${category ?? 'unclassified'}).`,
+    payload: { reason: category ?? 'guardrail_block' },
+  })
 }
 
 function finishWithRefusal(ctx: BrainCtx, agentId: string, personId: string): void {

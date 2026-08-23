@@ -1,4 +1,5 @@
 import type { AgentCard, AgentSkill } from '@a2a-js/sdk'
+import { BASE_AGENTS } from '../../../src/data/company.js'
 
 export interface OperatorDef {
   id: string
@@ -7,44 +8,9 @@ export interface OperatorDef {
   description: string
 }
 
-export const OPERATORS: readonly OperatorDef[] = [
-  {
-    id: 'op-marketing',
-    name: 'Marketing Agent',
-    dept: 'marketing',
-    description: 'Runs marketing work end to end — campaigns, launch briefs, and cross-department coordination.',
-  },
-  {
-    id: 'op-finance',
-    name: 'Finance Agent',
-    dept: 'finance',
-    description: 'Owns budgets, invoicing, and spend questions, including the Q3 ledger position.',
-  },
-  {
-    id: 'op-legal',
-    name: 'Legal Agent',
-    dept: 'legal',
-    description: 'Handles claims checks, contract reviews, compliance, and policy questions.',
-  },
-  {
-    id: 'op-support',
-    name: 'Support Agent',
-    dept: 'support',
-    description: 'Preps customer FAQs, triages tickets, and runs the help-center pipeline.',
-  },
-  {
-    id: 'op-operations',
-    name: 'Operations Agent',
-    dept: 'operations',
-    description: 'Keeps inventory, vendors, and day-to-day operational workflows moving.',
-  },
-  {
-    id: 'op-hr',
-    name: 'HR Agent',
-    dept: 'hr',
-    description: 'Onboards new hires and coordinates people workflows across teams.',
-  },
-]
+export const OPERATORS: readonly OperatorDef[] = BASE_AGENTS
+  .filter((a) => a.kind === 'operator')
+  .map((a) => ({ id: a.id, name: a.name, dept: a.deptId, description: a.purpose }))
 
 function skill(id: string, name: string, description: string): AgentSkill {
   return {

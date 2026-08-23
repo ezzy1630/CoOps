@@ -8,32 +8,13 @@ import { createGeminiBrain } from './brain/gemini.js'
 import { createHeuristicGuardrail } from './guardrail/heuristic.js'
 import { openJsonlMemory } from './memory/jsonl.js'
 import { openFirestoreMemory } from './memory/firestore.js'
+import { workerIdFromName } from './ids.js'
 import type { BrainCtx } from './brain/types.js'
 import type { WorldEvent } from '../../src/types.js'
+import { AGENT_DEPT } from '../../src/data/company.js'
 
 const cfg = loadConfig()
 const bus = new Bus<WorldEvent>()
-
-const DEPT_OF_AGENT: Record<string, string> = {
-  'op-marketing': 'marketing',
-  'op-finance': 'finance',
-  'op-legal': 'legal',
-  'op-support': 'support',
-  'op-operations': 'operations',
-  'op-hr': 'hr',
-  'w-copy': 'marketing',
-  'w-social': 'marketing',
-  'w-invoice': 'finance',
-  'w-budget': 'finance',
-  'w-contract': 'legal',
-  'w-policy': 'legal',
-  'w-faq': 'support',
-  'w-triage': 'support',
-  'w-inventory': 'operations',
-  'w-vendor': 'operations',
-  'w-onboard': 'hr',
-  'w-launch': 'marketing',
-}
 
 function worldTasks(events: WorldEvent[]): { id: string; title: string; status: string }[] {
   const statusById = new Map<string, string>()
@@ -77,6 +58,7 @@ const brainCtx: BrainCtx = {
     void store.append(e)
   },
   schedule: (steps, baseDelayMs) => scheduler.schedule(steps, baseDelayMs),
+  cancelTask: taskId => scheduler.cancelTask(taskId),
   worldTasks: () => worldTasks(store.all()),
   interviewStep: agentId => interviews.get(agentId) ?? null,
   setInterviewStep: (agentId, step) => {
@@ -86,6 +68,16 @@ const brainCtx: BrainCtx = {
 
 const RESOLUTION_TYPES = new Set(['AccountConnected', 'ApprovalGranted', 'BlueprintApproved'])
 
+/** The live routing roster: every agent this server can address, seeded plus spawned. */
+const DEPT_OF_AGENT: Record<string, string> = { ...AGENT_DEPT }
+const KNOWN_AGENTS = new Set<string>(Object.keys(DEPT_OF_AGENT))
+
+/** Registers a spawned agent in the routing roster so chats reach it. */
+function registerAgent(id: string, deptId: string): void {
+  DEPT_OF_AGENT[id] = deptId
+  KNOWN_AGENTS.add(id)
+}
+
 function spawnFromBlueprintResolution(e: WorldEvent): void {
   if (!RESOLUTION_TYPES.has(e.type)) return
   const reasonId = e.payload?.reason
@@ -94,16 +86,18 @@ function spawnFromBlueprintResolution(e: WorldEvent): void {
   if (orig?.type !== 'BlueprintProposed') return
   const bp = orig.payload?.blueprint
   if (!bp) return
+  const agentId = workerIdFromName(bp.name, KNOWN_AGENTS)
+  registerAgent(agentId, bp.deptId)
   void store.append({
     type: 'AgentSpawned',
     from: orig.from,
     deptFrom: bp.deptId,
     deptTo: bp.deptId,
     title: `${bp.name} is live`,
-    detail: 'Worker profile created in the shared runtime.',
+    detail: `Worker profile created in the shared runtime as ${agentId}.`,
     payload: {
       agent: {
-        id: 'w-launch',
+        id: agentId,
         name: bp.name,
         deptId: bp.deptId,
         kind: 'worker',
@@ -116,15 +110,25 @@ function spawnFromBlueprintResolution(e: WorldEvent): void {
   })
 }
 
+/** Agents spawned in earlier runs live on in the event log; re-register them so
+ * chat routing and id uniqueness survive a restart. */
+function restoreSpawnedAgents(events: WorldEvent[]): void {
+  for (const e of events) {
+    const a = e.type === 'AgentSpawned' ? e.payload?.agent : undefined
+    if (a) registerAgent(a.id, a.deptId)
+  }
+}
+
 function onAppended(e: WorldEvent): void {
   bus.publish(e)
   spawnFromBlueprintResolution(e)
   if (e.type === 'Chat' && e.from?.kind === 'person' && e.to?.kind === 'agent') {
     const text = typeof e.payload?.text === 'string' ? e.payload.text : ''
-    if (text) brain.handle(brainCtx, e.to.id, DEPT_OF_AGENT[e.to.id] ?? '', text, e.from.id)
+    if (text) brain.handle(brainCtx, e.to.id, AGENT_DEPT[e.to.id] ?? '', text, e.from.id)
   }
 }
 
 const store = await EventStore.open(cfg.dataDir, onAppended)
+restoreSpawnedAgents(store.all())
 await startHttp(cfg, store, bus)
 console.log(`LISTENING ${cfg.port}`)
