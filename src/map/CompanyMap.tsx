@@ -964,7 +964,7 @@ export default function CompanyMap() {
             </dl>
             {e.type === 'ArtifactDelivered' && pl?.artifact && (
               <button
-                className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded border border-line bg-raised px-2 py-1.5 text-left text-[11.5px] text-ink hover:bg-hover"
+                className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded-sm border border-line bg-raised px-2 py-1.5 text-left text-[11.5px] text-ink hover:bg-hover"
                 onClick={() => {
                   useStore.getState().openArtifact(e.id)
                   setPopover(null)
