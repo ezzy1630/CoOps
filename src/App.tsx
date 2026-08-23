@@ -7,21 +7,21 @@ import NavRail from './components/NavRail'
 import MapOverlays from './components/MapOverlays'
 import ReplayScrubber from './components/ReplayScrubber'
 import Toasts from './components/Toasts'
-import AgentRoom from './components/AgentRoom'
-import DeptWorkspace from './components/DeptWorkspace'
-import ApprovalsPanel from './components/ApprovalsPanel'
-import ActivityPanel from './components/ActivityPanel'
-import InheritanceDiff from './components/InheritanceDiff'
-import CommandPalette from './components/CommandPalette'
 import PersonaGate from './components/PersonaGate'
-import FirstRun from './components/FirstRun'
-import ArtifactViewer from './components/ArtifactViewer'
-import ActivityPage from './pages/ActivityPage'
-import AgentsPage from './pages/AgentsPage'
-import ApprovalsPage from './pages/ApprovalsPage'
-import DocumentsPage from './pages/DocumentsPage'
 
 const PixelMap = lazy(() => import('./map/pixel/PixelMap'))
+const AgentRoom = lazy(() => import('./components/AgentRoom'))
+const DeptWorkspace = lazy(() => import('./components/DeptWorkspace'))
+const ApprovalsPanel = lazy(() => import('./components/ApprovalsPanel'))
+const ActivityPanel = lazy(() => import('./components/ActivityPanel'))
+const InheritanceDiff = lazy(() => import('./components/InheritanceDiff'))
+const CommandPalette = lazy(() => import('./components/CommandPalette'))
+const FirstRun = lazy(() => import('./components/FirstRun'))
+const ArtifactViewer = lazy(() => import('./components/ArtifactViewer'))
+const ActivityPage = lazy(() => import('./pages/ActivityPage'))
+const AgentsPage = lazy(() => import('./pages/AgentsPage'))
+const ApprovalsPage = lazy(() => import('./pages/ApprovalsPage'))
+const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
 
 export default function App() {
   const entered = useStore((s) => s.entered)
@@ -29,6 +29,9 @@ export default function App() {
   const panel = useStore((s) => s.panel)
   const mapStyle = useStore((s) => s.mapStyle)
   const startEngine = useStore((s) => s.startEngine)
+  const paletteOpen = useStore((s) => s.paletteOpen)
+  const firstRunStep = useStore((s) => s.firstRunStep)
+  const artifactEventId = useStore((s) => s.artifactEventId)
   const [tooSmall, setTooSmall] = useState(false)
 
   useEffect(() => {
@@ -125,11 +128,13 @@ export default function App() {
                 style={{ width }}
               >
                 <div className="h-full overflow-hidden border-l border-line bg-surface shadow-[-8px_0_24px_rgb(23_22_15/0.04)]">
-                  {panel.kind === 'agent' && <AgentRoom agentId={panel.id!} />}
-                  {panel.kind === 'dept' && <DeptWorkspace deptId={panel.id!} />}
-                  {panel.kind === 'approvals' && <ApprovalsPanel />}
-                  {panel.kind === 'activity' && <ActivityPanel />}
-                  {panel.kind === 'diff' && <InheritanceDiff />}
+                  <Suspense fallback={<LoadingSurface compact />}>
+                    {panel.kind === 'agent' && <AgentRoom agentId={panel.id!} />}
+                    {panel.kind === 'dept' && <DeptWorkspace deptId={panel.id!} />}
+                    {panel.kind === 'approvals' && <ApprovalsPanel />}
+                    {panel.kind === 'activity' && <ActivityPanel />}
+                    {panel.kind === 'diff' && <InheritanceDiff />}
+                  </Suspense>
                 </div>
               </motion.aside>
             )}
@@ -140,9 +145,11 @@ export default function App() {
 
         {entered && (
           <>
-            <CommandPalette />
-            <FirstRun />
-            <ArtifactViewer />
+            <Suspense fallback={null}>
+              {paletteOpen && <CommandPalette />}
+              {firstRunStep != null && <FirstRun />}
+              {artifactEventId && <ArtifactViewer />}
+            </Suspense>
           </>
         )}
       </div>
@@ -151,11 +158,31 @@ export default function App() {
 }
 
 function PageContent({ view }: { view: ReturnType<typeof useStore.getState>['view'] }) {
-  if (view === 'approvals') return <ApprovalsPage />
-  if (view === 'activity') return <ActivityPage />
-  if (view === 'agents') return <AgentsPage />
-  if (view === 'documents') return <DocumentsPage />
-  return null
+  return (
+    <Suspense fallback={<LoadingSurface />}>
+      {view === 'approvals' && <ApprovalsPage />}
+      {view === 'activity' && <ActivityPage />}
+      {view === 'agents' && <AgentsPage />}
+      {view === 'documents' && <DocumentsPage />}
+    </Suspense>
+  )
+}
+
+function LoadingSurface({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className="h-full bg-surface px-6 py-5" role="status" aria-label="Loading view">
+      <div className="h-5 w-28 bg-raised" />
+      <div className="mt-5 border-t border-line pt-4">
+        {Array.from({ length: compact ? 4 : 7 }, (_, index) => (
+          <div key={index} className="mb-3 grid grid-cols-[96px_1fr_120px] gap-4">
+            <span className="h-3 bg-raised" />
+            <span className="h-3 bg-raised" />
+            <span className="h-3 bg-raised" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export function Wordmark({ size = 22 }: { size?: number }) {

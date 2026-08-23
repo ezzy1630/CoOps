@@ -1,9 +1,9 @@
-import { X } from '@phosphor-icons/react'
+import { ArrowSquareOut, FileDashed, X } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useStore } from '../store'
-import { buildArtifactDoc } from '../data/artifactContent'
 import type { ArtifactDoc, DocBlock } from '../data/artifactContent'
+import { readArtifactRecord, type ArtifactProvenance } from '../artifacts/model'
 import { cx } from '../utils'
 
 const cleanText = (text: string): string => text.replaceAll('—', ',').replaceAll('–', ' to ')
@@ -16,19 +16,24 @@ export default function ArtifactViewer() {
   const log = useStore((s) => s.log)
   const world = useStore((s) => s.world)
   const close = useStore((s) => s.closeArtifact)
-  const executionMode = useStore((s) => s.executionMode)
 
   const ev = eventId ? log.find((e) => e.id === eventId) : undefined
-  const doc = ev
-    ? buildArtifactDoc(ev, {
+  const record = ev && ev.type === 'ArtifactDelivered'
+    ? readArtifactRecord(ev, {
         task: ev.taskId ? world.tasks.get(ev.taskId) : undefined,
         agents: world.agents,
       })
     : undefined
+  const doc = record?.document
+  const meta = doc?.meta ?? (ev ? [
+    ...(ev.taskId ? [ev.taskId] : []),
+    new Date(ev.ts).toLocaleString(),
+    ev.id,
+  ] : [])
 
   return createPortal(
     <AnimatePresence>
-      {ev && doc && (
+      {ev && record && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -61,20 +66,16 @@ export default function ArtifactViewer() {
                     Everpeak Outfitters
                   </div>
                   <div className="flex shrink-0 items-baseline gap-2">
-                    {ev.payload?.simulated === true && (
-                      <span className="rounded border border-line px-1.5 py-0.5 font-mono text-[9px] tracking-wider text-mut uppercase">
-                        Rehearsal
-                      </span>
-                    )}
+                    <ProvenanceBadge provenance={record.provenance}>{record.provenanceLabel}</ProvenanceBadge>
                     <span className="font-mono text-[10px] tracking-[0.14em] text-mut uppercase">
-                      {cleanText(doc.label)}
+                      {cleanText(record.label)}
                     </span>
                   </div>
                 </div>
                 <div className="mt-3 border-t border-linebright" />
-                <h1 className="mt-5 text-[23px] leading-snug font-semibold tracking-[-0.015em] text-ink">{cleanText(doc.title)}</h1>
+                <h1 className="mt-5 text-[23px] leading-snug font-semibold tracking-[-0.015em] text-ink">{cleanText(record.title)}</h1>
                 <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-mono text-[10.5px] text-mut">
-                  {doc.meta.map((m, i) => (
+                  {meta.map((m, i) => (
                     <span key={i} className="inline-flex items-baseline gap-2">
                       {i > 0 && <span className="text-dim">·</span>}
                       <span>{cleanText(m)}</span>
@@ -85,32 +86,29 @@ export default function ArtifactViewer() {
 
               <div className="mt-6 border-t border-line" />
 
-              {/* ── body ── */}
+              <ProvenanceNotice provenance={record.provenance} detail={record.provenanceDetail} />
+
               <div className="mt-6 space-y-5">
-                {doc.blocks.map((b, i) => (
-                  <Block key={i} block={b} />
-                ))}
+                {doc
+                  ? doc.blocks.map((b, i) => <Block key={i} block={b} />)
+                  : <MetadataOnlyBody eventId={ev.id} taskId={ev.taskId} type={record.type} />}
               </div>
 
-              {/* ── footer ── */}
               <footer className="mt-10 border-t border-line pt-3">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-mono text-[10.5px] text-dim">
-                    {doc.live
-                      ? `Produced by ${doc.live.source} · delivered to ${doc.recipientDesk}`
-                      : `Drafted autonomously · delivered to ${doc.recipientDesk}`}
-                  </span>
-                  <button
-                    className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-line px-2 py-1 font-mono text-[10.5px] text-mut transition-colors hover:border-linebright hover:bg-raised hover:text-ink"
-                    onClick={() => useStore.getState().toast(
-                      executionMode === 'live' ? 'Drive link unavailable' : 'Rehearsal artifact',
-                      executionMode === 'live'
-                        ? 'The event contains the delivered content but not a browser URL.'
-                        : 'This artifact belongs to the local scripted dataset. No Drive file was created.',
-                    )}
-                  >
-                    Open in Drive ↗
-                  </button>
+                  <span className="font-mono text-[10.5px] text-dim">Artifact event {record.eventId}</span>
+                  {record.location ? (
+                    <a
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-sm border border-line px-2 py-1 font-mono text-[10.5px] text-mut transition-colors hover:border-linebright hover:bg-raised hover:text-ink"
+                      href={record.location.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {record.location.label} <ArrowSquareOut size={11} weight="bold" />
+                    </a>
+                  ) : (
+                    <span className="font-mono text-[10.5px] text-dim">No external link attached</span>
+                  )}
                 </div>
               </footer>
             </div>
@@ -119,6 +117,48 @@ export default function ArtifactViewer() {
       )}
     </AnimatePresence>,
     document.body,
+  )
+}
+
+const PROVENANCE_CLASS: Record<ArtifactProvenance, string> = {
+  'live-content': 'border-artifact/45 bg-artifact/8 text-artifact',
+  'rehearsal-template': 'border-permission/45 bg-permission/8 text-permission',
+  'metadata-only': 'border-escalation/45 bg-escalation/8 text-escalation',
+}
+
+function ProvenanceBadge({ provenance, children }: { provenance: ArtifactProvenance; children: string }) {
+  return (
+    <span className={cx('rounded-sm border px-1.5 py-0.5 font-mono text-[9px] font-medium tracking-wider uppercase', PROVENANCE_CLASS[provenance])}>
+      {children}
+    </span>
+  )
+}
+
+function ProvenanceNotice({ provenance, detail }: { provenance: ArtifactProvenance; detail: string }) {
+  return (
+    <div className={cx('mt-5 border-l-2 bg-raised/40 px-3 py-2.5', provenance === 'live-content' ? 'border-artifact' : provenance === 'rehearsal-template' ? 'border-permission' : 'border-escalation')}>
+      <div className="text-[11px] font-medium text-ink">Artifact provenance</div>
+      <p className="mt-0.5 text-[11px] leading-relaxed text-mut">{detail}</p>
+    </div>
+  )
+}
+
+function MetadataOnlyBody({ eventId, taskId, type }: { eventId: string; taskId?: string; type: string }) {
+  return (
+    <div className="flex items-start gap-4 border border-line bg-raised/35 px-4 py-5">
+      <FileDashed size={22} className="mt-0.5 shrink-0 text-escalation" />
+      <div>
+        <h2 className="text-[14px] font-semibold text-ink">Readable content was not attached</h2>
+        <p className="mt-1 max-w-[52ch] text-[12.5px] leading-relaxed text-mut">
+          CoOps received a live delivery event, but the backend supplied metadata only. The viewer will not substitute rehearsal content.
+        </p>
+        <dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-5 gap-y-1.5 font-mono text-[10.5px]">
+          <dt className="text-dim">Type</dt><dd className="text-ink">{type}</dd>
+          <dt className="text-dim">Task</dt><dd className="text-ink">{taskId ?? 'Unlinked'}</dd>
+          <dt className="text-dim">Event</dt><dd className="text-ink">{eventId}</dd>
+        </dl>
+      </div>
+    </div>
   )
 }
 

@@ -32,7 +32,6 @@ const DEMO_PERSONA = 'dana'
  * paper veil above it. Pick who you are, and the veil lifts.
  */
 export default function PersonaGate() {
-  const executionMode = useStore((state) => state.executionMode)
   return (
     <motion.div
       initial={false}
@@ -51,12 +50,10 @@ export default function PersonaGate() {
       <div className="flex min-h-0 flex-1 items-center overflow-y-auto">
         <div className="w-full max-w-[600px] shrink-0 py-10 pl-[8vw] pr-6">
           <motion.h1 {...rise(0.08)} className="text-[34px] leading-[1.08] font-semibold tracking-[-0.03em]">
-            Enter Everpeak Outfitters
+            Every department gets an agent team.
           </motion.h1>
           <motion.p {...rise(0.12)} className="mt-3 max-w-[46ch] text-[14px] leading-relaxed text-mut">
-            Choose whose authority and department you want to work from. {executionMode === 'live'
-              ? 'Live work streams from the backend with its runtime identity attached.'
-              : 'The labeled rehearsal runs locally with a deterministic launch scenario.'}
+            Choose a role, then watch typed work cross departments, pause for named humans, and resume with every event attached.
           </motion.p>
 
           <motion.div {...rise(0.16)} className="mt-5 max-w-[520px]">

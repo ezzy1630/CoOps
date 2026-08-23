@@ -118,6 +118,12 @@ export interface TypedPayload {
     content?: string
     /** engine that produced it */
     source?: string
+    /** real external location, present only when a tool returned one */
+    location?: {
+      provider: 'google-drive' | 'google-sheets' | 'external'
+      url: string
+      label?: string
+    }
   }
   tool?: string
   action?: string
