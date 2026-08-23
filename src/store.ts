@@ -369,14 +369,14 @@ export const useStore = create<Store>()((set, get) => {
     const world = get().world
     if (s.executionMode === 'rehearsal') {
       const stillPending = new Set(world.approvals.map((a) => a.eventId))
+      const dueAutoResolves: AutoResolve[] = []
       autoResolves = autoResolves.filter((ar) => {
         if (!stillPending.has(ar.eventId)) {
           // either resolved by the judge, or not yet committed — keep if not yet in world
           return !get().log.some((e) => e.id === ar.eventId) ? true : false
         }
         if (now >= ar.at) {
-          const approval = world.approvals.find((a) => a.eventId === ar.eventId)
-          if (approval) get().approve(approval, ar.personId)
+          dueAutoResolves.push(ar)
           return false
         }
         if (now >= ar.at - 9000) {
@@ -387,6 +387,10 @@ export const useStore = create<Store>()((set, get) => {
         }
         return true
       })
+      for (const ar of dueAutoResolves) {
+        const approval = get().world.approvals.find((a) => a.eventId === ar.eventId)
+        if (approval) get().approve(approval, ar.personId)
+      }
     }
 
     // 3. ambient life — hot for the first minute (arrivals must see a moving
