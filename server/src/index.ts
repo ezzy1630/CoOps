@@ -9,6 +9,7 @@ import { createGeminiBrain } from './brain/gemini.js'
 import { createHeuristicGuardrail } from './guardrail/heuristic.js'
 import { openJsonlMemory } from './memory/jsonl.js'
 import { createGoogleOAuth } from './auth/google.js'
+import { createWorkspaceTools } from './tools/google.js'
 import type { BrainCtx } from './brain/types.js'
 import type { WorldEvent } from '../../src/types.js'
 
@@ -44,8 +45,13 @@ function worldTasks(events: WorldEvent[]): { id: string; title: string; status: 
 const interviews = new Map<string, number | null>()
 const scheduler = new Scheduler(e => store.append(e))
 const guardrail = createHeuristicGuardrail()
+const google = createGoogleOAuth(cfg.googleOAuth)
+const workspaceTools = createWorkspaceTools({
+  getAccessToken: () => google.accessToken(),
+  sheetsId: cfg.sheetsId,
+})
 const brain = cfg.geminiApiKey
-  ? createGeminiBrain({ apiKey: cfg.geminiApiKey, guardrail, memory: openJsonlMemory(cfg.dataDir) })
+  ? createGeminiBrain({ apiKey: cfg.geminiApiKey, guardrail, memory: openJsonlMemory(cfg.dataDir), workspaceTools })
   : createMockBrain()
 
 const brainCtx: BrainCtx = {
@@ -104,5 +110,5 @@ function onAppended(e: WorldEvent): void {
 const store = await EventStore.open(cfg.dataDir, onAppended)
 const org = new OrgRegistry(cfg.dataDir, e => store.append(e))
 await org.load()
-await startHttp(cfg, store, bus, org, createGoogleOAuth(cfg.googleOAuth))
+await startHttp(cfg, store, bus, org, google)
 console.log(`LISTENING ${cfg.port}`)

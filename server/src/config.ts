@@ -9,6 +9,7 @@ export interface Config {
   enableA2a?: boolean
   geminiApiKey?: string
   googleOAuth?: GoogleOAuthConfig
+  sheetsId?: string
 }
 
 export function loadConfig(): Config {
@@ -20,6 +21,7 @@ export function loadConfig(): Config {
     enableA2a: process.env.COOPS_ENABLE_A2A === '1',
     geminiApiKey: process.env.GEMINI_API_KEY,
     googleOAuth: googleOAuthFromEnv(),
+    sheetsId: process.env.COOPS_SHEETS_ID,
   }
 }
 
