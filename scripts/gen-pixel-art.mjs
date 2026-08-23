@@ -385,6 +385,7 @@ function buildBackground() {
   detailedRoad(140, 415, 820, 415, 22); // South Street
   detailedRoad(480, 140, 480, 178, 24); // North Avenue
   detailedRoad(480, 382, 480, 415, 24); // South Avenue
+  detailedRoad(480, 415, 480, 502, 16); // Hall Walk — South Avenue to the hall's stone path
   detailedRoad(150, 165, 150, 415, 18); // West Lane
   detailedRoad(810, 165, 810, 415, 18); // East Lane
   detailedRoad(150, 415, 110, 475, 14); // Lakeside Path

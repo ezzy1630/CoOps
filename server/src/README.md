@@ -9,7 +9,7 @@ Run: `npm --prefix server run dev`
 Routes:
 - `GET /events?since=<eventId>` — SSE stream; replays the log (after `since` if given), then live events
 - `POST /chat` — `{agentId, text, personId}` → appends a Chat event
-- `POST /approvals/:eventId/decision` — `{personId}` resolves an auth / approval / blueprint request
+- `POST /approvals/:eventId/decision` — `{ personId, decision?: "approve" | "deny" }` resolves an auth / approval / blueprint request
 - `POST /dev/emit` — `{event}` seeds an arbitrary event (only when dev emit is enabled)
 - `GET /healthz` — liveness + event count
 

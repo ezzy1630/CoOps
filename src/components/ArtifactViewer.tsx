@@ -1,3 +1,4 @@
+import { X } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useStore } from '../store'
@@ -42,11 +43,11 @@ export default function ArtifactViewer() {
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              className="absolute top-3 right-3 z-10 rounded px-1.5 py-0.5 text-[14px] text-dim hover:bg-hover hover:text-ink"
+              className="absolute top-3 right-3 z-10 rounded-sm px-1 py-0.5 text-dim hover:bg-hover hover:text-ink"
               title="Close (Esc)"
               onClick={close}
             >
-              ✕
+              <X size={15} />
             </button>
 
             <div className="max-h-[88vh] overflow-y-auto overscroll-contain px-12 py-10 max-sm:px-6">
@@ -61,7 +62,7 @@ export default function ArtifactViewer() {
                   </div>
                 </div>
                 <div className="mt-3 border-t border-linebright" />
-                <h1 className="mt-5 text-[19px] leading-snug font-semibold text-ink">{doc.title}</h1>
+                <h1 className="mt-5 text-[23px] leading-snug font-semibold tracking-[-0.015em] text-ink">{doc.title}</h1>
                 <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-mono text-[10.5px] text-mut">
                   {doc.meta.map((m, i) => (
                     <span key={i} className="inline-flex items-baseline gap-2">
@@ -84,11 +85,11 @@ export default function ArtifactViewer() {
               {/* ── footer ── */}
               <footer className="mt-10 border-t border-line pt-3">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-mono text-[10px] text-dim">
+                  <span className="font-mono text-[10.5px] text-dim">
                     Drafted autonomously · delivered to {doc.recipientDesk}
                   </span>
                   <button
-                    className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded border border-line px-2 py-1 font-mono text-[10px] text-mut transition-colors hover:border-linebright hover:bg-raised hover:text-ink"
+                    className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-line px-2 py-1 font-mono text-[10.5px] text-mut transition-colors hover:border-linebright hover:bg-raised hover:text-ink"
                     onClick={() =>
                       useStore.getState().toast('Open in Drive', 'Demo build — the Drive copy is simulated.')
                     }
@@ -111,7 +112,7 @@ export default function ArtifactViewer() {
 function Block({ block: b }: { block: DocBlock }) {
   switch (b.kind) {
     case 'para':
-      return <p className="text-[13px] leading-relaxed text-ink/90">{b.text}</p>
+      return <p className="text-[13.5px] leading-relaxed text-ink/90">{b.text}</p>
 
     case 'heading':
       return <h2 className="pt-1 font-mono text-[10px] tracking-[0.16em] text-mut uppercase">{b.text}</h2>
@@ -137,8 +138,8 @@ function Block({ block: b }: { block: DocBlock }) {
                 {String(i + 1).padStart(2, '0')}
               </span>
               <div className="min-w-0">
-                <p className="text-[13px] leading-snug font-semibold text-ink">{it.q}</p>
-                <p className="mt-1 text-[13px] leading-relaxed text-mut">{it.a}</p>
+                <p className="text-[13.5px] leading-snug font-semibold text-ink">{it.q}</p>
+                <p className="mt-1 text-[13.5px] leading-relaxed text-mut">{it.a}</p>
               </div>
             </div>
           ))}
@@ -160,7 +161,7 @@ function Block({ block: b }: { block: DocBlock }) {
               }}
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="text-[13px] leading-snug text-ink">
+                <p className="text-[13.5px] leading-snug text-ink">
                   {it.verdict === 'redlined' ? (
                     <span className="text-escalation line-through decoration-escalation/70 decoration-[1.5px]">
                       “{it.claim}”
@@ -171,7 +172,7 @@ function Block({ block: b }: { block: DocBlock }) {
                 </p>
                 <span
                   className={cx(
-                    'shrink-0 rounded border px-1.5 py-0.5 font-mono text-[9px] tracking-wider',
+                    'shrink-0 rounded-sm border px-1.5 py-0.5 font-mono text-[9.5px] tracking-wider',
                     it.verdict === 'redlined'
                       ? 'border-escalation/40 bg-escalation/8 text-escalation'
                       : 'border-artifact/40 bg-artifact/8 text-artifact',
@@ -181,9 +182,9 @@ function Block({ block: b }: { block: DocBlock }) {
                 </span>
               </div>
               {it.replacement && (
-                <p className="mt-1.5 text-[13px] leading-snug text-artifact">→ “{it.replacement}”</p>
+                <p className="mt-1.5 text-[13.5px] leading-snug text-artifact">→ “{it.replacement}”</p>
               )}
-              <p className="mt-1.5 text-[11px] leading-snug text-mut italic">{it.note}</p>
+              <p className="mt-1.5 text-[11.5px] leading-snug text-mut italic">{it.note}</p>
             </div>
           ))}
         </div>
@@ -201,9 +202,9 @@ function Block({ block: b }: { block: DocBlock }) {
                   </svg>
                 )}
               </span>
-              <span className="min-w-0 text-[13px] leading-snug text-ink">
+              <span className="min-w-0 text-[13.5px] leading-snug text-ink">
                 {it.text}
-                {it.note && <span className="ml-1.5 font-mono text-[10px] text-dim">— {it.note}</span>}
+                {it.note && <span className="ml-1.5 font-mono text-[10.5px] text-dim">— {it.note}</span>}
               </span>
             </div>
           ))}
@@ -213,17 +214,17 @@ function Block({ block: b }: { block: DocBlock }) {
     case 'macro':
       return (
         <div className="border border-line">
-          <div className="border-b border-line bg-raised/60 px-3.5 py-1.5 font-mono text-[9.5px] tracking-wider text-mut uppercase">
+          <div className="border-b border-line bg-raised/60 px-3.5 py-1.5 font-mono text-[10px] tracking-wider text-mut uppercase">
             {b.label}
           </div>
           <div className="px-4 py-3">
             {b.subject && (
-              <p className="text-[12.5px] leading-snug text-ink">
+              <p className="text-[13px] leading-snug text-ink">
                 <span className="font-mono text-[10px] text-dim uppercase">Subject&nbsp;&nbsp;</span>
                 <span className="font-semibold">{b.subject}</span>
               </p>
             )}
-            <p className={cx('text-[12.5px] leading-relaxed whitespace-pre-line text-ink/90', b.subject && 'mt-2')}>
+            <p className={cx('text-[13px] leading-relaxed whitespace-pre-line text-ink/90', b.subject && 'mt-2')}>
               {b.body}
             </p>
           </div>
@@ -233,7 +234,7 @@ function Block({ block: b }: { block: DocBlock }) {
     case 'note':
       return (
         <p
-          className="border-l-2 pl-3 text-[11.5px] leading-snug text-mut"
+          className="border-l-2 pl-3 text-[12px] leading-snug text-mut"
           style={{
             borderColor: `color-mix(in srgb, var(${
               b.tone === 'guard' ? '--color-guard' : '--color-human'
@@ -258,7 +259,7 @@ function FieldRow({ k, v }: { k: string; v: string }) {
   return (
     <>
       <div className="pt-[2px] font-mono text-[10px] tracking-wider text-dim uppercase">{k}</div>
-      <div className="min-w-0 text-[12.5px] leading-snug text-ink">{v}</div>
+      <div className="min-w-0 text-[13px] leading-snug text-ink">{v}</div>
     </>
   )
 }
@@ -266,17 +267,17 @@ function FieldRow({ k, v }: { k: string; v: string }) {
 function TableBlock({ b }: { b: Extract<ArtifactDoc['blocks'][number], { kind: 'table' }> }) {
   const alignCls = (i: number) => (b.align[i] === 'r' ? 'text-right' : 'text-left')
   const cellCls = (i: number) =>
-    b.align[i] === 'r' ? 'text-right font-mono text-[12px] tabular-nums' : 'text-left'
+    b.align[i] === 'r' ? 'text-right font-mono text-[12.5px] tabular-nums' : 'text-left'
   return (
     <div>
-      <table className="w-full border-collapse text-[12.5px]">
+      <table className="w-full border-collapse text-[13px]">
         <thead>
           <tr>
             {b.columns.map((col, i) => (
               <th
                 key={i}
                 className={cx(
-                  'border-b border-linebright pb-1.5 font-mono text-[9.5px] font-medium tracking-wider text-dim uppercase',
+                  'border-b border-linebright pb-1.5 font-mono text-[10px] font-medium tracking-wider text-dim uppercase',
                   alignCls(i),
                   i > 0 && 'pl-4',
                 )}
@@ -322,7 +323,7 @@ function TableBlock({ b }: { b: Extract<ArtifactDoc['blocks'][number], { kind: '
           </tfoot>
         )}
       </table>
-      {b.note && <p className="mt-2 font-mono text-[10px] leading-snug text-dim">{b.note}</p>}
+      {b.note && <p className="mt-2 font-mono text-[10.5px] leading-snug text-dim">{b.note}</p>}
     </div>
   )
 }

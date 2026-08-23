@@ -1,3 +1,4 @@
+import { ArrowClockwise, Pause, Play, X } from '@phosphor-icons/react'
 import { PANEL_WIDTH, useStore } from '../store'
 import { virtualAt } from '../engine/replay'
 import { fmtDuration } from '../utils'
@@ -30,25 +31,26 @@ export default function ReplayScrubber() {
         <div className="flex items-center gap-2.5">
           {/* play state — the REPLAY badge lives in the header clock, not twice on screen */}
           <Chip className="gap-1.5 font-mono tabular-nums">
-            <span className={replay.playing ? 'text-task' : 'text-dim'}>{replay.playing ? '▶' : '❚❚'}</span>
+            {replay.playing ? <Pause size={10} weight="fill" className="text-task" /> : <Play size={10} weight="fill" className="text-dim" />}
             {(replay.wallMs / 1000).toFixed(1)}s
           </Chip>
-          <span className="truncate text-[13px] font-medium">{task?.title ?? replay.taskId}</span>
-          <span className="shrink-0 text-[11px] text-dim">
+          <span className="truncate text-[14px] font-medium">{task?.title ?? replay.taskId}</span>
+          <span className="shrink-0 text-[12px] text-dim">
             {fmtDuration(span)} of work · {Math.round(replay.durationMs / 1000)}s replay
           </span>
           <div className="flex-1" />
-          <button className="text-[12px] text-dim hover:text-ink" onClick={() => useStore.getState().exitReplay()}>
-            exit ✕
+          <button className="inline-flex items-center gap-1 text-[12.5px] text-dim hover:text-ink" onClick={() => useStore.getState().exitReplay()}>
+            Exit
+            <X size={12} />
           </button>
         </div>
         <div className="flex items-center gap-3">
           <button
-            className="btn size-8 shrink-0 rounded-full p-0 text-[13px]"
+            className="btn size-8 shrink-0 rounded-full p-0"
             onClick={() => useStore.getState().toggleReplayPlay()}
             title={replay.playing ? 'Pause' : 'Play'}
           >
-            {replay.playing ? '❚❚' : '▶'}
+            {replay.playing ? <Pause size={13} weight="fill" /> : <Play size={13} weight="fill" className="translate-x-px" />}
           </button>
           <div className="relative flex-1">
             {/* hairline track + played portion + event tick marks (the input paints its thumb over these) */}
@@ -77,7 +79,7 @@ export default function ReplayScrubber() {
             />
           </div>
           {/* the advancing virtual clock — where in the real weeks of work we are */}
-          <span className="w-[112px] shrink-0 text-right font-mono text-[11px] tabular-nums text-mut">
+          <span className="w-[112px] shrink-0 text-right font-mono text-[11.5px] tabular-nums text-mut">
             {fmtVirtual(virtualAt(knots, replay.wallMs))}
           </span>
         </div>

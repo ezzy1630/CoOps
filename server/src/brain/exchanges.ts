@@ -93,14 +93,13 @@ function exchangeSteps(spec: ExchangeSpec, taskId: string): Step[] {
     deptFrom: spec.toDept, deptTo: spec.fromDept,
     title: 'In progress',
     detail: `Working on ${spec.artifact.name.toLowerCase()}`,
-    payload: { latencyMs: Math.round(400 + 2200 * ((taskNum * 37) % 100) / 100), costUsd: 0.04 },
   })
   push(p(4200), {
     type: 'ArtifactDelivered', taskId, edge: 'artifact', travelMs: 2400,
     from: agentRef(spec.toOp), to: requester,
     deptFrom: spec.toDept, deptTo: spec.fromDept,
     title: `Delivered: ${spec.artifact.name}`,
-    payload: { artifact: spec.artifact, costUsd: 0.06 },
+    payload: { artifact: spec.artifact },
   })
   push(p(1600), {
     type: 'TaskCompleted', taskId,
@@ -111,13 +110,13 @@ function exchangeSteps(spec: ExchangeSpec, taskId: string): Step[] {
   return steps
 }
 
-/** Schedules a cross-department exchange chain; returns false when the target
- * department is the caller's own department (nothing to schedule). */
-export function scheduleExchange(ctx: BrainCtx, kind: 'budget' | 'legal' | 'faq', fromDept: string): boolean {
+/** Schedules a cross-department exchange chain; returns the task id when the
+ * target department is a peer (null means handled locally, nothing scheduled). */
+export function scheduleExchange(ctx: BrainCtx, kind: 'budget' | 'legal' | 'faq', fromDept: string): { dispatched: boolean; taskId: string | null } {
   const base = EXCHANGE_SPECS[kind]
-  if (base.toDept === fromDept) return false
+  if (base.toDept === fromDept) return { dispatched: false, taskId: null }
   const taskId = nextTaskId()
   const spec: ExchangeSpec = { ...base, fromDept, fromOp: OP_BY_DEPT[fromDept] ?? fromDept }
   ctx.schedule(exchangeSteps(spec, taskId), 1600)
-  return true
+  return { dispatched: true, taskId }
 }
