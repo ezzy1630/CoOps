@@ -8,6 +8,7 @@ import { createMockBrain } from './brain/mock.js'
 import { createGeminiBrain } from './brain/gemini.js'
 import { createHeuristicGuardrail } from './guardrail/heuristic.js'
 import { openJsonlMemory } from './memory/jsonl.js'
+import { createGoogleOAuth } from './auth/google.js'
 import { workerIdFromName } from './ids.js'
 import type { BrainCtx } from './brain/types.js'
 import { AGENT_DEPT } from '../../src/data/company.js'
@@ -128,5 +129,5 @@ const store = await EventStore.open(cfg.dataDir, onAppended)
 restoreSpawnedAgents(store.all())
 const org = new OrgRegistry(cfg.dataDir, e => store.append(e))
 await org.load()
-await startHttp(cfg, store, bus, org)
+await startHttp(cfg, store, bus, org, createGoogleOAuth(cfg.googleOAuth))
 console.log(`LISTENING ${cfg.port}`)
