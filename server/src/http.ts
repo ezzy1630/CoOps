@@ -32,7 +32,7 @@ export async function startHttp(cfg: Config, store: EventStore, bus: Bus<WorldEv
     next()
   })
 
-  if (cfg.enableA2a) mountA2a(app, { store, bus }, org)
+  if (cfg.enableA2a) mountA2a(app, { store, bus, token: cfg.a2aToken, principal: cfg.a2aPrincipal }, org)
 
   app.get('/events', (req, res) => streamEvents(store, bus, sinceOf(req), res))
   app.get('/healthz', (_req, res) => send(res, 200, { ok: true, events: store.all().length }))

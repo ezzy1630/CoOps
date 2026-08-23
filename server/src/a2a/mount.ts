@@ -1,8 +1,9 @@
-import type { Express } from 'express'
+import type { Express, Request } from 'express'
 import { Router } from 'express'
 import { agentCardHandler, jsonRpcHandler, UserBuilder } from '@a2a-js/sdk/server/express'
 import { DefaultRequestHandler, InMemoryTaskStore } from '@a2a-js/sdk/server'
 import type { AgentExecutor } from '@a2a-js/sdk/server'
+import { UnsupportedOperationError } from '@a2a-js/sdk/errors'
 import { Role } from '@a2a-js/sdk'
 import type { Message, Part } from '@a2a-js/sdk'
 import type { WorldEvent } from '../../../src/types.js'
@@ -13,19 +14,24 @@ import { newId } from '../ids.js'
 import { agentCardFor, operatorDefFor } from './cards.js'
 import type { OperatorDef } from './cards.js'
 
-const PEER_ID = 'a2a-peer'
 const REPLY_TIMEOUT_MS = 6000
-const FALLBACK_REPLY = 'Request committed to the CoOps event log.'
+const FALLBACK_REPLY = 'No reply within 6s. Your request was recorded, but delivery is unconfirmed.'
 
 interface A2aDeps {
   store: EventStore
   bus: Bus<WorldEvent>
+  token?: string
+  principal?: string
 }
 
 export function mountA2a(app: Express, deps: A2aDeps, org: OrgRegistry): void {
   const deptRouters = new Map<string, Router>()
 
   app.use('/a2a', (req, res, next) => {
+    if (!authorized(req, deps.token)) {
+      res.status(401).json({ error: 'unauthorized' })
+      return
+    }
     const dept = req.path.split('/')[1]
     const entry = dept ? org.get(dept) : undefined
     if (!dept || !entry) return void next()
@@ -36,6 +42,12 @@ export function mountA2a(app: Express, deps: A2aDeps, org: OrgRegistry): void {
     }
     router(req, res, next)
   })
+}
+
+function authorized(req: Request, token: string | undefined): boolean {
+  if (!token) return true
+  const header = req.headers.authorization
+  return typeof header === 'string' && header === `Bearer ${token}`
 }
 
 function buildDeptRouter(op: OperatorDef, deps: A2aDeps): Router {
@@ -58,7 +70,7 @@ function createExecutor(op: OperatorDef, deps: A2aDeps): AgentExecutor {
   return {
     execute: async (requestContext, eventBus) => {
       const text = firstTextPart(requestContext.userMessage.parts)
-      const reply = await askOperator(deps.store, deps.bus, op.id, text)
+      const reply = await askOperator(deps.store, deps.bus, op.id, deps.principal ?? 'a2a-peer', text)
       const message: Message = {
         messageId: newId('a2amsg'),
         contextId: requestContext.contextId,
@@ -72,7 +84,9 @@ function createExecutor(op: OperatorDef, deps: A2aDeps): AgentExecutor {
       eventBus.publish({ kind: 'message', data: message })
       eventBus.finished()
     },
-    cancelTask: async () => {},
+    cancelTask: async () => {
+      throw new UnsupportedOperationError('task cancellation is not supported by this deployment')
+    },
   }
 }
 
@@ -88,7 +102,13 @@ function firstTextPart(parts: readonly Part[]): string {
 
 // The brain replies asynchronously through store.onUpdate → bus.publish with a
 // Chat event addressed back to the requesting person, so subscribe before append.
-async function askOperator(store: EventStore, bus: Bus<WorldEvent>, operatorId: string, text: string): Promise<string> {
+async function askOperator(
+  store: EventStore,
+  bus: Bus<WorldEvent>,
+  operatorId: string,
+  peerId: string,
+  text: string,
+): Promise<string> {
   let unsubscribe: (() => void) | undefined
   try {
     return await new Promise<string>(resolve => {
@@ -97,7 +117,7 @@ async function askOperator(store: EventStore, bus: Bus<WorldEvent>, operatorId: 
         if (
           e.type === 'Chat' &&
           e.from?.kind === 'agent' && e.from.id === operatorId &&
-          e.to?.kind === 'person' && e.to.id === PEER_ID
+          e.to?.kind === 'person' && e.to.id === peerId
         ) {
           clearTimeout(timer)
           resolve(replyTextOf(e))
@@ -105,7 +125,7 @@ async function askOperator(store: EventStore, bus: Bus<WorldEvent>, operatorId: 
       })
       store.append({
         type: 'Chat',
-        from: { kind: 'person', id: PEER_ID },
+        from: { kind: 'person', id: peerId },
         to: { kind: 'agent', id: operatorId },
         title: text,
         payload: { text },

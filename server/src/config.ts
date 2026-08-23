@@ -7,6 +7,8 @@ export interface Config {
   /** Optional so existing Config literals (spine.test.ts) stay valid. */
   enableA2a?: boolean
   geminiApiKey?: string
+  a2aToken?: string
+  a2aPrincipal?: string
 }
 
 export function loadConfig(): Config {
@@ -17,5 +19,7 @@ export function loadConfig(): Config {
     allowDevEmit: process.env.COOPS_ALLOW_DEV_EMIT === '1',
     enableA2a: process.env.COOPS_ENABLE_A2A === '1',
     geminiApiKey: process.env.GEMINI_API_KEY,
+    a2aToken: process.env.COOPS_A2A_TOKEN,
+    a2aPrincipal: process.env.COOPS_A2A_PRINCIPAL,
   }
 }
