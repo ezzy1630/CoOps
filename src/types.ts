@@ -102,6 +102,8 @@ export interface TypedPayload {
   agent?: AgentDef
   text?: string
   author?: Ref
+  /** set on events produced by offline demo scripting rather than the backend */
+  simulated?: boolean
 }
 
 export interface WorldEvent {

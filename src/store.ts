@@ -335,7 +335,11 @@ export const useStore = create<Store>()((set, get) => {
         engineStarted = true
         disconnectLive = connectLive((e) => {
           const log = [...get().log, e].sort(sortByTs)
-          set({ log, world: rebuild(log) })
+          const patch: Partial<Store> = { log, world: rebuild(log) }
+          if (e.type === 'Chat' && e.from?.kind === 'agent') {
+            patch.chatPending = { ...get().chatPending, [e.from.id]: false }
+          }
+          set(patch)
         }, get().persona?.id ?? 'maya')
         setInterval(tick, 300)
         return
@@ -430,7 +434,9 @@ export const useStore = create<Store>()((set, get) => {
 
     runHeroAuto() {
       if (liveEnabled()) {
-        get().toast('Hero demo runs in simulation mode', 'Reload without ?backend=live to rehearse the scripted launch.')
+        get().sendChat('op-marketing', 'I need a dedicated agent to run the Summit Series launch.')
+        get().openPanel('agent', 'op-marketing')
+        get().toast('Launch demo started', 'Asking the Marketing Agent for a launch agent. The conversation runs in the Agent Room.')
         return
       }
       const stage = get().heroStage
