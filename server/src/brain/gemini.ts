@@ -166,7 +166,10 @@ async function runTurn(
     const verdict = guardrail.inspect(raw)
     if (verdict.blocked) {
       emitBlocked(ctx, deptId, verdict.category)
-      if (turnTaskId) emitExchangeAborted(ctx, turnTaskId, deptId, verdict.category)
+      if (turnTaskId) {
+        ctx.cancelTask(turnTaskId)
+        emitExchangeAborted(ctx, turnTaskId, deptId, verdict.category)
+      }
       finishWithRefusal(ctx, agentId, personId)
       return true
     }

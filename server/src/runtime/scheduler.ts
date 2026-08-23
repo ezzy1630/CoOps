@@ -6,7 +6,7 @@ export interface Step {
 }
 
 export class Scheduler {
-  private readonly timers = new Set<NodeJS.Timeout>()
+  private readonly timers = new Map<NodeJS.Timeout, string | undefined>()
 
   constructor(private readonly append: (e: Omit<WorldEvent, 'id' | 'ts'>) => Promise<unknown>) {}
 
@@ -15,9 +15,25 @@ export class Scheduler {
     for (const step of steps) {
       const timer = setTimeout(() => {
         this.timers.delete(timer)
-        this.append(step.e).catch(err => this.failTask(step, err))
+        this.append(step.e)
+          .then(() => {
+            if (step.e.type === 'TaskFailed' && step.e.taskId) this.cancelTask(step.e.taskId)
+          })
+          .catch(err => this.failTask(step, err))
       }, Math.max(0, base + step.at))
-      this.timers.add(timer)
+      this.timers.set(timer, step.e.taskId)
+    }
+  }
+
+  /**
+   * Prevents a terminal task outcome from being followed by stale scheduled
+   * steps such as ArtifactDelivered or TaskCompleted.
+   */
+  cancelTask(taskId: string): void {
+    for (const [timer, scheduledTaskId] of this.timers) {
+      if (scheduledTaskId !== taskId) continue
+      clearTimeout(timer)
+      this.timers.delete(timer)
     }
   }
 
@@ -26,6 +42,7 @@ export class Scheduler {
   private failTask(step: Step, err: unknown): void {
     console.error('[scheduler] failed to commit scheduled event:', err)
     if (!step.e.taskId) return
+    this.cancelTask(step.e.taskId)
     this.append({
       type: 'TaskFailed',
       taskId: step.e.taskId,
@@ -39,7 +56,7 @@ export class Scheduler {
   }
 
   clear(): void {
-    for (const timer of this.timers) clearTimeout(timer)
+    for (const timer of this.timers.keys()) clearTimeout(timer)
     this.timers.clear()
   }
 }

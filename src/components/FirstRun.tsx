@@ -154,8 +154,8 @@ export default function FirstRun() {
             transition={{ duration: 0.22, ease: 'easeOut' }}
           >
             <div className="font-mono text-[10px] tracking-wider text-task uppercase">{current.kicker}</div>
-            <h2 className="mt-2.5 text-[20px] font-semibold tracking-tight">{current.title}</h2>
-            <p className="mt-2.5 text-[13px] leading-relaxed text-mut">{current.body}</p>
+            <h2 className="mt-2.5 text-[22px] leading-tight font-semibold tracking-[-0.02em]">{current.title}</h2>
+            <p className="mt-2.5 text-[13.5px] leading-relaxed text-mut">{current.body}</p>
           </motion.div>
         </AnimatePresence>
 
@@ -174,7 +174,7 @@ export default function FirstRun() {
 
           {i > 0 && (
             <button
-              className="cursor-pointer rounded-lg px-3 py-1.5 text-[13px] font-medium text-mut transition-colors hover:bg-hover hover:text-ink"
+              className="cursor-pointer rounded-sm px-3 py-1.5 text-[13px] font-medium text-mut transition-colors hover:bg-hover hover:text-ink"
               onClick={() => setStep(i - 1)}
             >
               Back
@@ -186,7 +186,7 @@ export default function FirstRun() {
         </div>
 
         <div className="mt-4 border-t border-line pt-3 text-center">
-          <button className="text-[11px] text-dim transition-colors hover:text-mut" onClick={() => setStep(null)}>
+          <button className="text-[11.5px] text-dim transition-colors hover:text-mut" onClick={() => setStep(null)}>
             Skip tour
           </button>
         </div>

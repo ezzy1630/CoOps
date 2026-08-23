@@ -73,6 +73,7 @@ const brainCtx: BrainCtx = {
     void store.append(e)
   },
   schedule: (steps, baseDelayMs) => scheduler.schedule(steps, baseDelayMs),
+  cancelTask: taskId => scheduler.cancelTask(taskId),
   worldTasks: () => worldTasks(store.all()),
   interviewStep: agentId => interviews.get(agentId) ?? null,
   setInterviewStep: (agentId, step) => {

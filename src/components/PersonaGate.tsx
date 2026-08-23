@@ -1,3 +1,4 @@
+import { ArrowRight } from '@phosphor-icons/react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store'
 import { PERSONAS, personById } from '../data/company'
@@ -10,15 +11,16 @@ const rise = (delay: number) => ({
 })
 
 /**
- * Veil density, not decoration: the same paper token at 85% behind the text
- * column, falling to 55% at the edges so the live map still moves peripherally.
+ * Veil density, not decoration: paper pooled behind the left text column so
+ * the type sits on near-solid ground while the live map still moves at the
+ * right edge of the frame.
  */
 const VEIL =
-  'radial-gradient(ellipse 78% 68% at 50% 46%,' +
-  ' color-mix(in srgb, var(--color-bg) 85%, transparent) 0%,' +
-  ' color-mix(in srgb, var(--color-bg) 85%, transparent) 34%,' +
-  ' color-mix(in srgb, var(--color-bg) 74%, transparent) 66%,' +
-  ' color-mix(in srgb, var(--color-bg) 55%, transparent) 100%)'
+  'radial-gradient(ellipse 62% 78% at 30% 50%,' +
+  ' color-mix(in srgb, var(--color-bg) 92%, transparent) 0%,' +
+  ' color-mix(in srgb, var(--color-bg) 90%, transparent) 38%,' +
+  ' color-mix(in srgb, var(--color-bg) 72%, transparent) 68%,' +
+  ' color-mix(in srgb, var(--color-bg) 42%, transparent) 100%)'
 
 /** The persona whose route through the demo lands an approval in the viewer's lap. */
 const DEMO_PERSONA = 'dana'
@@ -39,58 +41,53 @@ export default function PersonaGate() {
         <motion.div {...rise(0)}>
           <Wordmark size={25} />
         </motion.div>
-        <motion.div {...rise(0.04)} className="flex items-center gap-2 text-[10px] text-dim">
+        <motion.div {...rise(0.04)} className="flex items-center gap-2 text-[11px] text-dim">
           <span className="size-1.5 rounded-full bg-ok" />
           <span>Company is live</span>
         </motion.div>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-5 py-8">
-        <div className="w-full max-w-2xl border border-linebright/80 bg-surface/95 shadow-[0_12px_32px_rgb(23_22_15/0.08)] dark:bg-raised/95">
-          <div className="border-b border-line px-5 py-5 md:px-6">
-            <motion.h1 {...rise(0.08)} className="text-[20px] font-semibold tracking-[-0.025em]">
-              Enter Everpeak Outfitters
-            </motion.h1>
-            <motion.p {...rise(0.12)} className="mt-1.5 max-w-xl text-[12px] leading-relaxed text-mut">
-              Choose whose authority and department you want to work from. The company keeps running underneath.
-            </motion.p>
-          </div>
+      {/* Editorial column: asymmetric whitespace right, the running map visible there */}
+      <div className="flex min-h-0 flex-1 items-center overflow-y-auto">
+        <div className="w-full max-w-[600px] shrink-0 py-10 pl-[8vw] pr-6">
+          <motion.h1 {...rise(0.08)} className="text-[34px] leading-[1.08] font-semibold tracking-[-0.03em]">
+            Enter Everpeak Outfitters
+          </motion.h1>
+          <motion.p {...rise(0.12)} className="mt-3 max-w-[46ch] text-[14px] leading-relaxed text-mut">
+            Choose whose authority and department you want to work from. The company keeps running underneath.
+          </motion.p>
 
-          <div className="px-5 py-3 md:px-6">
-            <div className="divide-y divide-line border-y border-line">
-              {PERSONAS.map((p, i) => {
-                const person = personById.get(p.personId)
-                if (!person) return null
-                return (
-                  <motion.button
-                    key={p.personId}
-                    {...rise(0.18 + i * 0.06)}
-                    onClick={() => useStore.getState().enter(p.personId)}
-                    className="group grid w-full cursor-pointer grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-hover"
-                  >
-                    <span
-                      className="flex size-8 items-center justify-center border border-linebright text-[9px] font-semibold text-ink"
-                    >
-                      {person.initials}
+          <div className="mt-9 border-t border-linebright/80">
+            {PERSONAS.map((p, i) => {
+              const person = personById.get(p.personId)
+              if (!person) return null
+              return (
+                <motion.button
+                  key={p.personId}
+                  {...rise(0.2 + i * 0.06)}
+                  onClick={() => useStore.getState().enter(p.personId)}
+                  className="group grid w-full cursor-pointer grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 border-b border-line px-3 py-3.5 text-left transition-colors hover:bg-hover/70 focus:bg-hover/70 focus:outline-none"
+                >
+                  <span className="flex size-9 items-center justify-center border border-linebright bg-surface/80 text-[10px] font-semibold text-ink">
+                    {person.initials}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="flex items-baseline gap-2">
+                      <span aria-hidden className="h-3.5 w-px shrink-0 self-center" style={{ background: `hsl(${person.hue} 56% 52%)` }} />
+                      <span className="truncate text-[15px] font-medium tracking-[-0.01em] text-ink">{person.name}</span>
+                      <span className="truncate text-[12px] text-dim">{p.label}</span>
                     </span>
-                    <span className="min-w-0">
-                      <span className="flex items-center gap-2">
-                        <span aria-hidden className="h-3 w-px shrink-0" style={{ background: `hsl(${person.hue} 56% 52%)` }} />
-                        <span className="truncate text-[13px] font-medium text-ink">{person.name}</span>
-                        <span className="text-[11px] text-dim">{p.label}</span>
-                      </span>
-                      <span className="mt-0.5 block truncate text-[11px] text-mut">{p.description.replace(' — ', ', ')}</span>
-                    </span>
-                    <span className={p.personId === DEMO_PERSONA ? 'text-[10px] text-human' : 'text-[14px] text-dim'}>
-                      {p.personId === DEMO_PERSONA ? 'Approval route' : '→'}
-                    </span>
-                  </motion.button>
-                )
-              })}
-            </div>
+                    <span className="mt-1 block truncate text-[12px] leading-snug text-mut">{p.description.replace(' — ', ', ')}</span>
+                  </span>
+                  <span className={p.personId === DEMO_PERSONA
+                    ? 'inline-flex items-center gap-1 text-[11px] font-medium text-human'
+                    : 'text-dim transition-transform group-hover:translate-x-0.5'}>
+                    {p.personId === DEMO_PERSONA ? <>Approval route <ArrowRight size={12} weight="bold" /></> : <ArrowRight size={14} />}
+                  </span>
+                </motion.button>
+              )
+            })}
           </div>
-
-          <motion.p {...rise(0.42)} className="px-6 pb-4 text-[10px] text-dim">Demo workspace. No login required.</motion.p>
         </div>
       </div>
     </motion.div>

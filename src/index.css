@@ -19,7 +19,7 @@
   --color-linebright: #cfccc1;
   --color-ink: #1d1c17;
   --color-mut: #6d6a60;
-  --color-dim: #9a968a;
+  --color-dim: #837f74;
 
   --color-task: #2557d6;
   --color-artifact: #1e7a3d;
@@ -64,7 +64,7 @@ html.dark {
   --color-linebright: #3c4041;
   --color-ink: #e5e7e4;
   --color-mut: #a1a6a2;
-  --color-dim: #6f7571;
+  --color-dim: #7d8380;
 
   --color-task: #91a9dc;
   --color-artifact: #63bd82;
@@ -124,6 +124,14 @@ body {
   background: color-mix(in srgb, var(--color-task) 18%, transparent);
 }
 
+/* One visible keyboard-focus language everywhere: a task-blue ring. Specificity
+   stays at zero (:where) so component rules like the scrubber's custom thumb
+   focus keep winning. */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-task) 55%, transparent);
+  outline-offset: 1px;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-linebright) transparent;
@@ -135,11 +143,17 @@ body {
     @apply bg-surface border border-line rounded-sm;
     box-shadow: 0 1px 2px rgb(23 22 15 / 0.05), 0 8px 24px rgb(23 22 15 / 0.05);
   }
+  /* Chips are quiet by default: transparent border (so semantic tints can
+     colorize it), no surface fill — a label, not a box. */
   .chip {
-    @apply inline-flex items-center gap-1 rounded-sm border border-line bg-surface px-1.5 py-0.5 text-[10px] font-medium text-mut;
+    @apply inline-flex items-center gap-1 rounded-sm border border-transparent px-1.5 py-0.5 text-[11px] leading-4 font-medium text-mut;
   }
   .btn {
     @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-sm border border-linebright bg-surface px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:bg-raised;
+  }
+  /* tactile press: the button dips a hairline, like a real key */
+  .btn:active {
+    translate: 0 1px;
   }
   .btn-primary {
     @apply border-ink bg-ink text-bg hover:bg-ink/85 hover:border-ink;
@@ -179,6 +193,12 @@ body {
    and position, not a continuously repainting node. */
 .coops-map text {
   font-variant-numeric: tabular-nums;
+}
+/* The drafting canvas sits slightly *below* the app chrome: a soft vignette
+   pulls the paper's edges back so floating panels read as above it. */
+.coops-map,
+.coops-valley {
+  box-shadow: inset 0 0 90px color-mix(in srgb, var(--color-abyss) 7%, transparent);
 }
 .coops-map .map-instrument {
   opacity: 0.72;
@@ -306,10 +326,17 @@ html.fun-mode.dark {
 .sprite-bob {
   animation: sprite-bob 1.1s steps(1, end) infinite;
 }
-/* walkers reuse the same two-frame flip at a running step; reduced motion
+/* walkers reuse the two-frame flip at a running step, plus a small vertical
+   hop on the same clock so the gait bounces instead of skating; reduced motion
    freezes them on their contact pose via the element's static position */
+@keyframes sprite-hop {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.5px); }
+}
 .sprite-walk {
-  animation: sprite-bob 0.38s steps(1, end) infinite;
+  animation:
+    sprite-bob 0.38s steps(1, end) infinite,
+    sprite-hop 0.38s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .sprite-bob {

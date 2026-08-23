@@ -26,23 +26,23 @@ export default function Toasts() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, x: 30 }}
             className={cx(
-              'cursor-pointer rounded-md border bg-surface p-3 shadow-[0_2px_10px_rgb(23_22_15/0.1)]',
-              toast.kind === 'block' && 'border-guard/40',
-              toast.kind === 'human' && 'border-human/40',
-              toast.kind === 'info' && 'border-line',
+              'cursor-pointer rounded-sm border border-line bg-surface p-3 shadow-[0_2px_10px_rgb(23_22_15/0.1)] [border-left-width:2px]',
+              toast.kind === 'block' && 'border-l-guard',
+              toast.kind === 'human' && 'border-l-human',
+              toast.kind === 'info' && 'border-l-linebright',
             )}
             onClick={() => useStore.getState().dismissToast(toast.id)}
           >
             <div
               className={cx(
-                'text-[12px] font-medium',
+                'text-[13px] font-medium',
                 toast.kind === 'block' && 'text-guard',
                 toast.kind === 'human' && 'text-human',
               )}
             >
               {toast.title}
             </div>
-            {toast.detail && <div className="mt-0.5 text-[11px] leading-snug text-mut">{toast.detail}</div>}
+            {toast.detail && <div className="mt-0.5 text-[12px] leading-snug text-mut">{toast.detail}</div>}
           </motion.div>
         ))}
       </AnimatePresence>

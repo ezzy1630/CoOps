@@ -12,6 +12,7 @@ import type { Config } from '../config.js'
 import { startHttp } from '../http.js'
 import { EventStore } from '../store.js'
 import { workerIdFromName } from '../ids.js'
+import { Scheduler } from '../runtime/scheduler.js'
 
 interface Frame {
   id: string
@@ -313,6 +314,29 @@ test('workerIdFromName derives unique ids per blueprint name', () => {
   assert.equal(workerIdFromName('Summit   Launch -- Agent!', new Set()), 'w-summit-launch-agent')
   // punctuation-only names still yield a valid id
   assert.ok(workerIdFromName('???', new Set()).startsWith('w-'))
+})
+
+test('scheduler cancels remaining task steps after an append failure', async t => {
+  t.mock.method(console, 'error', () => {})
+  const attempts: WorldEvent['type'][] = []
+  let failNext = true
+  const scheduler = new Scheduler(async event => {
+    attempts.push(event.type)
+    if (failNext) {
+      failNext = false
+      throw new Error('simulated store failure')
+    }
+  })
+
+  scheduler.schedule([
+    { at: 0, e: { type: 'StatusUpdate', taskId: 'T-fail', title: 'Working' } },
+    { at: 20, e: { type: 'ArtifactDelivered', taskId: 'T-fail', title: 'Delivered' } },
+    { at: 30, e: { type: 'TaskCompleted', taskId: 'T-fail', title: 'Done' } },
+  ])
+
+  await sleep(60)
+  assert.deepEqual(attempts, ['StatusUpdate', 'TaskFailed'])
+  scheduler.clear()
 })
 
 test('since parameter: stream resumes after the given event, not from it', async t => {
