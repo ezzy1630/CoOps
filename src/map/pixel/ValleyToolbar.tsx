@@ -43,7 +43,7 @@ export default function ValleyToolbar({
 
   return (
     <div
-      className="absolute top-0 left-0 z-20 flex h-[52px] items-center gap-4 border-b border-line bg-surface px-3"
+      className="valley-toolbar absolute top-0 left-0 z-20 flex h-[52px] items-center gap-4 border-b border-line bg-surface px-3"
       style={{ right: panelWidth }}
       onClick={(event) => event.stopPropagation()}
     >

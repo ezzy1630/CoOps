@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, RefObject } from 'react'
 import { PANEL_WIDTH, useStore, type PresenceMark } from '../../store'
 import { BASE_AGENTS, DEPARTMENTS, personById } from '../../data/company'
 import { buildWorld, taskParticipants } from '../../engine/reducer'
@@ -17,6 +17,7 @@ import {
   type StandSpot,
 } from './layout'
 import { deriveWalkers, emoteFor, lastActs, lastSpeech, walkerWindowMs } from './choreography'
+import { onValleyCamera } from './camera'
 import ValleyToolbar, { readValleyFilterCounts, type ValleyFilter, type ValleyInspection } from './ValleyToolbar'
 const CELL = 24 // avatar cell in the strip, manifest avatars.cell
 const CELL_PX = CELL * SPRITE_SCALE
@@ -28,6 +29,12 @@ const EMOTE_FRESH_MS = 6000
 const SPEECH_MS = 6000
 const VALLEY_TOOLBAR_HEIGHT = 52
 const VALLEY_RUN_BAR_HEIGHT = 56
+/** user zoom over the fit baseline: fit is the floor, 4× is where texels go chunky */
+const ZOOM_MIN = 1
+const ZOOM_MAX = 4
+/** Avatar chips are light pastels in both themes, so their initials need ink
+ *  that stays dark. Deliberately a literal, same as the classic map. */
+const CHIP_INK = '#1d1c17'
 
 // every standing villager idles between the same two strip columns (down0 ↔ down1)
 const BOB_VARS = {
@@ -154,6 +161,13 @@ export default function PixelMap() {
     return () => ro.disconnect()
   }, [])
 
+  // ── camera: user zoom over the fit baseline, plus screen-space pan. Fit is
+  //    the floor, so the stage never shrinks into more letterbox than it has. ──
+  const [cam, setCam] = useState<{ zoom: number; tx: number; ty: number }>({ zoom: 1, tx: 0, ty: 0 })
+  const dragRef = useRef<{ x: number; y: number; moved: number } | null>(null)
+  /** true once a drag turned into a pan; the next click (background or sprite) yields */
+  const pannedRef = useRef(false)
+
   // ── clock: throttled rAF — fast while anything moves (replay, fresh events,
   //    spawn/finish/guardrail windows), sleepy otherwise ──
   const lastTickRef = useRef(0)
@@ -210,13 +224,117 @@ export default function PixelMap() {
   const panelW = panel ? PANEL_WIDTH[panel.kind] : 0
   const availableWidth = Math.max(1, size.w - panelW - 24)
   const availableHeight = Math.max(1, size.h - VALLEY_TOOLBAR_HEIGHT - VALLEY_RUN_BAR_HEIGHT - 20)
+  const centerX = 12 + availableWidth / 2
+  const centerY = VALLEY_TOOLBAR_HEIGHT + 10 + availableHeight / 2
+  const baseK = artState.status === 'ready' ? fitK(availableWidth, availableHeight, artState.art.world) : 1
+
+  // live geometry for the wheel/drag listeners, which close over nothing
+  const viewRef = useRef({ centerX, centerY, baseK, availableWidth, availableHeight, worldW: 960, worldH: 600 })
+  viewRef.current = {
+    centerX,
+    centerY,
+    baseK,
+    availableWidth,
+    availableHeight,
+    worldW: artState.status === 'ready' ? artState.art.world.w : 960,
+    worldH: artState.status === 'ready' ? artState.art.world.h : 600,
+  }
+
+  /** Keep the stage edges from travelling past the fit area: at fit zoom this
+   *  pins pan to zero, deeper in it allows exactly the slack the zoom added. */
+  const clampCam = (c: { zoom: number; tx: number; ty: number }) => {
+    const v = viewRef.current
+    const s = v.baseK * c.zoom
+    const mx = Math.max(0, (v.worldW * s - v.availableWidth) / 2)
+    const my = Math.max(0, (v.worldH * s - v.availableHeight) / 2)
+    return {
+      zoom: c.zoom,
+      tx: Math.max(-mx, Math.min(mx, c.tx)),
+      ty: Math.max(-my, Math.min(my, c.ty)),
+    }
+  }
+
+  // ── wheel & trackpad pinch: zoom anchored under the cursor. Trackpad pinch
+  //    arrives as ctrl+wheel with small deltas, so it gets a stronger gain. ──
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if ((e.target as Element).closest('.valley-toolbar')) return
+      e.preventDefault()
+      const v = viewRef.current
+      const rect = el.getBoundingClientRect()
+      const mx = e.clientX - rect.left - v.centerX
+      const my = e.clientY - rect.top - v.centerY
+      setCam((c) => {
+        const zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, c.zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.0075 : 0.0016))))
+        const f = zoom / c.zoom
+        return clampCam({ zoom, tx: mx - (mx - c.tx) * f, ty: my - (my - c.ty) * f })
+      })
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── status-bar zoom buttons ──
+  useEffect(
+    () =>
+      onValleyCamera((target) => {
+        if (target.type === 'fit') {
+          setCam({ zoom: 1, tx: 0, ty: 0 })
+          return
+        }
+        setCam((c) => {
+          const zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, c.zoom * target.factor))
+          const f = zoom / c.zoom
+          return clampCam({ zoom, tx: c.tx * f, ty: c.ty * f })
+        })
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    // the toolbar is app chrome sitting inside the container; it never pans the map
+    if ((e.target as Element).closest('.valley-toolbar')) return
+    dragRef.current = { x: e.clientX, y: e.clientY, moved: 0 }
+    pannedRef.current = false
+    ;(e.target as Element).setPointerCapture?.(e.pointerId)
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current
+    if (!d) return
+    const dx = e.clientX - d.x
+    const dy = e.clientY - d.y
+    d.moved += Math.abs(dx) + Math.abs(dy)
+    if (d.moved > 3) {
+      pannedRef.current = true
+      setCam((c) => clampCam({ zoom: c.zoom, tx: c.tx + dx, ty: c.ty + dy }))
+    }
+    d.x = e.clientX
+    d.y = e.clientY
+  }
+  const onPointerUp = () => {
+    dragRef.current = null
+  }
 
   return (
     <div
       ref={containerRef}
-      className="coops-valley absolute inset-0 overflow-hidden"
-      style={{ backgroundColor: 'var(--color-map-canvas)' }}
-      onClick={() => useStore.getState().selectTask(null)}
+      className="coops-valley absolute inset-0 cursor-grab select-none overflow-hidden active:cursor-grabbing"
+      style={{ backgroundColor: 'var(--color-map-canvas)', touchAction: 'none' }}
+      onClick={() => {
+        // sprite buttons stopPropagation; a click that reaches the container
+        // is a background click — unless that click is the end of a pan
+        if (pannedRef.current) return
+        useStore.getState().selectTask(null)
+      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
     >
       <ValleyToolbar
         world={renderWorld}
@@ -237,9 +355,11 @@ export default function PixelMap() {
           highlightEventId={highlightEventId}
           presence={presence}
           renderTime={renderTime}
-          k={fitK(availableWidth, availableHeight, artState.art.world)}
-          centerX={12 + availableWidth / 2}
-          centerY={VALLEY_TOOLBAR_HEIGHT + 10 + availableHeight / 2}
+          k={baseK}
+          panX={centerX + cam.tx}
+          panY={centerY + cam.ty}
+          zoom={cam.zoom}
+          pannedRef={pannedRef}
           filter={filter}
           showNames={showNames}
           onInspect={setInspection}
@@ -257,12 +377,13 @@ export default function PixelMap() {
 }
 
 /**
- * A fixed 960×600 stage, uniformly scaled to fit. Painter order is pure
- * z-index off each element's base line (buildings y+h, villagers feet y), so
- * DOM order never decides who stands in front.
+ * A fixed 960×600 stage, framed like a board and uniformly scaled (fit baseline
+ * times user zoom, positioned by pan). Painter order is pure z-index off each
+ * element's base line (buildings y+h, villagers feet y), so DOM order never
+ * decides who stands in front.
  */
 function Scene({
-  art, world, spots, focus, selectedTaskId, highlightEventId, presence, renderTime, k, centerX, centerY, filter, showNames, onInspect,
+  art, world, spots, focus, selectedTaskId, highlightEventId, presence, renderTime, k, panX, panY, zoom, pannedRef, filter, showNames, onInspect,
 }: {
   art: PixelArt
   world: World
@@ -273,8 +394,10 @@ function Scene({
   presence: PresenceMark[]
   renderTime: number
   k: number
-  centerX: number
-  centerY: number
+  panX: number
+  panY: number
+  zoom: number
+  pannedRef: RefObject<boolean>
   filter: ValleyFilter
   showNames: boolean
   onInspect: (inspection: ValleyInspection) => void
@@ -371,8 +494,8 @@ function Scene({
 
   return (
     <div
-      className="absolute"
-      style={{ left: centerX, top: centerY, width: art.world.w, height: art.world.h, transform: `translate(-50%, -50%) scale(${k})` }}
+      className="valley-stage absolute"
+      style={{ left: panX, top: panY, width: art.world.w, height: art.world.h, transform: `translate(-50%, -50%) scale(${k * zoom})` }}
     >
       <img
         src={art.background}
@@ -446,6 +569,7 @@ function Scene({
               type="button"
               aria-label={`Open ${name} department`}
               onClick={(event) => {
+                if (pannedRef.current) return
                 event.stopPropagation()
                 useStore.getState().openPanel('dept', b.deptId)
               }}
@@ -521,6 +645,7 @@ function Scene({
               type="button"
               aria-label={`Open ${ag.name}, ${world.agentStatus.get(ag.id) ?? 'idle'} ${world.departments.get(ag.deptId)?.name ?? ag.deptId} agent`}
               onClick={(event) => {
+                if (pannedRef.current) return
                 event.stopPropagation()
                 useStore.getState().openPanel('agent', ag.id)
               }}
@@ -597,6 +722,7 @@ function Scene({
               type="button"
               aria-label={wk.event.taskId ? `Focus ${world.tasks.get(wk.event.taskId)?.title ?? 'traveling task'}` : 'Inspect traveling work'}
               onClick={(e) => {
+                if (pannedRef.current) return
                 e.stopPropagation()
                 const st = useStore.getState()
                 if (wk.event.taskId) st.selectTask(wk.event.taskId)
@@ -668,6 +794,7 @@ function Scene({
           aria-label={`Open approval for ${person?.name ?? 'assigned person'}`}
           key={a.eventId}
           onClick={(e) => {
+            if (pannedRef.current) return
             e.stopPropagation()
             useStore.getState().openPanel('approvals')
           }}
@@ -687,7 +814,7 @@ function Scene({
               left: 0,
               top: 3,
               background: `hsl(${person?.hue ?? 40} 52% 87%)`,
-              color: '#1d1c17',
+              color: CHIP_INK,
               borderColor: hexA(art.palette.outline, 0.45),
             }}
           >
@@ -708,7 +835,7 @@ function Scene({
             className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border px-1 font-mono text-[7.5px] leading-tight"
             style={{
               background: `hsl(${person.hue} 52% 87%)`,
-              color: '#1d1c17',
+              color: CHIP_INK,
               borderColor: hexA(art.palette.outline, 0.4),
             }}
           >

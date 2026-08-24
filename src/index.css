@@ -289,14 +289,22 @@ html.fun-mode {
   --color-fun-escalation: #d15a49;
   --color-fun-guard: #8a63c9;
   --color-fun-human: #e3ae52;
-
-  /* the letterbox around the scaled stage reads as packed earth (a manifest
-     ground tone), part of the valley rather than app chrome; the dark theme
-     drops it to warm earth-shadow so a lit board doesn't glow at midnight */
-  --color-map-canvas: #cdbd97;
 }
-html.fun-mode.dark {
-  --color-map-canvas: #443227;
+
+/* The valley stage is a fixed 960×600 board that letterboxes when the viewport
+   aspect differs. A hairline frame and a grounded shadow make that read as a
+   deliberate diorama on the canvas instead of a floating image. */
+.valley-stage {
+  box-shadow:
+    0 0 0 1px var(--color-linebright),
+    0 2px 6px rgb(23 22 15 / 0.10),
+    0 14px 34px rgb(23 22 15 / 0.18);
+}
+html.dark .valley-stage {
+  box-shadow:
+    0 0 0 1px var(--color-linebright),
+    0 2px 6px rgb(0 0 0 / 0.32),
+    0 14px 34px rgb(0 0 0 / 0.5);
 }
 
 /* nearest-neighbour upscale for sprite <img>s and background strips. Also

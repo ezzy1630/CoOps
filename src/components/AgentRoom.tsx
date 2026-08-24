@@ -825,15 +825,17 @@ function Composer({ agentId }: { agentId: string }) {
       </div>
       <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-dim">
         {listening ? (
-          <span className="text-task">Listening. Speak now.</span>
+          <span className="whitespace-nowrap text-task">Listening…</span>
         ) : (
           <>
-            <span className="kbd">↵</span>
-            <span>to send</span>
-            <span aria-hidden className="text-linebright">·</span>
+            <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+              <span className="kbd">↵</span>
+              <span>to send</span>
+            </span>
+            <span aria-hidden className="shrink-0 text-linebright">·</span>
             <button
-              className="min-w-0 truncate font-mono text-[10.5px] text-dim hover:text-mut"
-              title="Use this prompt"
+              className="min-w-0 flex-1 truncate text-left font-mono text-[10.5px] text-dim hover:text-mut"
+              title={SUGGESTION}
               onClick={() => setText(SUGGESTION)}
             >
               try: “{SUGGESTION}”
