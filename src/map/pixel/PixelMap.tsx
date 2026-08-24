@@ -334,14 +334,19 @@ export default function PixelMap() {
       }
       state.displacement = Math.max(-maxDisplacement * 0.055, state.displacement)
 
-      const ax = -ELASTIC_CAMERA_STIFFNESS * (state.cx - rest.cx)
-        - ELASTIC_CAMERA_DAMPING * state.vx
-      const ay = -ELASTIC_CAMERA_STIFFNESS * (state.cy - rest.cy)
-        - ELASTIC_CAMERA_DAMPING * state.vy
-      state.vx += ax * dt
-      state.vy += ay * dt
-      state.cx += state.vx * dt
-      state.cy += state.vy * dt
+      if (state.dragging) {
+        state.vx = 0
+        state.vy = 0
+      } else {
+        const ax = -ELASTIC_CAMERA_STIFFNESS * (state.cx - rest.cx)
+          - ELASTIC_CAMERA_DAMPING * state.vx
+        const ay = -ELASTIC_CAMERA_STIFFNESS * (state.cy - rest.cy)
+          - ELASTIC_CAMERA_DAMPING * state.vy
+        state.vx += ax * dt
+        state.vy += ay * dt
+        state.cx += state.vx * dt
+        state.cy += state.vy * dt
+      }
 
       const next = constrainCamera({
         cx: state.cx,
