@@ -78,7 +78,7 @@ export const variantFor = (agentId: string, variantCount: number): number =>
 
 // ─── Villager stand points ───────────────────────────────────────────────────
 
-const OP_DOOR_GAP = 14 // operators clear their doorway (and the dept label)
+const OP_DOOR_GAP = 30 // operators clear their doorway (and the worker fan)
 const RING_RADII = [24, 44] // sized for 24-unit sprites: neighbours need ~20 units
 const RING_SLOTS = 6 // workers per ring before spilling outward
 const FAN_ARC = Math.PI // half-circle toward the street, not back at the wall
@@ -100,6 +100,10 @@ export function standPointFor(art: PixelArt, agents: AgentDef[]): Map<string, St
 
   const spots = new Map<string, StandSpot>()
   const workerIdx = new Map<string, number>()
+  const workerCount = new Map<string, number>()
+  for (const agent of agents) {
+    if (agent.kind === 'worker') workerCount.set(agent.deptId, (workerCount.get(agent.deptId) ?? 0) + 1)
+  }
 
   for (const agent of agents) {
     const hash = hashId(agent.id)
@@ -114,7 +118,7 @@ export function standPointFor(art: PixelArt, agents: AgentDef[]): Map<string, St
     } else {
       const idx = workerIdx.get(agent.deptId) ?? 0
       workerIdx.set(agent.deptId, idx + 1)
-      spots.set(agent.id, { pt: fanPoint(art, building, idx, hash), hash })
+      spots.set(agent.id, { pt: fanPoint(art, building, idx, workerCount.get(agent.deptId) ?? 1, hash), hash })
     }
   }
   return spots
@@ -133,14 +137,19 @@ function doorOut(art: PixelArt, b: PixelBuilding, dist: number): Pt {
   return clampToWorld(art, { x: b.door.x + d.x * dist, y: b.door.y + d.y * dist })
 }
 
-function fanPoint(art: PixelArt, b: PixelBuilding, idx: number, hash: number): Pt {
+function fanPoint(art: PixelArt, b: PixelBuilding, idx: number, total: number, hash: number): Pt {
   const ring = Math.min(RING_RADII.length - 1, Math.floor(idx / RING_SLOTS))
-  const slot = idx % RING_SLOTS
-  const t = slot / (RING_SLOTS - 1)
+  const ringStart = ring * RING_SLOTS
+  const ringCount = Math.min(RING_SLOTS, total - ringStart)
+  const slot = idx - ringStart
+  const t = ringCount <= 1 ? 0.5 : slot / (ringCount - 1)
   const d = outDir(b)
   const base = Math.atan2(d.y, d.x)
   // hash-spread within ±0.11 rad and ±4px keeps neighbours from touching
-  const angle = base + (t - 0.5) * FAN_ARC + ((hash % 997) / 997 - 0.5) * 0.22
+  const fanOffset = ringCount <= 1
+    ? (hash % 2 === 0 ? -Math.PI / 2 : Math.PI / 2)
+    : (t - 0.5) * FAN_ARC
+  const angle = base + fanOffset + ((hash % 997) / 997 - 0.5) * 0.22
   const radius = RING_RADII[ring] + (((hash >>> 10) % 9) - 4)
   return clampToWorld(art, {
     x: b.door.x + Math.cos(angle) * radius,
