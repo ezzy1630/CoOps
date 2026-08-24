@@ -33,12 +33,10 @@ const STEPS: Step[] = [
 
 const CARD_W = 380
 
-/** The valley has no camera, so its literacy step teaches clicking instead of
- *  zooming — same voice, same promise of the open center. */
 const VALLEY_STEP_0 = {
-  kicker: 'CLICK TO EXPLORE',
+  kicker: 'ZOOM TO EXPLORE',
   body:
-    'Click buildings and villagers to open their work; the small walkers carry tasks between departments. The plaza stays open on purpose because there is no root agent.',
+    'Scroll to zoom and drag to pan inside the valley. Click buildings and villagers to open their work; the small walkers carry tasks between departments. The plaza stays open on purpose because there is no root agent.',
 }
 const HEADER = 56 // header height, the map starts below it
 

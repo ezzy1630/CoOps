@@ -1,19 +1,23 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
+import { animate } from 'framer-motion'
 import { PANEL_WIDTH, useStore, type PresenceMark } from '../../store'
 import { BASE_AGENTS, DEPARTMENTS, personById } from '../../data/company'
 import { buildWorld, taskParticipants } from '../../engine/reducer'
 import { virtualAt } from '../../engine/replay'
 import type { Person, World } from '../../types'
-import { usePixelArt, type EmoteName, type PixelArt } from './art'
+import { usePixelArt, type EmoteName, type PixelArt, type PixelBuilding } from './art'
 import {
   buildingFor,
-  fitK,
+  constrainCamera,
+  fitCamera,
   mailAnchor,
+  MAX_CAMERA_SCALE,
   presencePoint,
   SPRITE_SCALE,
   standPointFor,
   variantFor,
+  type PixelCamera,
   type StandSpot,
 } from './layout'
 import { deriveWalkers, emoteFor, lastActs, lastSpeech, walkerWindowMs } from './choreography'
@@ -48,6 +52,25 @@ function hexA(hex: string, alpha: number): string {
   if (!m) return hex
   const n = parseInt(m[1], 16)
   return `rgb(${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255} / ${alpha})`
+}
+
+function frameCamera(
+  vw: number,
+  vh: number,
+  world: PixelArt['world'],
+  box: { x: number; y: number; w: number; h: number },
+  pad: number,
+): PixelCamera {
+  return constrainCamera(
+    {
+      cx: box.x + box.w / 2,
+      cy: box.y + box.h / 2,
+      k: Math.min(MAX_CAMERA_SCALE, Math.min(vw / (box.w + pad * 2), vh / (box.h + pad * 2))),
+    },
+    vw,
+    vh,
+    world,
+  )
 }
 
 /**
@@ -130,7 +153,9 @@ function StatusBubble({
 
 export default function PixelMap() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [size, setSize] = useState({ w: 1200, h: 800 })
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null)
+  const [camera, setCamera] = useState<PixelCamera | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [filter, setFilter] = useState<ValleyFilter>('all')
   const [showNames, setShowNames] = useState(false)
@@ -143,14 +168,31 @@ export default function PixelMap() {
   const highlightEventId = useStore((s) => s.highlightEventId)
   const panel = useStore((s) => s.panel)
   const presence = useStore((s) => s.presence)
+  const entered = useStore((s) => s.entered)
+  const cameraRequest = useStore((s) => s.cameraRequest)
+  const art = artState.status === 'ready' ? artState.art : null
 
-  // measure like CompanyMap: the stage fits whatever box actually exists
+  // The map stays mounted while the app shell appears. Measure that committed
+  // layout before paint so the old full-screen framing never flashes inside
+  // the smaller entered-app viewport.
   useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
-    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }))
+    const next = { w: el.clientWidth, h: el.clientHeight }
+    setSize((current) => current?.w === next.w && current.h === next.h ? current : next)
+  }, [entered])
+
+  // ResizeObserver owns later window and flex-layout changes.
+  useLayoutEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const measure = () => {
+      const next = { w: el.clientWidth, h: el.clientHeight }
+      setSize((current) => current?.w === next.w && current.h === next.h ? current : next)
+    }
+    const ro = new ResizeObserver(measure)
     ro.observe(el)
-    setSize({ w: el.clientWidth, h: el.clientHeight })
+    measure()
     return () => ro.disconnect()
   }, [])
 
@@ -197,8 +239,8 @@ export default function PixelMap() {
   }, [filter, renderWorld])
 
   const spots = useMemo(
-    () => (artState.status === 'ready' ? standPointFor(artState.art, renderWorld.agents) : null),
-    [artState, renderWorld.agents],
+    () => (art ? standPointFor(art, renderWorld.agents) : null),
+    [art, renderWorld.agents],
   )
 
   const focus = useMemo(
@@ -208,15 +250,188 @@ export default function PixelMap() {
 
   // a side panel covers part of the viewport; fit and center in what remains
   const panelW = panel ? PANEL_WIDTH[panel.kind] : 0
-  const availableWidth = Math.max(1, size.w - panelW - 24)
-  const availableHeight = Math.max(1, size.h - VALLEY_TOOLBAR_HEIGHT - VALLEY_RUN_BAR_HEIGHT - 20)
+  const availableWidth = size ? Math.max(1, size.w - panelW - 24) : 0
+  const availableHeight = size ? Math.max(1, size.h - VALLEY_TOOLBAR_HEIGHT - VALLEY_RUN_BAR_HEIGHT - 20) : 0
+  const autoFitRef = useRef(true)
+  const cameraRef = useRef(camera)
+  cameraRef.current = camera
+  const cameraAnimRef = useRef<{ stop: () => void } | null>(null)
+  const lastUserCameraRef = useRef(0)
+
+  // Refit before paint while the user still owns the whole-world framing.
+  // Once they interact, resizing and panels preserve their focus and only
+  // constrain it to the newly visible rectangle.
+  useLayoutEffect(() => {
+    if (!art || availableWidth === 0 || availableHeight === 0) return
+    setCamera((current) => {
+      if (!current || autoFitRef.current) return fitCamera(availableWidth, availableHeight, art.world)
+      return constrainCamera(current, availableWidth, availableHeight, art.world)
+    })
+  }, [art, availableWidth, availableHeight])
+
+  const handledCameraRequestRef = useRef(0)
+  useEffect(() => {
+    if (
+      !art || !spots || !cameraRef.current || availableWidth === 0 || availableHeight === 0 ||
+      cameraRequest.seq === 0 || handledCameraRequestRef.current === cameraRequest.seq
+    ) return
+    const container = containerRef.current
+    if (!container) return
+    const measuredWidth = Math.max(1, container.clientWidth - panelW - 24)
+    const measuredHeight = Math.max(1, container.clientHeight - VALLEY_TOOLBAR_HEIGHT - VALLEY_RUN_BAR_HEIGHT - 20)
+    // Entry and panel commits can briefly render with the previous size state.
+    // Do not let a request captured against that stale box overwrite the
+    // synchronous fit; the size update reruns this effect with current geometry.
+    if (measuredWidth !== availableWidth || measuredHeight !== availableHeight) return
+    if (cameraRequest.gentle && Date.now() - lastUserCameraRef.current < 4000) {
+      handledCameraRequestRef.current = cameraRequest.seq
+      return
+    }
+
+    const current = cameraRef.current
+    const fitted = fitCamera(availableWidth, availableHeight, art.world)
+    const target = cameraRequest.target
+    let next: PixelCamera
+    autoFitRef.current = target.type === 'fit'
+
+    if (target.type === 'fit') {
+      next = fitted
+    } else if (target.type === 'zoomBy') {
+      next = constrainCamera(
+        { ...current, k: current.k * target.factor },
+        availableWidth,
+        availableHeight,
+        art.world,
+      )
+    } else if (target.type === 'dept') {
+      const building = buildingFor(art, target.deptId)
+      next = building
+        ? constrainCamera(
+            { cx: building.x + building.w / 2, cy: building.y + building.h / 2, k: Math.max(fitted.k, 1.6) },
+            availableWidth,
+            availableHeight,
+            art.world,
+          )
+        : fitted
+    } else if (target.type === 'agent') {
+      const point = spots.get(target.agentId)?.pt
+      next = point
+        ? constrainCamera(
+            { cx: point.x, cy: point.y, k: Math.max(fitted.k, 2.2) },
+            availableWidth,
+            availableHeight,
+            art.world,
+          )
+        : fitted
+    } else {
+      const buildings = target.deptIds
+        .map((deptId) => buildingFor(art, deptId))
+        .filter((building): building is PixelBuilding => building != null)
+      if (buildings.length === 0) {
+        next = fitted
+      } else {
+        const left = Math.min(...buildings.map((building) => building.x))
+        const top = Math.min(...buildings.map((building) => building.y))
+        const right = Math.max(...buildings.map((building) => building.x + building.w))
+        const bottom = Math.max(...buildings.map((building) => building.y + building.h))
+        next = frameCamera(availableWidth, availableHeight, art.world, { x: left, y: top, w: right - left, h: bottom - top }, 48)
+      }
+    }
+
+    handledCameraRequestRef.current = cameraRequest.seq
+    cameraAnimRef.current?.stop()
+    const from = current
+    cameraAnimRef.current = animate(0, 1, {
+      duration: cameraRequest.gentle ? 1.15 : 0.7,
+      ease: cameraRequest.gentle ? [0.45, 0.05, 0.15, 1] : [0.32, 0.72, 0.12, 1],
+      onUpdate: (value) => setCamera(constrainCamera({
+        cx: from.cx + (next.cx - from.cx) * value,
+        cy: from.cy + (next.cy - from.cy) * value,
+        k: from.k + (next.k - from.k) * value,
+      }, availableWidth, availableHeight, art.world)),
+    })
+  }, [art, spots, panelW, availableWidth, availableHeight, cameraRequest])
+
+  useEffect(() => {
+    const el = viewportRef.current
+    if (!el || !art) return
+    const onWheel = (event: WheelEvent) => {
+      if ((event.target as Element).closest('.speech-bubble-scroll')) return
+      event.preventDefault()
+      const current = cameraRef.current
+      if (!current) return
+      lastUserCameraRef.current = Date.now()
+      autoFitRef.current = false
+      cameraAnimRef.current?.stop()
+      const rect = el.getBoundingClientRect()
+      const px = event.clientX - rect.left - rect.width / 2
+      const py = event.clientY - rect.top - rect.height / 2
+      const nextK = constrainCamera(
+        { ...current, k: current.k * Math.exp(-event.deltaY * 0.0016) },
+        availableWidth,
+        availableHeight,
+        art.world,
+      ).k
+      const worldX = current.cx + px / current.k
+      const worldY = current.cy + py / current.k
+      setCamera(constrainCamera({
+        cx: worldX - px / nextK,
+        cy: worldY - py / nextK,
+        k: nextK,
+      }, availableWidth, availableHeight, art.world))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [art, availableWidth, availableHeight])
+
+  useEffect(() => () => cameraAnimRef.current?.stop(), [])
+
+  const dragRef = useRef<{ pointerId: number; x: number; y: number; moved: number } | null>(null)
+  const draggedRef = useRef(false)
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    draggedRef.current = false
+    dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: 0 }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    const current = cameraRef.current
+    if (!drag || drag.pointerId !== event.pointerId || !current || !art) return
+    const dx = event.clientX - drag.x
+    const dy = event.clientY - drag.y
+    drag.moved += Math.abs(dx) + Math.abs(dy)
+    if (drag.moved > 3) {
+      event.preventDefault()
+      draggedRef.current = true
+      lastUserCameraRef.current = Date.now()
+      autoFitRef.current = false
+      cameraAnimRef.current?.stop()
+      setCamera(constrainCamera(
+        { ...current, cx: current.cx - dx / current.k, cy: current.cy - dy / current.k },
+        availableWidth,
+        availableHeight,
+        art.world,
+      ))
+    }
+    drag.x = event.clientX
+    drag.y = event.clientY
+  }
+  const finishPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null
+  }
+  const suppressDraggedClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!draggedRef.current) return
+    draggedRef.current = false
+    event.preventDefault()
+    event.stopPropagation()
+  }
 
   return (
     <div
       ref={containerRef}
       className="coops-valley absolute inset-0 overflow-hidden"
       style={{ backgroundColor: 'var(--color-map-canvas)' }}
-      onClick={() => useStore.getState().selectTask(null)}
     >
       <ValleyToolbar
         world={renderWorld}
@@ -227,23 +442,37 @@ export default function PixelMap() {
         onFilterChange={setFilter}
         onShowNamesChange={setShowNames}
       />
-      {artState.status === 'ready' && spots && (
-        <Scene
-          art={artState.art}
-          world={renderWorld}
-          spots={spots}
-          focus={focus}
-          selectedTaskId={selectedTaskId}
-          highlightEventId={highlightEventId}
-          presence={presence}
-          renderTime={renderTime}
-          k={fitK(availableWidth, availableHeight, artState.art.world)}
-          centerX={12 + availableWidth / 2}
-          centerY={VALLEY_TOOLBAR_HEIGHT + 10 + availableHeight / 2}
-          filter={filter}
-          showNames={showNames}
-          onInspect={setInspection}
-        />
+      {size && (
+        <div
+          ref={viewportRef}
+          className="absolute cursor-grab touch-none overflow-hidden active:cursor-grabbing"
+          style={{ left: 12, top: VALLEY_TOOLBAR_HEIGHT + 10, width: availableWidth, height: availableHeight }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={finishPointer}
+          onPointerCancel={finishPointer}
+          onClickCapture={suppressDraggedClick}
+          onClick={() => useStore.getState().selectTask(null)}
+        >
+          {art && spots && camera && (
+            <Scene
+              art={art}
+              world={renderWorld}
+              spots={spots}
+              focus={focus}
+              selectedTaskId={selectedTaskId}
+              highlightEventId={highlightEventId}
+              presence={presence}
+              renderTime={renderTime}
+              camera={camera}
+              viewportWidth={availableWidth}
+              viewportHeight={availableHeight}
+              filter={filter}
+              showNames={showNames}
+              onInspect={setInspection}
+            />
+          )}
+        </div>
       )}
       {artState.status !== 'ready' && (
         <div className="absolute inset-0 flex items-center justify-center">
@@ -257,12 +486,12 @@ export default function PixelMap() {
 }
 
 /**
- * A fixed 960×600 stage, uniformly scaled to fit. Painter order is pure
+ * A fixed 960×600 stage viewed through the Valley camera. Painter order is pure
  * z-index off each element's base line (buildings y+h, villagers feet y), so
  * DOM order never decides who stands in front.
  */
 function Scene({
-  art, world, spots, focus, selectedTaskId, highlightEventId, presence, renderTime, k, centerX, centerY, filter, showNames, onInspect,
+  art, world, spots, focus, selectedTaskId, highlightEventId, presence, renderTime, camera, viewportWidth, viewportHeight, filter, showNames, onInspect,
 }: {
   art: PixelArt
   world: World
@@ -272,13 +501,14 @@ function Scene({
   highlightEventId: string | null
   presence: PresenceMark[]
   renderTime: number
-  k: number
-  centerX: number
-  centerY: number
+  camera: PixelCamera
+  viewportWidth: number
+  viewportHeight: number
   filter: ValleyFilter
   showNames: boolean
   onInspect: (inspection: ValleyInspection) => void
 }) {
+  const { cx, cy, k } = camera
   const approvalAgentIds = useMemo(
     () => new Set(world.approvals.flatMap((approval) => approval.requestedBy?.kind === 'agent' ? [approval.requestedBy.id] : [])),
     [world.approvals],
@@ -372,7 +602,14 @@ function Scene({
   return (
     <div
       className="absolute"
-      style={{ left: centerX, top: centerY, width: art.world.w, height: art.world.h, transform: `translate(-50%, -50%) scale(${k})` }}
+      style={{
+        left: 0,
+        top: 0,
+        width: art.world.w,
+        height: art.world.h,
+        transformOrigin: '0 0',
+        transform: `translate(${viewportWidth / 2}px, ${viewportHeight / 2}px) scale(${k}) translate(${-cx}px, ${-cy}px)`,
+      }}
     >
       <img
         src={art.background}

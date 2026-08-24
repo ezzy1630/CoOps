@@ -15,7 +15,6 @@ export default function MapOverlays() {
   const panel = useStore((s) => s.panel)
   const log = useStore((s) => s.log)
   const scheduled = useStore((s) => s.scheduled)
-  // the classic camera doesn't exist over the valley — its controls would be dead
   const mapStyle = useStore((s) => s.mapStyle)
   const executionMode = useStore((s) => s.executionMode)
   const [selectedRehearsalId, setSelectedRehearsalId] = useState(() => getRehearsal()?.id ?? '')
@@ -48,6 +47,7 @@ export default function MapOverlays() {
         {mapStyle === 'fun' ? (
           <>
             <ValleyHealth working={workingCount} blocked={blockedCount} waiting={world.approvals.length} />
+            <ZoomControls />
             <span className="h-7 w-px shrink-0 bg-line" aria-hidden />
             <ValleyRunNarrative
               definition={selectedRehearsal?.definition}

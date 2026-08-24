@@ -3,13 +3,46 @@ import type { PixelArt, PixelBuilding, Pt } from './art'
 
 /** All pixel art assets render at native 1:1 canvas units for uniform texel density. */
 export const SPRITE_SCALE = 1
+export const MAX_CAMERA_SCALE = 3.2
 
 // ─── Stage math ──────────────────────────────────────────────────────────────
+
+export interface PixelCamera {
+  cx: number
+  cy: number
+  k: number
+}
 
 /** Whole-world fit: the 960×600 stage scales to the container, clamped so it
  *  never becomes unreadable at small sizes or comically large on big screens. */
 export function fitK(vw: number, vh: number, world: { w: number; h: number }): number {
   return Math.min(2.2, Math.max(0.4, Math.min(vw / world.w, vh / world.h)))
+}
+
+/** Whole-world camera for a viewport. Fit is also the minimum user zoom: the
+ *  scene can never become smaller than the complete, centered valley. */
+export function fitCamera(vw: number, vh: number, world: { w: number; h: number }): PixelCamera {
+  return { cx: world.w / 2, cy: world.h / 2, k: fitK(vw, vh, world) }
+}
+
+/** Keep the painted world under the viewport. When one fitted dimension is
+ *  smaller than the viewport, centering is the only valid position; otherwise
+ *  the camera center is limited by the visible half-span in world units. */
+export function constrainCamera(
+  camera: PixelCamera,
+  vw: number,
+  vh: number,
+  world: { w: number; h: number },
+): PixelCamera {
+  const fit = fitK(vw, vh, world)
+  const k = Math.min(MAX_CAMERA_SCALE, Math.max(fit, camera.k))
+  const halfW = vw / (2 * k)
+  const halfH = vh / (2 * k)
+  return {
+    cx: halfW >= world.w / 2 ? world.w / 2 : Math.max(halfW, Math.min(world.w - halfW, camera.cx)),
+    cy: halfH >= world.h / 2 ? world.h / 2 : Math.max(halfH, Math.min(world.h - halfH, camera.cy)),
+    k,
+  }
 }
 
 // ─── Deterministic per-agent randomness ──────────────────────────────────────
