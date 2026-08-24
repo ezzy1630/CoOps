@@ -291,22 +291,6 @@ html.fun-mode {
   --color-fun-human: #e3ae52;
 }
 
-/* The valley stage is a fixed 960×600 board that letterboxes when the viewport
-   aspect differs. A hairline frame and a grounded shadow make that read as a
-   deliberate diorama on the canvas instead of a floating image. */
-.valley-stage {
-  box-shadow:
-    0 0 0 1px var(--color-linebright),
-    0 2px 6px rgb(23 22 15 / 0.10),
-    0 14px 34px rgb(23 22 15 / 0.18);
-}
-html.dark .valley-stage {
-  box-shadow:
-    0 0 0 1px var(--color-linebright),
-    0 2px 6px rgb(0 0 0 / 0.32),
-    0 14px 34px rgb(0 0 0 / 0.5);
-}
-
 /* nearest-neighbour upscale for sprite <img>s and background strips. Also
    opts out of Preflight's img{max-width:100%}: these imgs live inside
    width-less positioning wrappers, so that clamp silently computes them to

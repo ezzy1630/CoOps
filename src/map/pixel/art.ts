@@ -17,6 +17,14 @@ export interface PixelBuilding {
   door: Pt
 }
 
+export interface PixelBackground {
+  file: string
+  w: number
+  h: number
+  x: number
+  y: number
+}
+
 export type EmoteName = 'working' | 'blocked' | 'awaiting' | 'escalated' | 'delivering' | 'reading'
 
 export interface PixelPalette {
@@ -34,7 +42,7 @@ export interface PixelPalette {
 export interface PixelArt {
   version: number
   world: { w: number; h: number }
-  background: string
+  background: PixelBackground
   plaza: Pt
   buildings: PixelBuilding[]
   avatars: { cell: number; frameOrder: string[]; variants: string[] }
@@ -103,11 +111,24 @@ function parseManifest(raw: unknown): PixelArt | null {
   if (version === null) return null
   const world = asWorldSize(m.world)
   const plaza = asPt(m.plaza)
-  const background = asStr(asRec(m.background)?.file)
+  const bg = asRec(m.background)
+  const backgroundFile = bg && asStr(bg.file)
   const buildings = Array.isArray(m.buildings)
     ? m.buildings.map(asBuilding).filter((b): b is PixelBuilding => b !== null)
     : []
-  if (!world || !plaza || !background || buildings.length === 0) return null
+  if (!world || !plaza || !backgroundFile || buildings.length === 0) return null
+  const backgroundW = asNum(bg?.w) ?? world.w
+  const backgroundH = asNum(bg?.h) ?? world.h
+  const backgroundX = asNum(bg?.x) ?? 0
+  const backgroundY = asNum(bg?.y) ?? 0
+  if (backgroundW <= 0 || backgroundH <= 0) return null
+  const background: PixelBackground = {
+    file: backgroundFile,
+    w: backgroundW,
+    h: backgroundH,
+    x: backgroundX,
+    y: backgroundY,
+  }
 
   const av = asRec(m.avatars)
   const avCell = av && asNum(av.cell)

@@ -4,7 +4,6 @@ import { PANEL_WIDTH, useStore } from '../store'
 import { deptById } from '../data/company'
 import { getRehearsal, presentRehearsal, rehearsals } from '../engine/rehearsals'
 import type { RehearsalDefinition, RehearsalPresentation } from '../engine/rehearsals'
-import { requestValleyCamera } from '../map/pixel/camera'
 import { cx } from '../utils'
 import { Chip } from './ui'
 
@@ -16,7 +15,6 @@ export default function MapOverlays() {
   const panel = useStore((s) => s.panel)
   const log = useStore((s) => s.log)
   const scheduled = useStore((s) => s.scheduled)
-  // the classic camera doesn't exist over the valley — its controls would be dead
   const mapStyle = useStore((s) => s.mapStyle)
   const executionMode = useStore((s) => s.executionMode)
   const [selectedRehearsalId, setSelectedRehearsalId] = useState(() => getRehearsal()?.id ?? '')
@@ -57,8 +55,8 @@ export default function MapOverlays() {
             />
             <div className="min-w-0 flex-1" />
             <ZoomButtons
-              onZoomBy={(factor) => requestValleyCamera({ type: 'zoomBy', factor })}
-              onFit={() => requestValleyCamera({ type: 'fit' })}
+              onZoomBy={(factor) => useStore.getState().requestCamera({ type: 'zoomBy', factor })}
+              onFit={() => useStore.getState().requestCamera({ type: 'fit' })}
               fitTitle="Fit the whole valley"
             />
             {!replay && rehearsals.length > 1 && (

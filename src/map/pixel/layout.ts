@@ -3,13 +3,62 @@ import type { PixelArt, PixelBuilding, Pt } from './art'
 
 /** All pixel art assets render at native 1:1 canvas units for uniform texel density. */
 export const SPRITE_SCALE = 1
+export const MAX_CAMERA_SCALE = 3.2
 
 // ─── Stage math ──────────────────────────────────────────────────────────────
 
-/** Whole-world fit: the 960×600 stage scales to the container, clamped so it
- *  never becomes unreadable at small sizes or comically large on big screens. */
-export function fitK(vw: number, vh: number, world: { w: number; h: number }): number {
-  return Math.min(2.2, Math.max(0.4, Math.min(vw / world.w, vh / world.h)))
+export interface PixelCamera {
+  cx: number
+  cy: number
+  k: number
+}
+
+export interface PixelCameraBounds {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** Hard zoom-out limit: cover the viewport with the decorative scene bounds so
+ *  no flat canvas can appear around the scenery. */
+export function scenicMinK(vw: number, vh: number, bounds: PixelCameraBounds): number {
+  return Math.min(MAX_CAMERA_SCALE, Math.max(0.4, Math.max(vw / bounds.w, vh / bounds.h)))
+}
+
+/** Stable company framing. The 960×600 interactive town is the camera's soft
+ *  resting boundary; elastic input may reveal scenery beyond it temporarily. */
+export function fitCamera(vw: number, vh: number, world: { w: number; h: number }): PixelCamera {
+  return {
+    cx: world.w / 2,
+    cy: world.h / 2,
+    k: Math.min(MAX_CAMERA_SCALE, Math.max(0.4, Math.min(vw / world.w, vh / world.h))),
+  }
+}
+
+/** Keep the decorative background under the viewport. Interactive targets
+ *  remain in town coordinates; only the camera's permitted extent is larger. */
+export function constrainCamera(
+  camera: PixelCamera,
+  vw: number,
+  vh: number,
+  bounds: PixelCameraBounds,
+): PixelCamera {
+  const fit = scenicMinK(vw, vh, bounds)
+  const k = Math.min(MAX_CAMERA_SCALE, Math.max(fit, camera.k))
+  const halfW = vw / (2 * k)
+  const halfH = vh / (2 * k)
+  const centerX = bounds.x + bounds.w / 2
+  const centerY = bounds.y + bounds.h / 2
+  return {
+    cx: halfW >= bounds.w / 2
+      ? centerX
+      : Math.max(bounds.x + halfW, Math.min(bounds.x + bounds.w - halfW, camera.cx)),
+    cy: halfH >= bounds.h / 2
+      ? centerY
+      : Math.max(bounds.y + halfH, Math.min(bounds.y + bounds.h - halfH, camera.cy)),
+    k,
+  }
 }
 
 // ─── Deterministic per-agent randomness ──────────────────────────────────────
