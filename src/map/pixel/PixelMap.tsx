@@ -520,11 +520,6 @@ export default function PixelMap() {
         ? 16
         : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? availableHeight : 1
       const delta = Math.max(-180, Math.min(180, event.deltaY * modeScale))
-      if (elasticCameraRef.current) {
-        pushElasticZoom(delta * 0.007)
-        return
-      }
-
       const rect = el.getBoundingClientRect()
       const px = event.clientX - rect.left - rect.width / 2
       const py = event.clientY - rect.top - rect.height / 2
@@ -537,6 +532,14 @@ export default function PixelMap() {
         art.background,
       )
       const requestedK = current.k * Math.exp(-delta * 0.0016)
+      if (elasticCameraRef.current) {
+        if (delta > 0 || requestedK < rest.k) {
+          pushElasticZoom(delta * 0.007)
+          return
+        }
+        stopElasticCamera()
+      }
+
       if (delta > 0 && requestedK < rest.k) {
         const base = constrainCamera({
           cx: worldX - px / rest.k,
@@ -565,7 +568,7 @@ export default function PixelMap() {
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [art, availableWidth, availableHeight, pushElasticZoom])
+  }, [art, availableWidth, availableHeight, pushElasticZoom, stopElasticCamera])
 
   useEffect(() => () => {
     cameraAnimRef.current?.stop()
