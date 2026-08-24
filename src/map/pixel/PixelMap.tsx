@@ -586,6 +586,7 @@ export default function PixelMap() {
     y: number
     moved: number
     elastic: boolean
+    captured: boolean
   } | null>(null)
   const draggedRef = useRef(false)
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -615,8 +616,8 @@ export default function PixelMap() {
       y: event.clientY,
       moved: 0,
       elastic,
+      captured: false,
     }
-    event.currentTarget.setPointerCapture(event.pointerId)
   }
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
@@ -626,6 +627,10 @@ export default function PixelMap() {
     const dy = event.clientY - drag.y
     drag.moved += Math.abs(dx) + Math.abs(dy)
     if (drag.moved > 3) {
+      if (!drag.captured) {
+        event.currentTarget.setPointerCapture(event.pointerId)
+        drag.captured = true
+      }
       event.preventDefault()
       draggedRef.current = true
       lastUserCameraRef.current = Date.now()
