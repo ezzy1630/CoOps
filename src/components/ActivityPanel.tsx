@@ -2,7 +2,7 @@ import { X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
-import { DEPARTMENTS, deptById } from '../data/company'
+import { getDepartments, deptById } from '../data/company'
 import { cx, fmtClock, fmtDay, fmtDuration, fmtUsd } from '../utils'
 import { Chip, Pill, typeLabel } from './ui'
 import type { EventType, Task, WorldEvent } from '../types'
@@ -60,7 +60,7 @@ export default function ActivityPanel() {
           />
           <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1">
             <FilterChip label="All" active={dept === 'all'} onClick={() => setDept('all')} />
-            {DEPARTMENTS.map((d) => (
+            {getDepartments().map((d) => (
               <FilterChip key={d.id} label={d.name} active={dept === d.id} onClick={() => setDept(d.id)} />
             ))}
             <span className="mx-1 h-3 w-px bg-line" />

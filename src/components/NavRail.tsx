@@ -11,7 +11,7 @@ import {
   type Icon,
 } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
-import { PERSONAS, personById } from '../data/company'
+import { getPersonas, personById } from '../data/company'
 import { readRunEvidence } from '../evidence/runEvidence'
 import { useStore, type AppView } from '../store'
 import { cx } from '../utils'
@@ -128,7 +128,7 @@ function PersonaMenu({ personaId }: { personaId?: string }) {
       </button>
       {open && (
         <div className="panel anim-fadeup absolute bottom-10 left-0 z-50 w-60 p-1">
-          {PERSONAS.map((entry) => {
+          {getPersonas().map((entry) => {
             const candidate = personById.get(entry.personId)
             if (!candidate) return null
             return (

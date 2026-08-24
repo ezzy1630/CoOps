@@ -1,8 +1,9 @@
+import './data/activeCompany'
 import { create } from 'zustand'
 import type {
   ExecutionMode, LiveConnection, MapStyle, PendingApproval, Person, RuntimeInfo, TaskId, World, WorldEvent,
 } from './types'
-import { BASE_AGENTS, DEPARTMENTS, personById } from './data/company'
+import { getAgents, getDepartments, getPersonas, personById } from './data/company'
 import { buildWorld } from './engine/reducer'
 import { agentRef, personRef, type Step } from './engine/build'
 import {
@@ -186,21 +187,25 @@ type EntryState = Pick<
   'persona' | 'entered' | 'view' | 'panel' | 'selectedTaskId' | 'replay' | 'firstRunStep' | 'cameraRequest'
 >
 
-const entryState = (persona: Person, onboarded: boolean, cameraSeq: number): EntryState => ({
-  persona,
-  entered: true,
-  view: persona.id === 'dana' ? 'approvals' : 'map',
-  panel: persona.id === 'maya' ? { kind: 'dept', id: persona.deptId } : null,
-  selectedTaskId: null,
-  replay: null,
-  firstRunStep: onboarded ? null : 0,
-  cameraRequest: {
-    seq: cameraSeq,
-    target: persona.id === 'maya'
-      ? { type: 'dept', deptId: persona.deptId }
-      : { type: 'fit' },
-  },
-})
+const entryState = (persona: Person, onboarded: boolean, cameraSeq: number): EntryState => {
+  const role = getPersonas().find((p) => p.personId === persona.id)
+  const deptFocused = role?.entry === 'department'
+  return {
+    persona,
+    entered: true,
+    view: role?.entry === 'approver' ? 'approvals' : 'map',
+    panel: deptFocused ? { kind: 'dept', id: persona.deptId } : null,
+    selectedTaskId: null,
+    replay: null,
+    firstRunStep: onboarded ? null : 0,
+    cameraRequest: {
+      seq: cameraSeq,
+      target: deptFocused
+        ? { type: 'dept', deptId: persona.deptId }
+        : { type: 'fit' },
+    },
+  }
+}
 
 const initialExecutionMode = executionMode()
 const initialParams = new URLSearchParams(window.location.search)
@@ -259,7 +264,7 @@ export const useStore = create<Store>()((set, get) => {
     snapshot,
   })
 
-  const rebuild = (log: WorldEvent[]) => buildWorld(BASE_AGENTS, DEPARTMENTS, log, Number.MAX_SAFE_INTEGER)
+  const rebuild = (log: WorldEvent[]) => buildWorld(getAgents(), getDepartments(), log, Number.MAX_SAFE_INTEGER)
 
   const receiveLiveEvent = (event: WorldEvent) => {
     if (get().executionMode !== 'live') return

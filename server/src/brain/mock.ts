@@ -1,5 +1,5 @@
 import type { AgentBlueprint, WorldEvent } from '../../../src/types.js'
-import { DEPARTMENTS, TOOLS } from '../../../src/data/company.js'
+import { deptById, getDepartments, getTools } from '../../../src/data/company.js'
 import type { BrainAdapter, BrainCtx } from './types.js'
 import type { DeptMemory } from '../memory/types.js'
 import type { ExchangeExecutor } from './exchanges.js'
@@ -46,16 +46,6 @@ const INTERVIEW_QUESTIONS = [
   'What approvals or hard limits must it follow? Say “none” if there are none.',
 ]
 
-const DEPT_NAMES: Record<string, string> = {
-  marketing: 'Marketing',
-  finance: 'Finance',
-  legal: 'Legal',
-  support: 'Support',
-  operations: 'Operations',
-  hr: 'HR',
-}
-
-const KNOWN_DEPT_IDS = new Set(DEPARTMENTS.map((department) => department.id))
 const EMPTY_ANSWER = /^(?:none|n\/?a|not sure|unknown|no idea|skip)$/i
 const STOP_WORDS = new Set([
   'a', 'an', 'and', 'for', 'from', 'in', 'it', 'of', 'on', 'our', 'the', 'this', 'to', 'with',
@@ -93,14 +83,14 @@ const blueprintName = (purpose: string, deptName: string): string => {
 
 const mentionedTools = (answer: string): string[] => {
   const lower = answer.toLowerCase()
-  return TOOLS
+  return getTools()
     .filter((tool) => mentionsId(lower, tool.id) || lower.includes(tool.name.toLowerCase()))
     .map((tool) => tool.id)
 }
 
 const mentionedCollaborators = (answer: string, localDeptId: string): string[] => {
   const lower = answer.toLowerCase()
-  return DEPARTMENTS
+  return getDepartments()
     .filter((department) => department.id !== localDeptId)
     .filter((department) => mentionsId(lower, department.id) || mentionsId(lower, department.name))
     .map((department) => `${department.name} Agent`)
@@ -116,8 +106,9 @@ const explicitClauses = (answer: string, pattern: RegExp): string[] => {
 }
 
 const buildBlueprint = (deptId: string, personId: string, answers: string[]): AgentBlueprint => {
-  const localDeptId = KNOWN_DEPT_IDS.has(deptId) ? deptId : 'operations'
-  const deptName = DEPT_NAMES[localDeptId] ?? 'Operations'
+  const department = deptById.get(deptId) ?? getDepartments()[0]
+  const localDeptId = department?.id ?? deptId
+  const deptName = department?.name ?? 'Company'
   const purposeAnswer = answers[0] ?? ''
   const purpose = cleanAnswer(purposeAnswer, `Handle recurring work for the ${deptName} department.`)
   const trigger = cleanAnswer(answers[1] ?? '', `A person asks the ${deptName} Agent.`)
@@ -143,7 +134,7 @@ const blueprintEvent = (agentId: string, personId: string, blueprint: AgentBluep
   to: personRef(personId),
   deptFrom: blueprint.deptId,
   title: `Blueprint ready: ${blueprint.name}`,
-  detail: `Inherits the company baseline and ${DEPT_NAMES[blueprint.deptId] ?? blueprint.deptId} defaults; only explicitly named tools, collaborators, approvals, and limits are included.`,
+  detail: `Inherits the company baseline and ${deptById.get(blueprint.deptId)?.name ?? blueprint.deptId} defaults; only explicitly named tools, collaborators, approvals, and limits are included.`,
   payload: { blueprint },
 })
 
@@ -231,14 +222,14 @@ export function createMockBrain(opts?: { memory?: DeptMemory }): BrainAdapter {
         const active = ctx.worldTasks().filter(
           (x) => x.status !== 'done' && x.status !== 'failed',
         )
-        const dept = DEPT_NAMES[deptId] ?? deptId
+        const dept = deptById.get(deptId)?.name ?? deptId
         void reply(ctx, agentId, personId, active.length === 0
           ? `${dept} is quiet right now. The queue is clear and scheduled jobs continue to run.`
           : `${dept} has ${active.length} live ${active.length === 1 ? 'task' : 'tasks'}: ${active.slice(0, 3).map((x) => `“${x.title}” (${x.status.replace('_', ' ')})`).join(' · ')}. Click one on the map to focus it.`)
         return
       }
       if (/hello|hey|hi|who are you|what can you/.test(t)) {
-        const dept = DEPT_NAMES[deptId] ?? deptId
+        const dept = deptById.get(deptId)?.name ?? deptId
         void reply(ctx, agentId, personId, `I’m the ${dept} Agent. I run ${dept.toLowerCase()}’s work, pull in other departments when needed, and can draft a new agent for recurring work. Ask me for a budget check, a legal review, FAQ prep, or say “I need an agent for a recurring workflow.”`)
         return
       }

@@ -1,7 +1,7 @@
 import { ArrowClockwise, ArrowRight, Broadcast, Flask, Play, Warning } from '@phosphor-icons/react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store'
-import { PERSONAS, personById } from '../data/company'
+import { getPersonas, personById } from '../data/company'
 import { rehearsals } from '../engine/rehearsals'
 import { Wordmark } from '../App'
 import RuntimeStatus from './RuntimeStatus'
@@ -62,7 +62,7 @@ export default function PersonaGate() {
           </motion.div>
 
           <div className="mt-7 border-t border-linebright/80">
-            {PERSONAS.map((p, i) => {
+            {getPersonas().map((p, i) => {
               const person = personById.get(p.personId)
               if (!person) return null
               return (

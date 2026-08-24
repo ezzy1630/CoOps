@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { backendUrl } from '../live'
-import { deptById, personById, TOOLS } from '../data/company'
+import { deptById, personById, getTools } from '../data/company'
 import { cx, timeAgo } from '../utils'
 import { Chip, Pill } from './ui'
 import type { PendingApproval, Ref, WorldEvent } from '../types'
@@ -635,9 +635,10 @@ function CapabilityDiagram({ approval }: { approval: PendingApproval }) {
   const agentName = refLabel(approval.requestedBy, agents) ?? 'Requesting agent'
 
   const what = approval.what.toLowerCase()
+  const tools = getTools()
   const tool =
-    TOOLS.find((t) => what.includes(t.name.toLowerCase()) || what.includes(t.id)) ??
-    TOOLS.find((t) => t.ownerId === approval.personId && t.requiresAuth)
+    tools.find((t) => what.includes(t.name.toLowerCase()) || what.includes(t.id)) ??
+    tools.find((t) => t.ownerId === approval.personId && t.requiresAuth)
   const slug =
     tool?.id ??
     approval.what.replace(/^connect\s+/i, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '')

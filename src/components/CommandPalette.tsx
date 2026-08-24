@@ -2,7 +2,7 @@ import { MagnifyingGlass } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useStore } from '../store'
-import { DEPARTMENTS, PEOPLE, deptById, personById } from '../data/company'
+import { getDepartments, getPeople, deptById, personById } from '../data/company'
 import { rehearsals } from '../engine/rehearsals'
 import type { Task } from '../types'
 import { cx } from '../utils'
@@ -88,7 +88,7 @@ export default function CommandPalette() {
         key: 'act:fit',
         group: 'Actions',
         title: 'Fit the whole company',
-        sub: 'Zoom out to all six departments at once',
+        sub: `Zoom out to all ${getDepartments().length} departments at once`,
         action: () => st().requestCamera({ type: 'fit' }),
       },
       {
@@ -135,7 +135,7 @@ export default function CommandPalette() {
       },
     )
 
-    for (const d of DEPARTMENTS) {
+    for (const d of getDepartments()) {
       out.push({
         key: `dept:${d.id}`,
         group: 'Departments',
@@ -163,7 +163,7 @@ export default function CommandPalette() {
       })
     }
 
-    for (const p of PEOPLE) {
+    for (const p of getPeople()) {
       out.push({
         key: `person:${p.id}`,
         group: 'People',

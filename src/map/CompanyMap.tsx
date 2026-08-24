@@ -1,8 +1,9 @@
+import '../data/activeCompany'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { animate } from 'framer-motion'
 import { X } from '@phosphor-icons/react'
 import { PANEL_WIDTH, useStore } from '../store'
-import { BASE_AGENTS, DEPARTMENTS, personById } from '../data/company'
+import { getAgents, getDepartments, personById } from '../data/company'
 import { buildWorld, taskParticipants } from '../engine/reducer'
 import { virtualAt } from '../engine/replay'
 import type { EdgeKind, EventType, WorldEvent } from '../types'
@@ -152,7 +153,7 @@ export default function CompanyMap() {
   const renderTime = replay ? virtualAt(replay.knots, replay.wallMs) : now
   const replayBucket = replay ? Math.floor(renderTime / 160) : 0
   const renderWorld = useMemo(
-    () => (replay ? buildWorld(BASE_AGENTS, DEPARTMENTS, log, renderTime) : world),
+    () => (replay ? buildWorld(getAgents(), getDepartments(), log, renderTime) : world),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [replay ? replayBucket : world, log, replay?.taskId],
   )

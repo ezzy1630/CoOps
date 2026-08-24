@@ -2,7 +2,7 @@ import { ArrowRight, X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useStore } from '../store'
-import { TOOLS, deptById, personById } from '../data/company'
+import { getTools, deptById, personById } from '../data/company'
 import { artifactEventName } from '../data/artifactContent'
 import { cx, fmtUsd, timeAgo } from '../utils'
 import { Chip } from './ui'
@@ -145,7 +145,7 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
     [log, deptId, now],
   )
 
-  const tools = useMemo(() => TOOLS.filter((t) => t.deptId === deptId), [deptId])
+  const tools = useMemo(() => getTools().filter((t) => t.deptId === deptId), [deptId])
   const departmentHue = lead ? `hsl(${lead.hue} 56% 52%)` : 'var(--color-linebright)'
 
   if (!dept) {
