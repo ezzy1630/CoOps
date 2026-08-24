@@ -47,6 +47,18 @@ npm run server        # :8080 alongside npm run dev
 See `server/src/README.md` for routes and `docs/deploy.md` for env vars,
 capability levels, and Cloud Run deployment.
 
+## Before recording a live run
+
+```sh
+npm run preflight
+```
+
+`GET /preflight` decides the four go/no-go gates — a real local file, the same
+bytes in Cloud Storage, a named approval that actually controls publication,
+and a real YouTube video id — by executing each one against the running server.
+It exits `0` only when all four are proven; `1` means a gate is wired but
+unproven, or blocked. See `docs/deploy.md`.
+
 ## Architecture note
 
 The entire UI is a fold over a typed event log (`src/engine/reducer.ts`). The rehearsal datasets (`src/data/scenarios.ts`, `src/data/hero.ts`) emit the same `WorldEvent` types as the backend and tag every scripted event with `payload.simulated`. Live mode never falls back to those datasets.

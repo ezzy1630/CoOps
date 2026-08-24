@@ -146,6 +146,26 @@ test('healthz reports ok and event count matching the store', async t => {
   assert.equal(all[0]?.id, seeded.id)
 })
 
+test('preflight answers with all four gates and refuses an unconfigured deployment', async t => {
+  const dir = await tempDir()
+  const s = await startStack(dir)
+  t.after(() => closeServer(s.server))
+
+  const res = await requestJson('GET', `${s.base}/preflight`)
+
+  assert.equal(res.status, 200)
+  const report = res.json as { verdict: string; checkedAt: string; gates: { id: string; status: string }[] }
+  assert.equal(report.verdict, 'no-go')
+  assert.deepEqual(report.gates.map(gate => gate.id), ['local-file', 'cloud-handoff', 'authority', 'publication'])
+  // Nothing is configured here, so the gates that need an external system fail
+  // and only the publication control, which needs none, can pass.
+  assert.deepEqual(report.gates.map(gate => gate.status), ['fail', 'fail', 'pass', 'fail'])
+
+  // A public GET must not be a way to loop the disk walk and the storage probe.
+  const again = await requestJson('GET', `${s.base}/preflight`)
+  assert.equal((again.json as { checkedAt: string }).checkedAt, report.checkedAt)
+})
+
 test('runtime reports the effective providers without exposing credentials', async t => {
   const dir = await tempDir()
   const s = await startStack(dir)

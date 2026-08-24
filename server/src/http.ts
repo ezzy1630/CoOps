@@ -10,6 +10,8 @@ import { mountA2a } from './a2a/mount.js'
 import { PresenceRegistry } from './presence.js'
 import { createGoogleOAuth } from './auth/google.js'
 import type { GoogleOAuth } from './auth/google.js'
+import { evaluateGates } from './preflight.js'
+import type { GateReport } from './preflight.js'
 import type { Receipt, RuntimeInfo, WorldEvent } from '../../src/types.js'
 
 type Appendable = Omit<WorldEvent, 'id' | 'ts'> & Partial<Pick<WorldEvent, 'id' | 'ts'>>
@@ -51,6 +53,8 @@ export async function startHttp(
   app.get('/runtime', (_req, res) => send(res, 200, runtime ?? fallbackRuntime(cfg, google)))
   app.get('/presence', (_req, res) => send(res, 200, presence.list()))
   app.get('/org', (_req, res) => send(res, 200, org.list()))
+  const preflight: PreflightCache = { at: 0, report: null }
+  app.get('/preflight', wrapped(async (_req, res) => getPreflight(cfg, store, google, preflight, res)))
 
   app.get('/auth/google/status', (_req, res) => send(res, 200, { enabled: google.enabled }))
   app.get('/auth/google/start', (_req, res) => {
@@ -81,6 +85,42 @@ export async function startHttp(
     server.listen(cfg.port, () => resolve())
   })
   return { server }
+}
+
+interface PreflightCache {
+  at: number
+  report: GateReport | null
+}
+
+/** Long enough that a public GET cannot loop the probes, short enough to iterate against. */
+const PREFLIGHT_CACHE_MS = 10_000
+
+/**
+ * The four Go/No-Go gates, measured against this server: it holds the OAuth
+ * grant and the event log, so it is the only place the answer is true.
+ * Evaluating them walks the disk and writes a probe object to Cloud Storage, so
+ * a recent answer is reused rather than letting an open route repeat that work.
+ */
+async function getPreflight(
+  cfg: Config,
+  store: EventStore,
+  google: GoogleOAuth,
+  cache: PreflightCache,
+  res: Response,
+): Promise<void> {
+  if (cache.report && Date.now() - cache.at < PREFLIGHT_CACHE_MS) return send(res, 200, cache.report)
+
+  const report = await evaluateGates({
+    localRoots: cfg.launch?.localRoots ?? [],
+    connectorId: cfg.launch?.connectorId ?? 'unnamed connector',
+    bucket: cfg.launch?.bucket,
+    query: cfg.launch?.query ?? 'horse',
+    events: store.all(),
+    getAccessToken: () => google.accessToken(),
+  })
+  cache.at = Date.now()
+  cache.report = report
+  send(res, 200, report)
 }
 
 function fallbackRuntime(cfg: Config, google: GoogleOAuth): RuntimeInfo {
