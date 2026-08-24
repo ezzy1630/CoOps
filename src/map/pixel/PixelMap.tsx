@@ -26,6 +26,7 @@ import { deriveWalkers, emoteFor, lastActs, lastSpeech, walkerWindowMs } from '.
 import ValleyToolbar, { readValleyFilterCounts, type ValleyFilter, type ValleyInspection } from './ValleyToolbar'
 const CELL = 24 // avatar cell in the strip, manifest avatars.cell
 const CELL_PX = CELL * SPRITE_SCALE
+const AGENT_CONTROL_SIZE = 28
 // bubbles and letters draw at native 1:1 scale for uniform pixel consistency
 const EMOTE_PX = 16
 /** an emote shows while its act is fresh, then the village calms down */
@@ -616,7 +617,11 @@ export default function PixelMap() {
       moved: 0,
       elastic,
     }
-    event.currentTarget.setPointerCapture(event.pointerId)
+    // Keep capture on the control that received the down event. Drag events
+    // still bubble to the viewport handlers, while pointerup stays associated
+    // with the control the user started on.
+    const target = event.target
+    if (target instanceof Element) target.setPointerCapture?.(event.pointerId)
   }
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
@@ -1004,30 +1009,21 @@ function Scene({
               active={sp != null && renderTime - sp.ts < SPEECH_MS}
               emote={emote}
             />
-            <button
-              type="button"
-              aria-label={`Open ${ag.name}, ${world.agentStatus.get(ag.id) ?? 'idle'} ${world.departments.get(ag.deptId)?.name ?? ag.deptId} agent`}
-              onClick={(event) => {
-                event.stopPropagation()
-                useStore.getState().openPanel('agent', ag.id)
-              }}
-              onMouseEnter={() => onInspect({ kind: 'agent', id: ag.id })}
-              onMouseLeave={() => onInspect(null)}
-              onFocus={() => onInspect({ kind: 'agent', id: ag.id })}
-              onBlur={() => onInspect(null)}
-              className="valley-agent-control absolute cursor-pointer select-none"
+            <div
+              aria-hidden="true"
+              className="valley-agent-control pointer-events-none absolute select-none"
               style={{
-                left: -18,
-                top: -32,
-                width: 36,
-                height: 36,
+                left: -AGENT_CONTROL_SIZE / 2,
+                top: -AGENT_CONTROL_SIZE,
+                width: AGENT_CONTROL_SIZE,
+                height: AGENT_CONTROL_SIZE,
               }}
             >
               <span
                 className="sprite-bob pixelated pointer-events-none absolute"
                 style={{
-                  left: 6,
-                  top: 8,
+                  left: (AGENT_CONTROL_SIZE - CELL_PX) / 2,
+                  top: AGENT_CONTROL_SIZE - CELL_PX,
                   width: CELL_PX,
                   height: CELL_PX,
                   backgroundImage: `url(${url})`,
@@ -1036,7 +1032,7 @@ function Scene({
                   ...BOB_VARS,
                 }}
               />
-            </button>
+            </div>
             <div
               className={`valley-agent-name pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-sm border px-1 text-[8px] leading-snug ${showNames || focus?.agents.has(ag.id) ? 'valley-agent-name-pinned' : ''}`}
               style={{
@@ -1203,6 +1199,39 @@ function Scene({
           </div>
         </div>
       ))}
+
+      {/* Agent controls live in a separate interaction layer. The painted
+          building stack can legitimately cover a villager's feet, but it
+          must not steal the villager's chat-room target. */}
+      {world.agents.map((ag) => {
+        const spot = spots.get(ag.id)
+        if (!spot) return null
+        const label = `Open ${ag.name}, ${world.agentStatus.get(ag.id) ?? 'idle'} ${world.departments.get(ag.deptId)?.name ?? ag.deptId} agent`
+        return (
+          <button
+            key={`agent-control-${ag.id}`}
+            type="button"
+            aria-label={label}
+            onClick={(event) => {
+              event.stopPropagation()
+              useStore.getState().openPanel('agent', ag.id)
+            }}
+            onMouseEnter={() => onInspect({ kind: 'agent', id: ag.id })}
+            onMouseLeave={() => onInspect(null)}
+            onFocus={() => onInspect({ kind: 'agent', id: ag.id })}
+            onBlur={() => onInspect(null)}
+            className="valley-agent-control absolute cursor-pointer select-none border-0 bg-transparent p-0"
+            style={{
+              left: spot.pt.x - AGENT_CONTROL_SIZE / 2,
+              top: spot.pt.y - AGENT_CONTROL_SIZE,
+              width: AGENT_CONTROL_SIZE,
+              height: AGENT_CONTROL_SIZE,
+              zIndex: 2000,
+              ...dim(dimmed(ag.deptId, ag.id)),
+            }}
+          />
+        )
+      })}
     </div>
   )
 }
