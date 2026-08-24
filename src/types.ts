@@ -271,3 +271,34 @@ export interface Persona {
 
 /** Which visualization renders the live company: drafting-table or pixel-art valley. */
 export type MapStyle = 'classic' | 'fun'
+
+// ─── Go/No-Go gates (preflight report from the server) ─────────────────────
+
+/** The four gates the launch story may not be recorded without. */
+export type GateId = 'local-file' | 'cloud-handoff' | 'authority' | 'publication'
+
+/** pass: proven · ready: the mechanism is reachable but this run has not used it · fail: blocked */
+export type GateStatus = 'pass' | 'ready' | 'fail'
+
+export type GateVerdict = 'go' | 'hold' | 'no-go'
+
+export interface GateResult {
+  id: GateId
+  /** the gate as written, so the report is readable next to the plan */
+  claim: string
+  status: GateStatus
+  /** what was actually observed, in one sentence */
+  detail: string
+  evidence: Record<string, string>
+  /** the truthful public wording when the gate is constrained rather than clean */
+  note?: string
+}
+
+export interface GateReport {
+  verdict: GateVerdict
+  detail: string
+  checkedAt: string
+  /** the discovery terms the local-file gate searched for */
+  query: string
+  gates: GateResult[]
+}

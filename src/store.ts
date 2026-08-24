@@ -1,7 +1,7 @@
 import './data/activeCompany'
 import { create } from 'zustand'
 import type {
-  ExecutionMode, LiveConnection, MapStyle, PendingApproval, Person, RuntimeInfo, TaskId, World, WorldEvent,
+  ExecutionMode, GateReport, LiveConnection, MapStyle, PendingApproval, Person, RuntimeInfo, TaskId, World, WorldEvent,
 } from './types'
 import { getAgents, getDepartments, getPersonas, personById } from './data/company'
 import { buildWorld } from './engine/reducer'
@@ -30,6 +30,7 @@ import {
   backendUrl,
   connectLive,
   executionMode,
+  fetchGateReport,
   fetchRuntimeInfo,
   showLiveLocation,
   showRehearsalLocation,
@@ -131,6 +132,7 @@ interface Store {
   liveConnection: LiveConnection
   runtimeInfo: RuntimeInfo | null
   runtimeError: string | null
+  preflightReport: GateReport | null
   // ui
   persona: Person | null
   entered: boolean
@@ -288,10 +290,21 @@ export const useStore = create<Store>()((set, get) => {
     }
   }
 
+  const refreshGateReport = async () => {
+    try {
+      const preflightReport = await fetchGateReport()
+      if (get().executionMode !== 'live') return
+      set({ preflightReport })
+    } catch {
+      // preflight is optional; silence failures
+    }
+  }
+
   const openLiveConnection = (personId: string) => {
     disconnectLive?.()
     set({ liveConnection: 'connecting' })
     void refreshRuntime()
+    void refreshGateReport()
     disconnectLive = connectLive(receiveLiveEvent, personId, {
       onOpen: () => {
         if (get().executionMode === 'live') set({ liveConnection: 'connected' })
@@ -320,6 +333,7 @@ export const useStore = create<Store>()((set, get) => {
       liveConnection: 'idle',
       runtimeInfo: null,
       runtimeError: null,
+      preflightReport: null,
       log,
       scheduled: [],
       world: rebuild(log),
@@ -509,6 +523,7 @@ export const useStore = create<Store>()((set, get) => {
     liveConnection: 'idle',
     runtimeInfo: null,
     runtimeError: null,
+    preflightReport: null,
 
     persona: initialEntry?.persona ?? null,
     entered: initialEntry?.entered ?? false,
