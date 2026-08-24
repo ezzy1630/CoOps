@@ -34,9 +34,12 @@ const EMOTE_FRESH_MS = 6000
 const SPEECH_MS = 6000
 const VALLEY_TOOLBAR_HEIGHT = 52
 const VALLEY_RUN_BAR_HEIGHT = 56
-const ELASTIC_ZOOM_STIFFNESS = 52
-const ELASTIC_ZOOM_DAMPING = 10.5
-const ELASTIC_CENTER_PULL = 8
+const ELASTIC_ZOOM_MIN_STIFFNESS = 8
+const ELASTIC_ZOOM_MAX_STIFFNESS = 26
+const ELASTIC_ZOOM_MAX_DAMPING = 7.4
+const ELASTIC_ZOOM_CENTER_PULL = 6
+const DRAG_RETURN_DELAY_MS = 250
+const DRAG_RETURN_DURATION_S = 0.7
 
 interface ElasticZoomState {
   displacement: number
@@ -45,6 +48,16 @@ interface ElasticZoomState {
   cy: number
   lastTime: number
   raf: number
+}
+
+function elasticZoomStiffness(depth: number): number {
+  const normalized = Math.max(0, Math.min(1, depth))
+  return ELASTIC_ZOOM_MIN_STIFFNESS
+    + (ELASTIC_ZOOM_MAX_STIFFNESS - ELASTIC_ZOOM_MIN_STIFFNESS) * normalized ** 2
+}
+
+function elasticZoomDamping(stiffness: number): number {
+  return ELASTIC_ZOOM_MAX_DAMPING * Math.sqrt(stiffness / ELASTIC_ZOOM_MAX_STIFFNESS)
 }
 
 // every standing villager idles between the same two strip columns (down0 ↔ down1)
@@ -274,6 +287,12 @@ export default function PixelMap() {
   const cameraAnimRef = useRef<{ stop: () => void } | null>(null)
   const lastUserCameraRef = useRef(0)
   const elasticZoomRef = useRef<ElasticZoomState | null>(null)
+  const dragReturnTimerRef = useRef<number | null>(null)
+
+  const stopDragReturn = useCallback(() => {
+    if (dragReturnTimerRef.current != null) window.clearTimeout(dragReturnTimerRef.current)
+    dragReturnTimerRef.current = null
+  }, [])
 
   const stopElasticZoom = useCallback(() => {
     const elastic = elasticZoomRef.current
@@ -286,6 +305,7 @@ export default function PixelMap() {
    *  when the user's force stops. Positive impulses pull outward. */
   const pushElasticZoom = useCallback((impulse: number, baseCamera?: PixelCamera) => {
     if (!art || availableWidth === 0 || availableHeight === 0) return
+    stopDragReturn()
     const rest = constrainCamera(
       fitCamera(availableWidth, availableHeight, art.world),
       availableWidth,
@@ -326,8 +346,10 @@ export default function PixelMap() {
       const dt = Math.min(0.032, Math.max(0.001, (time - state.lastTime) / 1000))
       state.lastTime = time
 
-      const acceleration = -ELASTIC_ZOOM_STIFFNESS * state.displacement
-        - ELASTIC_ZOOM_DAMPING * state.velocity
+      const springDepth = Math.max(0, Math.min(1, state.displacement / maxDisplacement))
+      const stiffness = elasticZoomStiffness(springDepth)
+      const damping = elasticZoomDamping(stiffness)
+      const acceleration = -stiffness * state.displacement - damping * state.velocity
       state.velocity += acceleration * dt
       state.displacement += state.velocity * dt
 
@@ -338,7 +360,7 @@ export default function PixelMap() {
       // A small inward overshoot makes the return perceptible without turning
       // the ordinary zoomed-in camera into part of the elastic interaction.
       state.displacement = Math.max(-maxDisplacement * 0.055, state.displacement)
-      const centerStep = 1 - Math.exp(-ELASTIC_CENTER_PULL * dt)
+      const centerStep = 1 - Math.exp(-ELASTIC_ZOOM_CENTER_PULL * dt)
       state.cx += (rest.cx - state.cx) * centerStep
       state.cy += (rest.cy - state.cy) * centerStep
 
@@ -360,7 +382,43 @@ export default function PixelMap() {
       state.raf = requestAnimationFrame(tick)
     }
     elastic.raf = requestAnimationFrame(tick)
-  }, [art, availableWidth, availableHeight])
+  }, [art, availableWidth, availableHeight, stopDragReturn])
+
+  const scheduleDragReturn = useCallback(() => {
+    if (!art || availableWidth === 0 || availableHeight === 0) return
+    stopDragReturn()
+    dragReturnTimerRef.current = window.setTimeout(() => {
+      dragReturnTimerRef.current = null
+      const from = cameraRef.current
+      if (!from) return
+      const rest = constrainCamera(
+        fitCamera(availableWidth, availableHeight, art.world),
+        availableWidth,
+        availableHeight,
+        art.background,
+      )
+      cameraAnimRef.current?.stop()
+      cameraAnimRef.current = animate(0, 1, {
+        duration: DRAG_RETURN_DURATION_S,
+        ease: [0.22, 1, 0.36, 1],
+        onUpdate: (value) => {
+          const next = constrainCamera({
+            cx: from.cx + (rest.cx - from.cx) * value,
+            cy: from.cy + (rest.cy - from.cy) * value,
+            k: from.k + (rest.k - from.k) * value,
+          }, availableWidth, availableHeight, art.background)
+          cameraRef.current = next
+          setCamera(next)
+        },
+        onComplete: () => {
+          cameraAnimRef.current = null
+          cameraRef.current = rest
+          setCamera(rest)
+          autoFitRef.current = true
+        },
+      })
+    }, DRAG_RETURN_DELAY_MS)
+  }, [art, availableWidth, availableHeight, stopDragReturn])
 
   // Refit before paint while the user still owns the whole-world framing.
   // Once they interact, resizing and panels preserve their focus and only
@@ -369,6 +427,7 @@ export default function PixelMap() {
     if (!art || availableWidth === 0 || availableHeight === 0) return
     if (elasticZoomRef.current) autoFitRef.current = true
     stopElasticZoom()
+    stopDragReturn()
     setCamera((current) => {
       if (!current || autoFitRef.current) {
         return constrainCamera(
@@ -380,7 +439,7 @@ export default function PixelMap() {
       }
       return constrainCamera(current, availableWidth, availableHeight, art.background)
     })
-  }, [art, availableWidth, availableHeight, stopElasticZoom])
+  }, [art, availableWidth, availableHeight, stopDragReturn, stopElasticZoom])
 
   const handledCameraRequestRef = useRef(0)
   useEffect(() => {
@@ -473,6 +532,7 @@ export default function PixelMap() {
     }
 
     handledCameraRequestRef.current = cameraRequest.seq
+    stopDragReturn()
     cameraAnimRef.current?.stop()
     const from = current
     cameraAnimRef.current = animate(0, 1, {
@@ -488,7 +548,7 @@ export default function PixelMap() {
         setCamera(animated)
       },
     })
-  }, [art, spots, panelW, availableWidth, availableHeight, cameraRequest, pushElasticZoom, stopElasticZoom])
+  }, [art, spots, panelW, availableWidth, availableHeight, cameraRequest, pushElasticZoom, stopDragReturn, stopElasticZoom])
 
   useEffect(() => {
     const el = viewportRef.current
@@ -500,6 +560,7 @@ export default function PixelMap() {
       if (!current) return
       lastUserCameraRef.current = Date.now()
       autoFitRef.current = false
+      stopDragReturn()
       cameraAnimRef.current?.stop()
       const modeScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
         ? 16
@@ -545,19 +606,49 @@ export default function PixelMap() {
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [art, availableWidth, availableHeight, pushElasticZoom])
+  }, [art, availableWidth, availableHeight, pushElasticZoom, stopDragReturn])
 
   useEffect(() => () => {
     cameraAnimRef.current?.stop()
     stopElasticZoom()
-  }, [stopElasticZoom])
+    stopDragReturn()
+  }, [stopDragReturn, stopElasticZoom])
 
-  const dragRef = useRef<{ pointerId: number; x: number; y: number; moved: number } | null>(null)
+  const dragRef = useRef<{
+    pointerId: number
+    x: number
+    y: number
+    moved: number
+    returnOnRelease: boolean
+    interruptedElasticZoom: boolean
+  } | null>(null)
   const draggedRef = useRef(false)
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || elasticZoomRef.current) return
+    if (event.button !== 0) return
+    stopDragReturn()
+    const current = cameraRef.current
+    const interruptedElasticZoom = elasticZoomRef.current != null
+    let returnOnRelease = interruptedElasticZoom
+    if (art && current) {
+      const rest = constrainCamera(
+        fitCamera(availableWidth, availableHeight, art.world),
+        availableWidth,
+        availableHeight,
+        art.background,
+      )
+      returnOnRelease = returnOnRelease || current.k <= rest.k * 1.001
+    }
+    stopElasticZoom()
+    cameraAnimRef.current?.stop()
     draggedRef.current = false
-    dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: 0 }
+    dragRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      moved: 0,
+      returnOnRelease,
+      interruptedElasticZoom,
+    }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -572,19 +663,25 @@ export default function PixelMap() {
       draggedRef.current = true
       lastUserCameraRef.current = Date.now()
       autoFitRef.current = false
-      cameraAnimRef.current?.stop()
-      setCamera(constrainCamera(
+      const next = constrainCamera(
         { ...current, cx: current.cx - dx / current.k, cy: current.cy - dy / current.k },
         availableWidth,
         availableHeight,
         art.background,
-      ))
+      )
+      cameraRef.current = next
+      setCamera(next)
     }
     drag.x = event.clientX
     drag.y = event.clientY
   }
   const finishPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null
+    const drag = dragRef.current
+    if (drag?.pointerId !== event.pointerId) return
+    dragRef.current = null
+    if (drag.returnOnRelease && (drag.moved > 3 || drag.interruptedElasticZoom)) {
+      scheduleDragReturn()
+    }
   }
   const suppressDraggedClick = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (!draggedRef.current) return

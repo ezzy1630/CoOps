@@ -85,8 +85,10 @@ The interactive world remains 960×600. The manifest places the larger backgroun
 world offset (-240,-300), giving the camera a 240px horizontal and 300px vertical
 scenery buffer without moving buildings, paths, walkers, or activity-follow targets.
 The stable camera fit uses the town bounds. Zooming farther out behaves as a resisted
-rubber band: continuous spring force returns toward the town while the background-cover
+rubber band whose spring grows stronger as more scenery appears; the background-cover
 scale remains the hard limit, revealing scenery without exposing a flat letterbox.
+Dragging at that boundary remains direct, pauses briefly after release, then recenters.
+Panning remains free when the user has zoomed into the town.
 
 ## Style rules
 
