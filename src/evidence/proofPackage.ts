@@ -166,8 +166,11 @@ export function formatProofPackage(pkg: ProofPackage): string {
   )
 }
 
-/** The newest receipt of each kind; a retried step replaces the earlier attempt. */
-function latestReceipts(events: WorldEvent[]): Map<ReceiptKind, Receipt> {
+/**
+ * The newest receipt of each kind; a retried step replaces the earlier attempt.
+ * Exported because the server's go/no-go preflight reads the same log the same way.
+ */
+export function latestReceipts(events: WorldEvent[]): Map<ReceiptKind, Receipt> {
   const byKind = new Map<ReceiptKind, { receipt: Receipt; ts: number }>()
   for (const event of events) {
     const receipt = event.payload?.receipt

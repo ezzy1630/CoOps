@@ -40,6 +40,7 @@ backend do not share an origin.
 | `COOPS_LOCAL_ROOTS` | empty | Comma- or colon-separated absolute roots the `localfile` connector may read; empty means discovery refuses |
 | `COOPS_CONNECTOR_ID` | hostname | Machine identity recorded on every local discovery receipt |
 | `COOPS_GCS_BUCKET` | empty | Cloud Storage bucket for the `gcs` handoff; empty keeps the step a labeled dry run |
+| `COOPS_PREFLIGHT_QUERY` | `horse` | Filename terms `GET /preflight` searches for when it exercises local discovery |
 
 ## What runs at each capability level
 
@@ -70,6 +71,44 @@ carries an authority receipt whose checksum matches the staged asset.
 Gemini errors surface as errors in the agent room. They never fall back to a
 scripted response. `GET /runtime` is the source of truth for the effective
 brain and providers shown by the frontend runtime inspector.
+
+## Go/No-Go gates
+
+The launch story may only be recorded when all four gates are true:
+
+1. A real connector identifies a real local file
+2. The same bytes are verifiably staged in Google Cloud
+3. A named approval actually controls publication
+4. YouTube returns a real video ID
+
+`GET /preflight` decides them by executing them against the running server —
+the one process holding the OAuth grant and the event log — and never by
+reading configuration and assuming it works. Gate 1 runs the real discovery
+tool over `COOPS_LOCAL_ROOTS`. Gate 2 passes on a live handoff receipt whose
+checksum matches the discovered file; short of that it writes, md5-verifies and
+deletes a small probe object to prove the write path. Gate 3 exercises the
+publication control on a throwaway fixture: it must refuse an unapproved
+publication, refuse an approval covering different bytes, and release only on a
+matching one — a gate that never opens is as broken as one that never closes.
+Gate 4 passes only on a returned video id; a reachable channel is `ready`.
+
+```sh
+npm run preflight                       # against http://localhost:8080
+npm --prefix server run preflight -- --json https://coops.example.run.app
+```
+
+The route reuses an answer for ten seconds, so an open deployment cannot be
+made to repeat the disk walk and the storage probe; `checkedAt` always says when
+the reported answer was measured. Exit codes: `0` go, `1` hold or no-go, `2` no
+server answered. `hold` means
+nothing is broken but a step has not yet been proven by a live run. Nothing in
+the preflight publishes: the control instance holds no credentials, and the
+Cloud Storage probe writes a text file it then deletes.
+
+If the YouTube API project has not passed its compliance audit, uploads are
+restricted to private. The gate reports that as a note rather than a success,
+with the wording to use publicly: "Uploaded privately to the launch channel and
+ready for release."
 
 ## Cloud Run
 

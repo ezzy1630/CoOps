@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server/src/index.js",
+    "preflight": "tsx src/preflight-cli.ts",
     "test": "npm run build && node --test \"dist/server/src/test/*.test.js\""
   },
   "devDependencies": {

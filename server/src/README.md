@@ -15,6 +15,7 @@ Routes:
 - `GET /runtime` — effective model, providers, revision, and run identity
 - `GET /presence` — connected people
 - `GET /org` — active organization registry
+- `GET /preflight` — the four Go/No-Go gates, decided by executing them against this server
 - `GET /auth/google/start` — start Google Drive and Sheets OAuth when configured
 - `GET /auth/google/callback` — finish Google OAuth
 
