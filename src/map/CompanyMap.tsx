@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { animate } from 'framer-motion'
+import { X } from '@phosphor-icons/react'
 import { PANEL_WIDTH, useStore } from '../store'
 import { BASE_AGENTS, DEPARTMENTS, personById } from '../data/company'
 import { buildWorld, taskParticipants } from '../engine/reducer'
@@ -729,9 +730,11 @@ export default function CompanyMap() {
               <g key={e.id} transform={`translate(${p.x},${p.y})`} className="pointer-events-none">
                 <circle r={16} fill="none" stroke="var(--color-map-guard)" strokeWidth={2} style={{ animation: 'gatewayflash 2.6s ease-out both' }} />
                 {showText && (
-                  <text textAnchor="middle" y={4} fontSize={12} fill="var(--color-map-guard)">
-                    ⛨
-                  </text>
+                  <path
+                    d="M0 -6.5 L5.5 -4 V0.5 Q5.5 4.8 0 6.8 Q-5.5 4.8 -5.5 0.5 V-4 Z"
+                    fill="var(--color-map-guard)"
+                    stroke="none"
+                  />
                 )}
               </g>
             )
@@ -952,7 +955,9 @@ export default function CompanyMap() {
               <span className="chip" style={{ color: EDGE_COLOR[e.edge ?? 'task'], borderColor: 'currentcolor' }}>
                 {e.type}
               </span>
-              <button className="text-dim hover:text-ink text-xs" onClick={() => setPopover(null)}>✕</button>
+              <button className="text-dim hover:text-ink" onClick={() => setPopover(null)} title="Close" aria-label="Close">
+                <X size={13} />
+              </button>
             </div>
             <div className="mt-2 text-[13px] font-medium">{e.title}</div>
             <dl className="mt-2 space-y-1 text-[11.5px]">
