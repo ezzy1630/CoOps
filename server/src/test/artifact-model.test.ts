@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { setCompanyTemplate } from '../../../src/data/company.js'
+import { everpeak } from '../../../src/data/companies/everpeak.js'
 import { readArtifactRecord } from '../../../src/artifacts/model.js'
 import type { WorldEvent } from '../../../src/types.js'
+
+setCompanyTemplate(everpeak)
 
 const delivered = (payload: WorldEvent['payload']): WorldEvent => ({
   id: 'evt-artifact',

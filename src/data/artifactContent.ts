@@ -1,5 +1,5 @@
 import type { AgentDef, Task, WorldEvent } from '../types.js'
-import { BASE_AGENTS, deptById, personById } from './company.js'
+import { getAgents, deptById, personById } from './company.js'
 import { between, mulberry32, pick, type Rng } from '../engine/rng.js'
 import type { ArtifactDoc, ArtifactTemplate, ClaimItem, DocBlock, DocType } from '../artifacts/document.js'
 
@@ -667,7 +667,7 @@ export function buildArtifactDoc(
   event: WorldEvent,
   opts: { task?: Task; agents?: AgentDef[] } = {},
 ): ArtifactDoc {
-  const c = makeCtx(event, opts.task, opts.agents ?? BASE_AGENTS)
+  const c = makeCtx(event, opts.task, opts.agents ?? getAgents())
   const n = c.name.toLowerCase()
 
   // Real worker output attached by the engine beats any authored template.

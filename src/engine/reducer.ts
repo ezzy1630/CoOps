@@ -1,6 +1,7 @@
 import type {
   AgentDef, AgentStatus, Department, EventType, PendingApproval, Task, World, WorldEvent,
 } from '../types'
+import { getDepartments } from '../data/company'
 
 /**
  * The world is a pure fold over the event log up to a point in virtual time.
@@ -29,7 +30,7 @@ export function buildWorld(
         id: e.taskId!,
         title: e.title,
         objective: e.payload?.objective,
-        originDept: e.deptFrom ?? e.deptTo ?? 'operations',
+        originDept: e.deptFrom ?? e.deptTo ?? getDepartments()[0]?.id ?? '',
         status: 'queued',
         createdAt: e.ts,
         path: [],

@@ -1,5 +1,5 @@
 import { useStore } from '../store'
-import { COMPANY, deptById, personById } from '../data/company'
+import { getCompany, deptById, personById } from '../data/company'
 import { virtualAt } from '../engine/replay'
 import { cx } from '../utils'
 import RuntimeStatus from './RuntimeStatus'
@@ -17,7 +17,7 @@ export default function Header() {
   const mapStyle = useStore((s) => s.mapStyle)
 
   const crumbs: Crumb[] = view === 'map'
-    ? [{ label: COMPANY.name }]
+    ? [{ label: getCompany().name }]
     : [{ label: 'Map', onClick: () => useStore.getState().setView('map') }, { label: PAGE_LABELS[view] }]
   const agent = panel?.kind === 'agent' ? world.agents.find((item) => item.id === panel.id) : null
   const deptId = panel?.kind === 'dept' ? panel.id : agent?.deptId

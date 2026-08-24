@@ -1,5 +1,5 @@
 import { artifactEventName, buildArtifactDoc, type ArtifactDoc } from '../data/artifactContent.js'
-import { BASE_AGENTS } from '../data/company.js'
+import { getAgents } from '../data/company.js'
 import type { AgentDef, Task, WorldEvent } from '../types.js'
 import { readArtifactProvenance, type ArtifactProvenance } from './provenance.js'
 
@@ -48,7 +48,7 @@ export function readArtifactRecord(
     ? null
     : buildArtifactDoc(event, {
         task: options.task,
-        agents: options.agents ?? BASE_AGENTS,
+        agents: options.agents ?? getAgents(),
       })
   const name = artifactEventName(event)
 

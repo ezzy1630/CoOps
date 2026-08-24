@@ -1,8 +1,9 @@
+import '../../data/activeCompany'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { animate } from 'framer-motion'
 import { PANEL_WIDTH, useStore, type PresenceMark } from '../../store'
-import { BASE_AGENTS, DEPARTMENTS, personById } from '../../data/company'
+import { getAgents, getDepartments, personById } from '../../data/company'
 import { buildWorld, taskParticipants } from '../../engine/reducer'
 import { virtualAt } from '../../engine/replay'
 import type { Person, World } from '../../types'
@@ -243,7 +244,7 @@ export default function PixelMap() {
   const renderTime = replay ? virtualAt(replay.knots, replay.wallMs) : now
   const replayBucket = replay ? Math.floor(renderTime / 160) : 0
   const renderWorld = useMemo(
-    () => (replay ? buildWorld(BASE_AGENTS, DEPARTMENTS, log, renderTime) : world),
+    () => (replay ? buildWorld(getAgents(), getDepartments(), log, renderTime) : world),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [replay ? replayBucket : world, log, replay?.taskId],
   )

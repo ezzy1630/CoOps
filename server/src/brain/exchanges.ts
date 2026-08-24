@@ -4,7 +4,7 @@
  * Dispatched tasks can be aborted mid-flight via cancelExchangeTask (e.g. when
  * a guardrail blocks the turn that requested them). */
 
-import { BASE_AGENTS } from '../../../src/data/company.js'
+import { getAgents } from '../../../src/data/company.js'
 import type { WorldEvent } from '../../../src/types.js'
 import type { BrainCtx } from './types.js'
 
@@ -69,10 +69,10 @@ const EXCHANGE_BASES: Record<ExchangeKind, ExchangeBase> = {
 }
 
 const agentInDept = (deptId: string, kind: 'operator' | 'worker') =>
-  BASE_AGENTS.find((a) => a.deptId === deptId && a.kind === kind)
+  getAgents().find((a) => a.deptId === deptId && a.kind === kind)
 
 function resolveWorker(kind: ExchangeKind, toDept: string): string {
-  const preferred = BASE_AGENTS.find((a) => a.id === WORKER_BY_KIND[kind] && a.deptId === toDept)
+  const preferred = getAgents().find((a) => a.id === WORKER_BY_KIND[kind] && a.deptId === toDept)
   return preferred?.id ?? agentInDept(toDept, 'worker')?.id ?? toDept
 }
 

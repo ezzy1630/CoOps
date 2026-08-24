@@ -2,11 +2,28 @@
 import type { WorldEvent } from '../types'
 import { agentRef, ev, personRef, systemRef, Script, type Step } from '../engine/build'
 import { between, mulberry32, pick, type Rng } from '../engine/rng'
+import { deptById } from './company'
 
 const sim = <T extends { payload?: object }>(e: T): T => ({ ...e, payload: { ...e.payload, simulated: true } }) as T
 
 let taskNum = 990
 export const nextTaskId = () => `T-${++taskNum}`
+
+/** Templates authored for departments the registered company does not have
+ *  are skipped, so ambient life never references an unrenderable district. */
+function usable(spec: ExchangeSpec): boolean {
+  return deptById.has(spec.fromDept) && deptById.has(spec.toDept)
+}
+
+/** Draw one template whose departments exist in the registered company. */
+function drawSpec(rng: Rng): ExchangeSpec {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const spec = pick(rng, TEMPLATES)(rng)
+    if (usable(spec)) return spec
+  }
+  const fallbackPool = TEMPLATES.filter((template) => usable(template(mulberry32(1))))
+  return pick(rng, fallbackPool)(rng)
+}
 
 // ─── A generic cross-department exchange ─────────────────────────────────────
 
@@ -300,7 +317,7 @@ export function buildHistory(now: number): WorldEvent[] {
   const out: WorldEvent[] = []
   const DAY = 86_400_000
   for (let i = 0; i < 26; i++) {
-    const spec = pick(rng, TEMPLATES)(rng)
+    const spec = drawSpec(rng)
     const dayOffset = Math.floor(between(rng, 0.5, 14))
     const hour = between(rng, 13, 22) // UTC-ish business hours
     const start = now - dayOffset * DAY - hour * 3_600_000
@@ -320,7 +337,7 @@ export function ambientRng() {
 }
 
 export function nextAmbient(rng: Rng): { steps: { at: number; e: Omit<WorldEvent, 'ts'> }[]; lengthMs: number } {
-  const spec = pick(rng, TEMPLATES)(rng)
+  const spec = drawSpec(rng)
   const { script } = exchange(spec, between(rng, 1.6, 3.4))
   return { steps: script.steps, lengthMs: script.length }
 }
