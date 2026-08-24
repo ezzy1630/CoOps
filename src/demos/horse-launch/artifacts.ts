@@ -1,7 +1,11 @@
 import type { ArtifactTemplate } from '../../artifacts/document.js'
+import type { Receipt } from '../../types.js'
 
 /** Every receipt repeats the same checksum so the proof chain reads even muted. */
 export const VIDEO_SHA = 'sha256:9f4c8a11d2e7b604c3f5a09d8e21b47c6a5d0f38e9c27b14d6f83a50c1e7b92d'
+export const VIDEO_SIZE = '259,291,136 bytes (247.3 MB)'
+export const VIDEO_FILENAME = 'horse-walkthrough-v3.mp4'
+export const VIDEO_ID = 'hR73xW9pQmA'
 
 export const HORSE_DISCOVERY_TEMPLATE = {
   docType: 'brief',
@@ -16,9 +20,9 @@ export const HORSE_DISCOVERY_TEMPLATE = {
       rows: [
         { k: 'connector', v: 'w-connector · Developer Machine Connector' },
         { k: 'allow-listed root', v: 'D:\\exports\\horsewalk\\' },
-        { k: 'filename', v: 'horse-walkthrough-v3.mp4' },
+        { k: 'filename', v: VIDEO_FILENAME },
         { k: 'modified', v: '2026-08-23T14:02:11Z' },
-        { k: 'size', v: '259,291,136 bytes (247.3 MB)' },
+        { k: 'size', v: VIDEO_SIZE },
         { k: 'checksum', v: VIDEO_SHA },
       ],
     },
@@ -44,7 +48,7 @@ export const HORSE_STAGING_TEMPLATE = {
       kind: 'fields',
       rows: [
         { k: 'bucket', v: 'coops-horse-staging' },
-        { k: 'object', v: 'launches/horse-walkthrough-v3.mp4' },
+        { k: 'object', v: `launches/${VIDEO_FILENAME}` },
         { k: 'generation', v: '1724428800123456' },
         { k: 'bytes uploaded', v: '259,291,136' },
         { k: 'status', v: 'uploaded · integrity verified' },
@@ -71,8 +75,8 @@ export const HORSE_YOUTUBE_TEMPLATE = {
         { k: 'title', v: 'Horse Dating App — Official Walkthrough v3' },
         { k: 'privacy', v: 'private (ready for release)' },
         { k: 'processing', v: 'processed' },
-        { k: 'video id', v: 'hR73xW9pQmA' },
-        { k: 'url', v: 'https://youtu.be/hR73xW9pQmA' },
+        { k: 'video id', v: VIDEO_ID },
+        { k: 'url', v: `https://youtu.be/${VIDEO_ID}` },
         { k: 'approved by', v: 'Maya Chen · GTM Lead' },
         { k: 'checksum', v: VIDEO_SHA },
       ],
@@ -85,3 +89,66 @@ export const HORSE_YOUTUBE_TEMPLATE = {
     { kind: 'sign', name: 'Maya Chen', role: 'GTM Lead · publication approval' },
   ],
 } satisfies ArtifactTemplate
+
+export const HORSE_DISCOVERY_RECEIPT: Receipt = {
+  kind: 'local-discovery',
+  claim: 'The launch video was found on Alex’s laptop inside the allow-listed export folder.',
+  live: false,
+  ok: true,
+  at: '2026-08-23T14:02:11Z',
+  fields: {
+    connector: 'w-connector · Developer Machine Connector',
+    searchRoot: 'D:\\exports\\horsewalk\\',
+    filename: VIDEO_FILENAME,
+    modifiedAt: '2026-08-23T14:02:11Z',
+    bytes: '259,291,136',
+    checksum: VIDEO_SHA,
+  },
+}
+
+export const HORSE_STAGING_RECEIPT: Receipt = {
+  kind: 'cloud-handoff',
+  claim: 'The verified bytes were staged to Cloud Storage with matching checksum.',
+  live: false,
+  ok: true,
+  at: '2026-08-23T14:05:40Z',
+  fields: {
+    bucket: 'coops-horse-staging',
+    object: `launches/${VIDEO_FILENAME}`,
+    generation: '1724428800123456',
+    bytesUploaded: '259,291,136',
+    checksum: VIDEO_SHA,
+    status: 'uploaded · integrity verified',
+  },
+}
+
+export const HORSE_AUTHORITY_RECEIPT: Receipt = {
+  kind: 'authority',
+  claim: 'Maya Chen approved YouTube publication of the verified asset.',
+  live: false,
+  ok: true,
+  at: '2026-08-23T14:06:12Z',
+  fields: {
+    approver: 'Maya Chen · GTM Lead',
+    channel: 'Horse Launch Co (launch channel)',
+    title: 'Horse Dating App — Official Walkthrough v3',
+    privacy: 'private (ready for release)',
+    checksum: VIDEO_SHA,
+    approvedAt: '2026-08-23T14:06:12Z',
+  },
+}
+
+export const HORSE_YOUTUBE_RECEIPT: Receipt = {
+  kind: 'publication',
+  claim: 'The launch video was uploaded to YouTube and returned a valid video id.',
+  live: false,
+  ok: true,
+  at: '2026-08-23T14:07:05Z',
+  fields: {
+    apiResult: 'videos.insert · 200 OK',
+    videoId: VIDEO_ID,
+    privacyStatus: 'private',
+    processingStatus: 'processed',
+    url: `https://youtu.be/${VIDEO_ID}`,
+  },
+}

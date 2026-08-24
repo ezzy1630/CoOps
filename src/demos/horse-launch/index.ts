@@ -1,16 +1,21 @@
 import type { RehearsalDefinition, RehearsalPresentation, RehearsalSnapshot } from '../../engine/rehearsals'
+import { currentAttempt } from './attempt'
 import { handleHorseChat } from './chat'
 import { horseInterviewAuto } from './script'
 
 const STEPS = ['Route', 'Find & stage', 'Approve & publish'] as const
 
 function ownedEvents(snapshot: RehearsalSnapshot) {
-  return [...snapshot.log, ...snapshot.scheduled]
-    .filter((event) => event.payload?.rehearsalId === 'horse-launch')
+  return currentAttempt(
+    [...snapshot.log, ...snapshot.scheduled]
+      .filter((event) => event.payload?.rehearsalId === 'horse-launch'),
+  )
 }
 
 function present(snapshot: RehearsalSnapshot): RehearsalPresentation {
-  const committed = snapshot.log.filter((event) => event.payload?.rehearsalId === 'horse-launch')
+  const committed = currentAttempt(
+    snapshot.log.filter((event) => event.payload?.rehearsalId === 'horse-launch'),
+  )
   const owned = ownedEvents(snapshot)
 
   const taskEvent = owned.find((event) => event.type === 'TaskRequest' && event.taskId)
