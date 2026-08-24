@@ -5,7 +5,7 @@ import { useStore } from '../store'
 import { deptById, personById, toolById } from '../data/company'
 import { cx, fmtUsd, timeAgo } from '../utils'
 import { Chip, typeLabel } from './ui'
-import type { AgentStatus, EventType, PendingApproval, WorldEvent } from '../types'
+import type { AgentStatus, CloudStatusMeta, EventType, FileTransferMeta, PendingApproval, WorldEvent } from '../types'
 
 // ─── Web Speech API (absent from lib.dom in this TS version) ─────────────────
 
@@ -123,8 +123,16 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
   }, [log, agentId])
 
   const messages = useMemo(
-    () => log.filter((e) => e.type === 'Chat' && (e.from?.id === agentId || e.to?.id === agentId)),
-    [log, agentId],
+    () =>
+      log.filter(
+        (e) =>
+          (e.type === 'Chat' && (e.from?.id === agentId || e.to?.id === agentId)) ||
+          ((e.payload?.fileTransfer || e.payload?.cloudStatus) &&
+            (e.from?.id === agentId ||
+              e.to?.id === agentId ||
+              (agent?.kind === 'operator' && (e.deptFrom === agent.deptId || e.deptTo === agent.deptId)))),
+      ),
+    [log, agentId, agent?.deptId, agent?.kind],
   )
 
   // consecutive messages from one voice fold under a single sender line
@@ -344,12 +352,124 @@ interface ThreadGroup {
   msgs: WorldEvent[]
 }
 
+function DocGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 10 12" className={cx('size-[11px] shrink-0', className)} aria-hidden="true">
+      <path
+        d="M1.5 0.5h4.5L9 3.3V11a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 1 11V1a.5.5 0 0 1 .5-.5Z"
+        fill="none" stroke="currentColor" strokeWidth="1"
+      />
+      <path d="M6 0.5v3h3" fill="none" stroke="currentColor" strokeWidth="1" />
+      <path d="M3 6.5h4M3 8.5h4" stroke="currentColor" strokeWidth="0.9" />
+    </svg>
+  )
+}
+
+function FileTransferCard({ transfer, eventId }: { transfer: FileTransferMeta; eventId?: string }) {
+  return (
+    <div className="my-2 overflow-hidden rounded-sm border border-linebright bg-surface text-[12.5px]">
+      <div className="flex items-center justify-between gap-2 border-b border-linebright bg-raised px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-dim">
+        <span className="flex items-center gap-1.5">
+          <DocGlyph className="text-task" />
+          <span className="font-semibold text-mut">Scoped File Transfer</span>
+        </span>
+        <span className="rounded bg-task/10 px-1.5 py-0.5 text-[9px] font-semibold text-task uppercase">
+          {transfer.status}
+        </span>
+      </div>
+      <div className="space-y-2 p-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="font-semibold text-[13px] text-ink">{transfer.filename}</span>
+          <span className="font-mono text-[11px] text-dim">{transfer.size}</span>
+        </div>
+        <div className="flex items-center gap-2 text-[12px] text-mut">
+          <span className="truncate">{transfer.source}</span>
+          <span className="text-dim">→</span>
+          <span className="truncate">{transfer.destination}</span>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-1.5">
+          <span className="max-w-[280px] truncate font-mono text-[9.5px] text-dim" title={transfer.checksum}>
+            {transfer.checksum}
+          </span>
+          {eventId && (
+            <button
+              className="cursor-pointer font-mono text-[10px] text-task hover:underline"
+              onClick={() => useStore.getState().openArtifact(eventId)}
+            >
+              View Manifest →
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CloudStatusCard({ cloud, eventId }: { cloud: CloudStatusMeta; eventId?: string }) {
+  const isVerified = cloud.status === 'verified' || cloud.status === 'ready' || cloud.status === 'private'
+
+  return (
+    <div className="my-2 overflow-hidden rounded-sm border border-linebright bg-surface text-[12.5px]">
+      <div className="flex items-center justify-between gap-2 border-b border-linebright bg-raised px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-dim">
+        <span className="flex items-center gap-1.5">
+          <span className={cx('size-2 rounded-full', isVerified ? 'bg-ok' : 'bg-task')} />
+          <span className="font-semibold text-mut">{cloud.serviceName}</span>
+        </span>
+        <span
+          className={cx(
+            'rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase',
+            isVerified ? 'bg-ok/10 text-ok' : 'bg-task/10 text-task',
+          )}
+        >
+          {cloud.status}
+        </span>
+      </div>
+      <div className="space-y-1.5 p-3">
+        {cloud.resourceId && (
+          <div className="break-all font-mono text-[11.5px] text-ink">
+            {cloud.resourceId}
+          </div>
+        )}
+        {cloud.url && (
+          <div className="pt-0.5">
+            <a
+              href={cloud.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 font-mono text-[11px] text-task hover:underline"
+            >
+              <span>{cloud.url}</span>
+              <span className="text-[10px]">↗</span>
+            </a>
+          </div>
+        )}
+        {cloud.details && (
+          <p className="text-[12px] leading-relaxed text-mut">{cloud.details}</p>
+        )}
+        {eventId && (
+          <div className="flex justify-end border-t border-line pt-1">
+            <button
+              className="cursor-pointer font-mono text-[10px] text-task hover:underline"
+              onClick={() => useStore.getState().openArtifact(eventId)}
+            >
+              View Receipt →
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /**
  * Editorial thread: a small-caps sender line with a mono timestamp, then plain
  * paragraphs. The agent's voice hangs off a 2px hairline instead of a bubble.
  */
 function MessageGroup({ group, agentName, now }: { group: ThreadGroup; agentName: string; now: number }) {
-  const who = group.fromPerson ? personById.get(group.senderId)?.name ?? 'You' : agentName
+  const senderAgent = useStore.getState().world.agents.find((a) => a.id === group.senderId)
+  const who = group.fromPerson
+    ? personById.get(group.senderId)?.name ?? 'You'
+    : senderAgent?.name ?? agentName
   const first = group.msgs[0]
   return (
     <div>
@@ -373,9 +493,30 @@ function MessageGroup({ group, agentName, now }: { group: ThreadGroup; agentName
       </div>
       <div className={cx('mt-1.5 space-y-1.5', !group.fromPerson && 'border-l-2 border-linebright pl-3')}>
         {group.msgs.map((e) => (
-          <p key={e.id} className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink">
-            {e.payload?.text ?? e.title}
-          </p>
+          <div key={e.id} className="space-y-1.5">
+            {e.type === 'Chat' && (
+              <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink">
+                {e.payload?.text ?? e.title}
+              </p>
+            )}
+            {e.type !== 'Chat' && !e.payload?.fileTransfer && !e.payload?.cloudStatus && (
+              <p className="whitespace-pre-wrap text-[13px] font-medium leading-relaxed text-ink">
+                {e.title}
+              </p>
+            )}
+            {e.payload?.fileTransfer && (
+              <FileTransferCard
+                transfer={e.payload.fileTransfer}
+                eventId={e.type === 'ArtifactDelivered' ? e.id : undefined}
+              />
+            )}
+            {e.payload?.cloudStatus && (
+              <CloudStatusCard
+                cloud={e.payload.cloudStatus}
+                eventId={e.type === 'ArtifactDelivered' ? e.id : undefined}
+              />
+            )}
+          </div>
         ))}
       </div>
     </div>
@@ -546,19 +687,6 @@ function railTone(e: WorldEvent): RailTone {
   return { dot: 'bg-linebright', ring: 'border-linebright', label: 'text-dim' }
 }
 
-function DocGlyph({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 10 12" className={cx('size-[11px] shrink-0', className)} aria-hidden="true">
-      <path
-        d="M1.5 0.5h4.5L9 3.3V11a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 1 11V1a.5.5 0 0 1 .5-.5Z"
-        fill="none" stroke="currentColor" strokeWidth="1"
-      />
-      <path d="M6 0.5v3h3" fill="none" stroke="currentColor" strokeWidth="1" />
-      <path d="M3 6.5h4M3 8.5h4" stroke="currentColor" strokeWidth="0.9" />
-    </svg>
-  )
-}
-
 function TimelineList({
   events, highlightEventId, now,
 }: { events: WorldEvent[]; highlightEventId: string | null; now: number }) {
@@ -679,6 +807,12 @@ function EventDetail({ e }: { e: WorldEvent }) {
   return (
     <div className="border-t border-line pt-2 pr-2 pb-2.5 pl-2.5">
       {e.detail && <p className="mb-2 text-[12px] leading-snug text-mut">{e.detail}</p>}
+      {pl?.fileTransfer && (
+        <FileTransferCard transfer={pl.fileTransfer} eventId={e.type === 'ArtifactDelivered' ? e.id : undefined} />
+      )}
+      {pl?.cloudStatus && (
+        <CloudStatusCard cloud={pl.cloudStatus} eventId={e.type === 'ArtifactDelivered' ? e.id : undefined} />
+      )}
       <dl className="space-y-1 text-[12.5px]">
         {pl?.objective && <Row k="objective" v={pl.objective} />}
         {pl?.deadline && <Row k="deadline" v={pl.deadline} />}

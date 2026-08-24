@@ -129,6 +129,24 @@ export interface BlockedOn {
   kind: 'auth' | 'approval'
 }
 
+export interface FileTransferMeta {
+  filename: string
+  size: string
+  checksum: string
+  source: string
+  destination: string
+  status: 'scanning' | 'discovered' | 'staged' | 'transferred'
+}
+
+export interface CloudStatusMeta {
+  provider: 'gcs' | 'youtube' | 'cloudrun'
+  serviceName: string
+  resourceId?: string
+  status: 'uploading' | 'verified' | 'processing' | 'ready' | 'private'
+  details?: string
+  url?: string
+}
+
 export interface TypedPayload {
   objective?: string
   deadline?: string
@@ -167,6 +185,10 @@ export interface TypedPayload {
   rehearsalId?: string
   /** inspectable receipt for an externally observable step */
   receipt?: Receipt
+  /** file transfer indicators in chat/timeline */
+  fileTransfer?: FileTransferMeta
+  /** cloud provider and publication status indicators in chat/timeline */
+  cloudStatus?: CloudStatusMeta
 }
 
 export interface WorldEvent {

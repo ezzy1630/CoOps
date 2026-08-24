@@ -1,25 +1,26 @@
 import type { AgentBlueprint } from '../../types'
-import { agentRef, ev, personRef, systemRef, Script } from '../../engine/build'
+import { agentRef, ev, personRef, Script } from '../../engine/build'
 import type { CameraTarget } from '../../store'
 import { nextTaskId } from '../../data/scenarios'
 import type { EngineApi } from '../../engine/rehearsals'
 import {
+  HORSE_AUTHORITY_RECEIPT,
+  HORSE_DISCOVERY_RECEIPT,
   HORSE_DISCOVERY_TEMPLATE,
+  HORSE_STAGING_RECEIPT,
   HORSE_STAGING_TEMPLATE,
+  HORSE_YOUTUBE_RECEIPT,
   HORSE_YOUTUBE_TEMPLATE,
+  VIDEO_FILENAME,
+  VIDEO_ID,
+  VIDEO_SHA,
+  VIDEO_SIZE,
 } from './artifacts'
 
 export const HORSE_AGENT_ID = 'w-horse'
 
-const sim = <T extends { payload?: object }>(e: T): T => ({ ...e, payload: { ...e.payload, simulated: true } }) as T
-
-/**
- * The launch-day scenario: the video is stranded on Alex's laptop.
- *   A) one request → blueprint (waits for Maya's approval)
- *   B) spawn + route to Engineering; connector finds & verifies; staged to
- *      Cloud Storage (pauses for Maya's publication approval)
- *   C) resume → YouTube publish receipt → complete
- */
+const sim = <T extends { payload?: object }>(e: T): T =>
+  ({ ...e, payload: { ...e.payload, simulated: true, rehearsalId: 'horse-launch' } }) as T
 
 const cameraCue = (api: EngineApi, atMs: number, target: CameraTarget) => {
   if (!api.requestCamera) return
@@ -39,34 +40,53 @@ export const HORSE_BLUEPRINT: AgentBlueprint = {
   ownerId: 'maya',
 }
 
-/** Act A: one request from the GTM lead, blueprint proposed on the spot. */
-export function horseInterviewAuto(api: EngineApi, personId: string) {
-  const s = new Script()
-  const op = 'op-marketing'
-  s.then(600, sim(ev({
+export const HORSE_INTERVIEW_QUESTIONS = [
+  'Happy to set that up. First, what outcome should this agent own? Describe it as a finish line, not a to-do list.',
+  'Got it. What should trigger it: a schedule, an event in one of our systems, or someone asking?',
+  'Which systems will it touch, and which departments will it need to pull in?',
+  'Last one: who approves its work, and what hard limits should I write into it?',
+]
+
+export const HORSE_AUTO_ANSWERS = [
+  "Find Alex's latest horse dating app walkthrough and get it onto our YouTube channel before launch.",
+  'Triggered whenever the GTM Lead requests launch video distribution.',
+  'Developer Laptop connector on Engineering for discovery, Cloud Storage for staging, YouTube in Marketing for publishing.',
+  'Maya Chen approves publication before upload. Scoped read-only outside Marketing, no unapproved external sends.',
+]
+
+const chat = (agentId: string, from: 'agent' | 'person', personId: string, text: string) =>
+  sim(ev({
     type: 'Chat',
-    from: personRef(personId),
-    to: agentRef(op),
-    title: "Find Alex's latest horse dating app walkthrough and get it onto our YouTube channel before launch.",
-    payload: { text: "Find Alex's latest horse dating app walkthrough and get it onto our YouTube channel before launch." },
-  })))
-  s.then(2400, sim(ev({
-    type: 'Chat',
-    from: agentRef(op),
-    to: personRef(personId),
-    title: "On it. The video lives in Engineering's world, so I'll route a scoped request there and bring you the approval when it's time to publish.",
-    payload: { text: "On it. The video lives in Engineering's world, so I'll route a scoped request there and bring you the approval when it's time to publish." },
-  })))
-  const bp = sim(ev({
+    from: from === 'agent' ? agentRef(agentId) : personRef(personId),
+    to: from === 'agent' ? personRef(personId) : agentRef(agentId),
+    title: text,
+    payload: { text },
+  }))
+
+export function blueprintEvent(personId: string) {
+  return sim(ev({
     type: 'BlueprintProposed',
-    from: agentRef(op),
+    from: agentRef('op-marketing'),
     to: personRef(personId),
     deptFrom: 'marketing',
     title: 'Blueprint ready: Horse Launch Agent',
     detail: 'Inherits the company baseline and Marketing defaults; publication needs your approval.',
     payload: { blueprint: HORSE_BLUEPRINT },
   }))
-  s.then(1600, bp)
+}
+
+/** Act A: Maya and the Marketing Agent run the interview on stage or automated. */
+export function horseInterviewAuto(api: EngineApi, personId: string) {
+  const s = new Script()
+  const op = 'op-marketing'
+  s.then(600, chat(op, 'person', personId, "Find Alex's latest horse dating app walkthrough and get it onto our YouTube channel before launch."))
+  for (let i = 0; i < HORSE_INTERVIEW_QUESTIONS.length; i++) {
+    s.then(1900, chat(op, 'agent', personId, HORSE_INTERVIEW_QUESTIONS[i]))
+    s.then(2400, chat(op, 'person', personId, HORSE_AUTO_ANSWERS[i]))
+  }
+  s.then(1800, chat(op, 'agent', personId, 'That’s everything I need. Here’s the blueprint. Review the inherited config and approve when ready.'))
+  const bp = blueprintEvent(personId)
+  s.then(900, bp)
   api.schedule(s.steps)
   api.onResolve(bp.id, () => horseActB(api, personId, bp.id))
   api.autoResolve(bp.id, s.length + 14_000, personId)
@@ -77,9 +97,9 @@ export function horseInterviewAuto(api: EngineApi, personId: string) {
 export function horseActB(api: EngineApi, personId: string, blueprintEventId: string) {
   const taskId = nextTaskId()
   const w = HORSE_AGENT_ID
-
   const s = new Script()
-  s.then(1200, sim(ev({
+
+  s.then(1000, sim(ev({
     type: 'AgentSpawned',
     from: agentRef('op-marketing'), deptFrom: 'marketing', deptTo: 'marketing',
     title: 'Horse Launch Agent is live',
@@ -93,7 +113,8 @@ export function horseActB(api: EngineApi, personId: string, blueprintEventId: st
       reason: blueprintEventId,
     },
   })))
-  s.then(1800, sim(ev({
+
+  s.then(1600, sim(ev({
     type: 'TaskRequest', taskId,
     from: personRef(personId), to: agentRef(w),
     deptFrom: 'marketing', deptTo: 'marketing',
@@ -113,7 +134,7 @@ export function horseActB(api: EngineApi, personId: string, blueprintEventId: st
     title: 'Locate launch video on developer export',
     detail: 'Scoped discovery only: allow-listed directory, metadata plus checksum. No other paths.',
     payload: {
-      objective: 'Identify horse-walkthrough-v3.mp4 on the allow-listed export and return its manifest.',
+      objective: `Identify ${VIDEO_FILENAME} on the allow-listed export and return its manifest.`,
       expected: 'Discovery manifest with checksum', deadline: 'today', sharedContext: 'filename convention v3', visibility: 'request + artifact',
     },
   }))
@@ -121,13 +142,13 @@ export function horseActB(api: EngineApi, personId: string, blueprintEventId: st
   s.then(2200, envelope)
 
   // engineering accepts and delegates to its connector worker
-  s.then(2400, sim(ev({
+  s.then(2200, sim(ev({
     type: 'TaskAccepted', taskId,
     from: agentRef('op-engineering'), to: agentRef(w), deptFrom: 'engineering', deptTo: 'engineering',
     title: 'Scoped discovery accepted',
     detail: 'Queued for the Developer Machine Connector.',
   })))
-  s.then(1400, sim(ev({
+  s.then(1200, sim(ev({
     type: 'DelegatedTo', taskId,
     from: agentRef('op-engineering'), to: agentRef('w-connector'), deptFrom: 'engineering', deptTo: 'engineering',
     title: 'Delegated to Developer Machine Connector',
@@ -135,35 +156,76 @@ export function horseActB(api: EngineApi, personId: string, blueprintEventId: st
   })))
 
   // discovery with receipts
-  s.then(2600, sim(ev({
+  s.then(2400, sim(ev({
     type: 'ToolCall', taskId,
     from: agentRef('w-connector'), deptFrom: 'engineering', deptTo: 'engineering',
     title: 'Local connector: scanned allow-listed export',
-    detail: 'Root D:\\exports\\horsewalk\\ · found horse-walkthrough-v3.mp4 · 259,291,136 bytes · modified 2026-08-23T14:02Z · sha256 verified locally.',
-    payload: { tool: 'Developer Laptop', action: 'dir.scan', latencyMs: 1840 },
+    detail: `Root D:\\exports\\horsewalk\\ · found ${VIDEO_FILENAME} · ${VIDEO_SIZE} · modified 2026-08-23T14:02Z · sha256 verified locally.`,
+    payload: {
+      tool: 'Developer Laptop', action: 'dir.scan', latencyMs: 1840,
+      receipt: HORSE_DISCOVERY_RECEIPT,
+      fileTransfer: {
+        filename: VIDEO_FILENAME,
+        size: '247.3 MB',
+        checksum: VIDEO_SHA,
+        source: "Alex Rivera's Laptop (D:\\exports\\horsewalk\\)",
+        destination: 'Engineering Connector (Scoped Read)',
+        status: 'discovered',
+      },
+    },
   })))
-  s.then(2200, sim(ev({
-    type: 'ArtifactDelivered', taskId, edge: 'artifact', travelMs: 2600,
+  s.then(2000, sim(ev({
+    type: 'ArtifactDelivered', taskId, edge: 'artifact', travelMs: 2400,
     from: agentRef('op-engineering'), to: agentRef(w), deptFrom: 'engineering', deptTo: 'marketing',
     title: 'Delivered: Discovery manifest',
     detail: 'One candidate matched the v3 convention; checksum recorded for the chain.',
-    payload: { artifact: { name: 'horse-walkthrough-v3 discovery manifest', type: 'Report', template: HORSE_DISCOVERY_TEMPLATE } },
+    payload: {
+      artifact: { name: 'horse-walkthrough-v3 discovery manifest', type: 'Report', template: HORSE_DISCOVERY_TEMPLATE },
+      receipt: HORSE_DISCOVERY_RECEIPT,
+      fileTransfer: {
+        filename: VIDEO_FILENAME,
+        size: '247.3 MB',
+        checksum: VIDEO_SHA,
+        source: 'Engineering Connector',
+        destination: 'Marketing Agent',
+        status: 'transferred',
+      },
+    },
   })))
 
   // staging through cloud storage
-  s.then(2800, sim(ev({
+  s.then(2600, sim(ev({
     type: 'ToolCall', taskId,
     from: agentRef(w), deptFrom: 'marketing', deptTo: 'marketing',
     title: 'Cloud Storage: staged verified object',
     detail: 'coops-horse-staging/launches/horse-walkthrough-v3.mp4 · generation 1724428800123456 · integrity re-verified after upload.',
-    payload: { tool: 'Cloud Storage', action: 'objects.insert', latencyMs: 2410 },
+    payload: {
+      tool: 'Cloud Storage', action: 'objects.insert', latencyMs: 2410,
+      receipt: HORSE_STAGING_RECEIPT,
+      cloudStatus: {
+        provider: 'gcs',
+        serviceName: 'Google Cloud Storage',
+        resourceId: 'coops-horse-staging/launches/horse-walkthrough-v3.mp4',
+        status: 'verified',
+        details: 'Generation 1724428800123456 · Integrity matches local checksum',
+      },
+    },
   })))
-  s.then(2000, sim(ev({
-    type: 'ArtifactDelivered', taskId, edge: 'artifact', travelMs: 2400,
+  s.then(1800, sim(ev({
+    type: 'ArtifactDelivered', taskId, edge: 'artifact', travelMs: 2200,
     from: agentRef(w), to: personRef(personId), deptFrom: 'marketing', deptTo: 'marketing',
     title: 'Delivered: Cloud staging receipt',
     detail: 'Same checksum as discovery — the bytes that left the laptop are the bytes in the bucket.',
-    payload: { artifact: { name: 'horse-walkthrough-v3 staging receipt', type: 'Receipt', template: HORSE_STAGING_TEMPLATE } },
+    payload: {
+      artifact: { name: 'horse-walkthrough-v3 staging receipt', type: 'Receipt', template: HORSE_STAGING_TEMPLATE },
+      receipt: HORSE_STAGING_RECEIPT,
+      cloudStatus: {
+        provider: 'gcs',
+        serviceName: 'Google Cloud Storage',
+        resourceId: 'coops-horse-staging/launches/horse-walkthrough-v3.mp4',
+        status: 'verified',
+      },
+    },
   })))
 
   // publication pauses for the named approver
@@ -174,9 +236,18 @@ export function horseActB(api: EngineApi, personId: string, blueprintEventId: st
     title: 'Approve YouTube publication',
     detail: 'Staged object is verified and private-ready. Maya Chen owns the launch channel decision.',
     blockedOn: { what: 'Approve YouTube publication', personId: 'maya', kind: 'approval' },
+    payload: {
+      receipt: HORSE_AUTHORITY_RECEIPT,
+      cloudStatus: {
+        provider: 'youtube',
+        serviceName: 'YouTube Data API v3',
+        status: 'ready',
+        details: 'Awaiting Maya Chen approval for private upload to launch channel',
+      },
+    },
   }))
-  s.then(2400, auth)
-  cameraCue(api, s.length + 500, { type: 'dept', deptId: 'marketing' })
+  s.then(2200, auth)
+  cameraCue(api, s.length + 400, { type: 'dept', deptId: 'marketing' })
 
   api.schedule(s.steps)
   api.onResolve(auth.id, () => horseActC(api, personId, taskId))
@@ -190,33 +261,65 @@ export function horseActC(api: EngineApi, personId: string, taskId: string) {
   const w = HORSE_AGENT_ID
   const s = new Script()
   cameraCue(api, 400, { type: 'frame', deptIds: ['marketing'] })
-  s.then(1500, sim(ev({
+  s.then(1400, sim(ev({
     type: 'ToolCall', taskId,
     from: agentRef(w), deptFrom: 'marketing', deptTo: 'marketing',
     title: 'YouTube: videos.insert published',
-    detail: 'Uploaded privately to the launch channel · processing processed · video id hR73xW9pQmA · checksum matches staging receipt.',
-    payload: { tool: 'YouTube', action: 'videos.insert', latencyMs: 3120 },
+    detail: `Uploaded privately to the launch channel · processing processed · video id ${VIDEO_ID} · checksum matches staging receipt.`,
+    payload: {
+      tool: 'YouTube', action: 'videos.insert', latencyMs: 3120,
+      receipt: HORSE_YOUTUBE_RECEIPT,
+      cloudStatus: {
+        provider: 'youtube',
+        serviceName: 'YouTube Data API v3',
+        resourceId: VIDEO_ID,
+        url: `https://youtu.be/${VIDEO_ID}`,
+        status: 'private',
+        details: 'Uploaded privately to launch channel · Processing complete',
+      },
+    },
   })))
-  s.then(2400, sim(ev({
-    type: 'ArtifactDelivered', taskId, edge: 'artifact', travelMs: 2400,
+  s.then(2200, sim(ev({
+    type: 'ArtifactDelivered', taskId, edge: 'artifact', travelMs: 2200,
     from: agentRef(w), to: personRef(personId), deptFrom: 'marketing', deptTo: 'marketing',
     title: 'Delivered: Publication receipt',
     detail: 'Private by API policy until audit — ready for release. Full provenance chain attached.',
-    payload: { artifact: { name: 'horse-walkthrough-v3 publication receipt', type: 'Receipt', template: HORSE_YOUTUBE_TEMPLATE } },
+    payload: {
+      artifact: { name: 'horse-walkthrough-v3 publication receipt', type: 'Receipt', template: HORSE_YOUTUBE_TEMPLATE },
+      receipt: HORSE_YOUTUBE_RECEIPT,
+      cloudStatus: {
+        provider: 'youtube',
+        serviceName: 'YouTube Data API v3',
+        resourceId: VIDEO_ID,
+        url: `https://youtu.be/${VIDEO_ID}`,
+        status: 'ready',
+      },
+    },
   })))
-  s.then(2000, sim(ev({
+  s.then(1800, sim(ev({
     type: 'TaskCompleted', taskId,
     from: agentRef(w), deptFrom: 'marketing', deptTo: 'marketing',
     title: 'Launch video is live (private-ready)',
     detail: 'Discovered on Engineering · staged verified · approved by Maya · published to YouTube.',
+    payload: { receipt: HORSE_YOUTUBE_RECEIPT },
   })))
-  cameraCue(api, s.length + 900, { type: 'fit' })
-  s.then(1100, sim(ev({
+  cameraCue(api, s.length + 800, { type: 'fit' })
+  s.then(1000, sim(ev({
     type: 'Chat',
     from: agentRef('op-marketing'),
     to: personRef(personId),
     title: "Done — the walkthrough is on our channel, private until you flip it public. Every hop has a receipt: laptop, bucket, approval, video id.",
-    payload: { text: "Done — the walkthrough is on our channel, private until you flip it public. Every hop has a receipt: laptop, bucket, approval, video id." },
+    payload: {
+      text: "Done — the walkthrough is on our channel, private until you flip it public. Every hop has a receipt: laptop, bucket, approval, video id.",
+      cloudStatus: {
+        provider: 'youtube',
+        serviceName: 'YouTube Data API v3',
+        resourceId: VIDEO_ID,
+        url: `https://youtu.be/${VIDEO_ID}`,
+        status: 'private',
+        details: 'Official Walkthrough v3 · Ready for release',
+      },
+    },
   })))
   api.schedule(s.steps)
   api.toast('Checkpoint resumed', 'Publication approved. The Horse Launch Agent is finishing the YouTube delivery.')
