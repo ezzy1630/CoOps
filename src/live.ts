@@ -1,4 +1,4 @@
-import type { ExecutionMode, RuntimeInfo, WorldEvent } from './types'
+import type { ExecutionMode, GateReport, RuntimeInfo, WorldEvent } from './types'
 
 /** Live is the product default. The scripted dataset requires an explicit URL mode. */
 export function executionMode(): ExecutionMode {
@@ -40,6 +40,13 @@ export async function fetchRuntimeInfo(): Promise<RuntimeInfo> {
   const response = await fetch(`${backendUrl()}/runtime`)
   if (!response.ok) throw new Error(`Runtime endpoint returned ${response.status}.`)
   return response.json() as Promise<RuntimeInfo>
+}
+
+/** Fetch the Go/No-Go gate report from the live server or return null. */
+export async function fetchGateReport(): Promise<GateReport | null> {
+  const response = await fetch(`${backendUrl()}/preflight`)
+  if (!response.ok) return null
+  return response.json() as Promise<GateReport>
 }
 
 interface LiveCallbacks {
