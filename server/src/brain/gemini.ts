@@ -1,5 +1,4 @@
-import { GoogleGenAI, Type } from '@google/genai'
-import type { Content, Tool } from '@google/genai'
+import type { Content, GoogleGenAI as GoogleGenAIType, Tool, Type as GenAIType } from '@google/genai'
 import type { AgentBlueprint, Receipt, WorldEvent } from '../../../src/types.js'
 import { deptById, personById } from '../../../src/data/company.js'
 import type { GuardrailAdapter } from '../guardrail/types.js'
@@ -15,6 +14,12 @@ import { DEFAULT_GEMINI_MODEL } from '../config.js'
 const REFUSAL = 'That request was blocked by policy. Rephrase it or contact your department lead.'
 
 const EXCHANGE_KINDS = ['budget', 'legal', 'faq'] as const
+
+const Type = {
+  OBJECT: 'OBJECT' as unknown as GenAIType,
+  STRING: 'STRING' as unknown as GenAIType,
+  ARRAY: 'ARRAY' as unknown as GenAIType,
+}
 
 const TOOLS: Tool[] = [{
   functionDeclarations: [
@@ -110,10 +115,25 @@ export function createGeminiBrain(opts: {
   workspaceTools?: WorkspaceToolAdapter
 }): BrainAdapter {
   const workspaceTools = opts.workspaceTools ?? createDryRunTools()
-  const ai = new GoogleGenAI({ apiKey: opts.apiKey })
+  let aiPromise: Promise<GoogleGenAIType> | null = null
+
+  const getAi = (): Promise<GoogleGenAIType> => {
+    if (!aiPromise) {
+      aiPromise = (async () => {
+        const { GoogleGenAI } = await import('@google/genai')
+        return new GoogleGenAI({ apiKey: opts.apiKey })
+      })().catch(err => {
+        aiPromise = null
+        throw err
+      })
+    }
+    return aiPromise
+  }
+
   const model = opts.model ?? process.env.COOPS_GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL
 
   const geminiExecutor: ExchangeExecutor = async (spec) => {
+    const ai = await getAi()
     const workerRole = `${spec.workerId} owning “${spec.title}”`
     const systemInstruction =
       `You are the ${workerRole} completing a delegated cross-department task. ` +
@@ -135,6 +155,7 @@ export function createGeminiBrain(opts: {
   return {
     async handle(ctx, agentId, deptId, text, personId) {
       try {
+        const ai = await getAi()
         await runTurn(ctx, ai, model, opts.guardrail, opts.memory, workspaceTools, geminiExecutor, agentId, deptId, text, personId)
       } catch (err) {
         console.error(`[gemini-brain] turn failed for agent ${agentId} in ${deptId}:`, err)
@@ -161,7 +182,7 @@ export function publicGeminiError(error: unknown): string {
 
 async function runTurn(
   ctx: BrainCtx,
-  ai: GoogleGenAI,
+  ai: GoogleGenAIType,
   model: string,
   guardrail: GuardrailAdapter,
   memory: DeptMemory,

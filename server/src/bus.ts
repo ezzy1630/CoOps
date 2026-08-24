@@ -9,6 +9,12 @@ export class Bus<T> {
   }
 
   publish(e: T): void {
-    for (const fn of this.listeners) fn(e)
+    for (const fn of this.listeners) {
+      try {
+        fn(e)
+      } catch (err) {
+        console.error('[bus] listener error:', err)
+      }
+    }
   }
 }

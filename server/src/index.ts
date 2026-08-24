@@ -1,3 +1,8 @@
+import { enableCompileCache } from 'node:module'
+try {
+  enableCompileCache()
+} catch {}
+
 import { DEFAULT_GEMINI_MODEL, loadConfig } from './config.js'
 import { EventStore } from './store.js'
 import { Bus } from './bus.js'
@@ -22,7 +27,7 @@ import type { RuntimeInfo, WorldEvent } from '../../src/types.js'
 const cfg = loadConfig()
 const bus = new Bus<WorldEvent>()
 
-function worldTasks(events: WorldEvent[]): { id: string; title: string; status: string }[] {
+function worldTasks(events: readonly WorldEvent[]): { id: string; title: string; status: string }[] {
   const statusById = new Map<string, string>()
   const titleById = new Map<string, string>()
   for (let i = events.length - 1; i >= 0; i--) {
@@ -144,7 +149,7 @@ function spawnFromBlueprintResolution(e: WorldEvent): void {
 
 /** Agents spawned in earlier runs live on in the event log; re-register them so
  * chat routing and id uniqueness survive a restart. */
-function restoreSpawnedAgents(events: WorldEvent[]): void {
+function restoreSpawnedAgents(events: readonly WorldEvent[]): void {
   for (const e of events) {
     const a = e.type === 'AgentSpawned' ? e.payload?.agent : undefined
     if (a) registerAgent(a.id, a.deptId)

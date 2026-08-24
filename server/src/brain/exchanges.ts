@@ -81,6 +81,8 @@ const cancelledTasks = new Set<string>()
 /** Aborts an in-flight exchange: remaining lifecycle events are suppressed. */
 export function cancelExchangeTask(taskId: string): void {
   cancelledTasks.add(taskId)
+  const timer = setTimeout(() => cancelledTasks.delete(taskId), 30_000)
+  timer.unref?.()
 }
 
 async function performExchange(
