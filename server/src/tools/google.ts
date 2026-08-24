@@ -1,4 +1,3 @@
-import { google } from 'googleapis'
 import type { StagedAsset, ToolResult, WorkspaceToolAdapter } from './types.js'
 import { WORKSPACE_TOOLS } from './dryrun.js'
 import { createLaunchTools, LAUNCH_TOOLS } from './launch.js'
@@ -29,6 +28,7 @@ export function createWorkspaceTools(deps: WorkspaceToolsDeps): WorkspaceToolAda
     }
     const name = `CoOps audit: ${action}`
     try {
+      const { google } = await import('googleapis')
       const drive = google.drive({ version: 'v3', headers: { Authorization: `Bearer ${token}` } })
       const created = await drive.files.create({
         requestBody: { name },
@@ -55,6 +55,7 @@ export function createWorkspaceTools(deps: WorkspaceToolsDeps): WorkspaceToolAda
       return { ok: true, detail: `dry-run: gsheets.${action} recorded; no Google credentials connected` }
     }
     try {
+      const { google } = await import('googleapis')
       const sheets = google.sheets({ version: 'v4', headers: { Authorization: `Bearer ${token}` } })
       await sheets.spreadsheets.values.append({
         spreadsheetId,

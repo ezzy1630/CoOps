@@ -1,4 +1,4 @@
-import { Firestore } from '@google-cloud/firestore'
+import type { Firestore } from '@google-cloud/firestore'
 import type { DeptMemory, MemoryEntry } from './types.js'
 
 const DEFAULT_COLLECTION = 'coops-memory'
@@ -8,21 +8,29 @@ export function openFirestoreMemory(opts?: {
   collectionPrefix?: string
 }): DeptMemory {
   let db: Firestore | undefined
-  const messagesOf = (deptId: string) => {
+  const getDb = async () => {
+    if (!db) {
+      const { Firestore } = await import('@google-cloud/firestore')
+      db = new Firestore(opts?.projectId ? { projectId: opts.projectId } : {})
+    }
+    return db
+  }
+
+  const messagesOf = async (deptId: string) => {
     if (!deptId) return null
-    db ??= new Firestore(opts?.projectId ? { projectId: opts.projectId } : {})
+    const firestore = await getDb()
     const prefix = opts?.collectionPrefix ?? DEFAULT_COLLECTION
-    return db.collection(prefix).doc(deptId).collection('messages')
+    return firestore.collection(prefix).doc(deptId).collection('messages')
   }
 
   return {
     async append(deptId, role, text) {
-      const messages = messagesOf(deptId)
+      const messages = await messagesOf(deptId)
       if (!messages) return
       await messages.add({ role, text, ts: Date.now() })
     },
     async read(deptId, limit = 20) {
-      const messages = messagesOf(deptId)
+      const messages = await messagesOf(deptId)
       if (!messages) return []
       const snap = await messages.orderBy('ts', 'desc').limit(limit).get()
       const entries: MemoryEntry[] = []

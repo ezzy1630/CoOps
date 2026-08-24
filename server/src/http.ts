@@ -49,7 +49,7 @@ export async function startHttp(
   if (cfg.enableA2a) mountA2a(app, { store, bus, token: cfg.a2aToken, principal: cfg.a2aPrincipal }, org)
 
   app.get('/events', (req, res) => streamEvents(store, bus, sinceOf(req), personIdOf(req), presence, res))
-  app.get('/healthz', (_req, res) => send(res, 200, { ok: true, events: store.all().length }))
+  app.get('/healthz', (_req, res) => send(res, 200, { ok: true, events: store.count() }))
   app.get('/runtime', (_req, res) => send(res, 200, runtime ?? fallbackRuntime(cfg, google)))
   app.get('/presence', (_req, res) => send(res, 200, presence.list()))
   app.get('/org', (_req, res) => send(res, 200, org.list()))
@@ -254,7 +254,7 @@ async function postDecision(store: EventStore, eventId: string, body: unknown, r
         : null
   if (!kind) return send(res, 409, { error: `event ${eventId} is not a resolvable request` })
 
-  if (store.all().some(e => e.payload?.reason === eventId)) {
+  if (store.hasResolution(eventId)) {
     return send(res, 409, { error: `event ${eventId} is already resolved` })
   }
 

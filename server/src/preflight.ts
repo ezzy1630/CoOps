@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { google } from 'googleapis'
 import { latestReceipts } from '../../src/evidence/proofPackage.js'
 import type { Receipt, ReceiptKind, WorldEvent } from '../../src/types.js'
 import { createLaunchTools } from './tools/launch.js'
@@ -332,6 +331,7 @@ async function probeBucket(bucket: string, token: string): Promise<ProbeResult> 
   const object = `coops/preflight/${Date.now()}.txt`
   const sent = createHash('md5').update(PROBE_BODY).digest('base64')
   try {
+    const { google } = await import('googleapis')
     const storage = google.storage({ version: 'v1', headers: { Authorization: `Bearer ${token}` } })
     const created = await storage.objects.insert({
       bucket,
@@ -357,6 +357,7 @@ async function probeBucket(bucket: string, token: string): Promise<ProbeResult> 
 /** Reads the channel the grant would publish to. Uploads nothing. */
 async function probeChannel(token: string): Promise<ProbeResult> {
   try {
+    const { google } = await import('googleapis')
     const youtube = google.youtube({ version: 'v3', headers: { Authorization: `Bearer ${token}` } })
     const listed = await youtube.channels.list({ part: ['id', 'snippet', 'status'], mine: true })
     const channel = listed.data.items?.[0]

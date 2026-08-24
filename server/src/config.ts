@@ -52,10 +52,11 @@ export function loadConfig(): Config {
   }
 }
 
-/** Discovery reads nothing outside COOPS_LOCAL_ROOTS, so an unset value is a closed door. */
 function launchFromEnv(): { localRoots: string[]; connectorId: string; bucket?: string; query: string } {
-  const roots = (process.env.COOPS_LOCAL_ROOTS ?? '')
-    .split(/[:,]/)
+  const rawRoots = process.env.COOPS_LOCAL_ROOTS ?? ''
+  const separator = process.platform === 'win32' ? /[,;]/ : /[:,;]/
+  const roots = rawRoots
+    .split(separator)
     .map(root => root.trim())
     .filter(Boolean)
     .map(root => resolve(root))

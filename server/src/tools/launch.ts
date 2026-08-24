@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { readdir, realpath, stat } from 'node:fs/promises'
 import { basename, extname, join, resolve, sep } from 'node:path'
-import { google } from 'googleapis'
+import type { youtube_v3 } from 'googleapis'
 import type { Receipt, WorldEvent } from '../../../src/types.js'
 import type { StagedAsset, ToolResult } from './types.js'
 
@@ -109,6 +109,7 @@ export function createLaunchTools(deps: LaunchToolDeps): LaunchTools {
     }
 
     try {
+      const { google } = await import('googleapis')
       const storage = google.storage({ version: 'v1', headers: { Authorization: `Bearer ${token}` } })
       const created = await storage.objects.insert({
         bucket,
@@ -179,6 +180,7 @@ export function createLaunchTools(deps: LaunchToolDeps): LaunchTools {
     }
 
     try {
+      const { google } = await import('googleapis')
       const youtube = google.youtube({ version: 'v3', headers: { Authorization: `Bearer ${token}` } })
       const inserted = await youtube.videos.insert({
         part: ['snippet', 'status'],
@@ -223,7 +225,7 @@ export function createLaunchTools(deps: LaunchToolDeps): LaunchTools {
 }
 
 /** The newest human approval of a publication, as recorded on the event log. */
-export function readApprovedPublication(events: WorldEvent[]): Receipt | null {
+export function readApprovedPublication(events: readonly WorldEvent[]): Receipt | null {
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i]
     if (event.type !== 'ApprovalGranted') continue
@@ -258,8 +260,9 @@ async function findNewestMatch(roots: string[], query: string): Promise<Match | 
 
   for (const root of roots) {
     const queue: { dir: string; depth: number }[] = [{ dir: root, depth: 0 }]
-    while (queue.length > 0 && scanned < MAX_ENTRIES) {
-      const { dir, depth } = queue.shift()!
+    let head = 0
+    while (head < queue.length && scanned < MAX_ENTRIES) {
+      const { dir, depth } = queue[head++]
       let entries
       try {
         entries = await readdir(dir, { withFileTypes: true })
@@ -312,7 +315,7 @@ async function digestFile(path: string): Promise<{ sha256: string; md5Base64: st
 }
 
 async function processingStatus(
-  youtube: ReturnType<typeof google.youtube>,
+  youtube: youtube_v3.Youtube,
   videoId: string,
   fallback?: string | null,
 ): Promise<string> {
