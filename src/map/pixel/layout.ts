@@ -20,20 +20,19 @@ export interface PixelCameraBounds {
   h: number
 }
 
-/** Cover fit for the decorative scene bounds. The larger background is sized
- *  so covering supported desktop aspect ratios still keeps the 960×600 town
- *  visible, while no flat canvas can appear around the scenery. */
-export function fitK(vw: number, vh: number, bounds: PixelCameraBounds): number {
+/** Hard zoom-out limit: cover the viewport with the decorative scene bounds so
+ *  no flat canvas can appear around the scenery. */
+export function scenicMinK(vw: number, vh: number, bounds: PixelCameraBounds): number {
   return Math.min(MAX_CAMERA_SCALE, Math.max(0.4, Math.max(vw / bounds.w, vh / bounds.h)))
 }
 
-/** Maximum zoom-out framing: reveal the pastoral buffer while keeping its
- *  painted background edge outside the viewport. */
-export function fitCamera(vw: number, vh: number, bounds: PixelCameraBounds): PixelCamera {
+/** Stable company framing. The 960×600 interactive town is the camera's soft
+ *  resting boundary; elastic input may reveal scenery beyond it temporarily. */
+export function fitCamera(vw: number, vh: number, world: { w: number; h: number }): PixelCamera {
   return {
-    cx: bounds.x + bounds.w / 2,
-    cy: bounds.y + bounds.h / 2,
-    k: fitK(vw, vh, bounds),
+    cx: world.w / 2,
+    cy: world.h / 2,
+    k: Math.min(MAX_CAMERA_SCALE, Math.max(0.4, Math.min(vw / world.w, vh / world.h))),
   }
 }
 
@@ -45,7 +44,7 @@ export function constrainCamera(
   vh: number,
   bounds: PixelCameraBounds,
 ): PixelCamera {
-  const fit = fitK(vw, vh, bounds)
+  const fit = scenicMinK(vw, vh, bounds)
   const k = Math.min(MAX_CAMERA_SCALE, Math.max(fit, camera.k))
   const halfW = vw / (2 * k)
   const halfH = vh / (2 * k)

@@ -84,8 +84,9 @@ each `door` point so they line up under every building sprite.
 The interactive world remains 960×600. The manifest places the larger background at
 world offset (-240,-300), giving the camera a 240px horizontal and 300px vertical
 scenery buffer without moving buildings, paths, walkers, or activity-follow targets.
-Maximum zoom-out covers the viewport with these background bounds rather than fitting
-only the town, so the surrounding scenery becomes visible without a flat letterbox.
+The stable camera fit uses the town bounds. Zooming farther out behaves as a resisted
+rubber band: continuous spring force returns toward the town while the background-cover
+scale remains the hard limit, revealing scenery without exposing a flat letterbox.
 
 ## Style rules
 
