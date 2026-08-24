@@ -34,31 +34,9 @@ const EMOTE_FRESH_MS = 6000
 const SPEECH_MS = 6000
 const VALLEY_TOOLBAR_HEIGHT = 52
 const VALLEY_RUN_BAR_HEIGHT = 56
-const ELASTIC_ZOOM_MIN_STIFFNESS = 8
-const ELASTIC_ZOOM_MAX_STIFFNESS = 26
-const ELASTIC_ZOOM_MAX_DAMPING = 7.4
-const ELASTIC_ZOOM_CENTER_PULL = 6
-const DRAG_RETURN_DELAY_MS = 250
-const DRAG_RETURN_DURATION_S = 0.7
-
-interface ElasticZoomState {
-  displacement: number
-  velocity: number
-  cx: number
-  cy: number
-  lastTime: number
-  raf: number
-}
-
-function elasticZoomStiffness(depth: number): number {
-  const normalized = Math.max(0, Math.min(1, depth))
-  return ELASTIC_ZOOM_MIN_STIFFNESS
-    + (ELASTIC_ZOOM_MAX_STIFFNESS - ELASTIC_ZOOM_MIN_STIFFNESS) * normalized ** 2
-}
-
-function elasticZoomDamping(stiffness: number): number {
-  return ELASTIC_ZOOM_MAX_DAMPING * Math.sqrt(stiffness / ELASTIC_ZOOM_MAX_STIFFNESS)
-}
+const CAMERA_RETURN_MAX_DELAY_MS = 1000
+const CAMERA_RETURN_MIN_DELAY_MS = 250
+const CAMERA_RETURN_DURATION_S = 0.7
 
 // every standing villager idles between the same two strip columns (down0 ↔ down1)
 const BOB_VARS = {
@@ -98,6 +76,31 @@ function frameCamera(
     vh,
     bounds,
   )
+}
+
+function cameraReturnDepth(
+  camera: PixelCamera,
+  rest: PixelCamera,
+  minK: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  bounds: PixelCameraBounds,
+): number {
+  const zoomRange = Math.max(0.001, Math.log(rest.k / minK))
+  const zoomDepth = Math.max(0, Math.log(rest.k / camera.k) / zoomRange)
+  const halfWidth = viewportWidth / (2 * camera.k)
+  const halfHeight = viewportHeight / (2 * camera.k)
+  const minCx = bounds.x + halfWidth
+  const maxCx = bounds.x + bounds.w - halfWidth
+  const minCy = bounds.y + halfHeight
+  const maxCy = bounds.y + bounds.h - halfHeight
+  const dx = camera.cx - rest.cx
+  const dy = camera.cy - rest.cy
+  const xTravel = dx < 0 ? rest.cx - minCx : maxCx - rest.cx
+  const yTravel = dy < 0 ? rest.cy - minCy : maxCy - rest.cy
+  const panXDepth = xTravel > 0.001 ? Math.abs(dx) / xTravel : 0
+  const panYDepth = yTravel > 0.001 ? Math.abs(dy) / yTravel : 0
+  return Math.max(0, Math.min(1, Math.max(zoomDepth, panXDepth, panYDepth)))
 }
 
 /**
@@ -286,120 +289,47 @@ export default function PixelMap() {
   cameraRef.current = camera
   const cameraAnimRef = useRef<{ stop: () => void } | null>(null)
   const lastUserCameraRef = useRef(0)
-  const elasticZoomRef = useRef<ElasticZoomState | null>(null)
-  const dragReturnTimerRef = useRef<number | null>(null)
+  const cameraReturnTimerRef = useRef<number | null>(null)
 
-  const stopDragReturn = useCallback(() => {
-    if (dragReturnTimerRef.current != null) window.clearTimeout(dragReturnTimerRef.current)
-    dragReturnTimerRef.current = null
+  const stopCameraReturn = useCallback(() => {
+    if (cameraReturnTimerRef.current != null) window.clearTimeout(cameraReturnTimerRef.current)
+    cameraReturnTimerRef.current = null
   }, [])
 
-  const stopElasticZoom = useCallback(() => {
-    const elastic = elasticZoomRef.current
-    if (elastic?.raf) cancelAnimationFrame(elastic.raf)
-    elasticZoomRef.current = null
-  }, [])
-
-  /** Apply an outward/inward impulse beyond the stable town fit. A spring runs
-   *  continuously, so resistance is present during input and wins immediately
-   *  when the user's force stops. Positive impulses pull outward. */
-  const pushElasticZoom = useCallback((impulse: number, baseCamera?: PixelCamera) => {
+  const scheduleCameraReturn = useCallback(() => {
     if (!art || availableWidth === 0 || availableHeight === 0) return
-    stopDragReturn()
+    stopCameraReturn()
+    const current = cameraRef.current
+    if (!current) return
     const rest = constrainCamera(
       fitCamera(availableWidth, availableHeight, art.world),
       availableWidth,
       availableHeight,
       art.background,
     )
-    const minK = scenicMinK(availableWidth, availableHeight, art.background)
-    const maxDisplacement = Math.max(0, Math.log(rest.k / minK))
-    if (maxDisplacement < 0.001) return
-
-    cameraAnimRef.current?.stop()
-    autoFitRef.current = false
-    let elastic = elasticZoomRef.current
-    if (!elastic) {
-      const current = baseCamera ?? cameraRef.current ?? rest
-      elastic = {
-        displacement: Math.max(0, Math.log(rest.k / current.k)),
-        velocity: 0,
-        cx: current.cx,
-        cy: current.cy,
-        lastTime: performance.now(),
-        raf: 0,
-      }
-      elasticZoomRef.current = elastic
-    }
-
-    // The same input buys less motion near the scenic boundary. Combined with
-    // F = -kx below, this is the direct rubber-band feedback rather than a
-    // delayed return animation.
-    const depth = Math.max(0, Math.min(1, elastic.displacement / maxDisplacement))
-    const resistance = 1 / (1 + 4 * depth * depth)
-    elastic.velocity += impulse * resistance
-
-    if (elastic.raf) return
-    const tick = (time: number) => {
-      const state = elasticZoomRef.current
-      if (!state || state !== elastic) return
-      const dt = Math.min(0.032, Math.max(0.001, (time - state.lastTime) / 1000))
-      state.lastTime = time
-
-      const springDepth = Math.max(0, Math.min(1, state.displacement / maxDisplacement))
-      const stiffness = elasticZoomStiffness(springDepth)
-      const damping = elasticZoomDamping(stiffness)
-      const acceleration = -stiffness * state.displacement - damping * state.velocity
-      state.velocity += acceleration * dt
-      state.displacement += state.velocity * dt
-
-      if (state.displacement > maxDisplacement) {
-        state.displacement = maxDisplacement
-        if (state.velocity > 0) state.velocity = 0
-      }
-      // A small inward overshoot makes the return perceptible without turning
-      // the ordinary zoomed-in camera into part of the elastic interaction.
-      state.displacement = Math.max(-maxDisplacement * 0.055, state.displacement)
-      const centerStep = 1 - Math.exp(-ELASTIC_ZOOM_CENTER_PULL * dt)
-      state.cx += (rest.cx - state.cx) * centerStep
-      state.cy += (rest.cy - state.cy) * centerStep
-
-      const next = constrainCamera({
-        cx: state.cx,
-        cy: state.cy,
-        k: rest.k * Math.exp(-state.displacement),
-      }, availableWidth, availableHeight, art.background)
-      cameraRef.current = next
-      setCamera(next)
-
-      if (Math.abs(state.displacement) < 0.0005 && Math.abs(state.velocity) < 0.004) {
-        elasticZoomRef.current = null
-        cameraRef.current = rest
-        setCamera(rest)
-        autoFitRef.current = true
-        return
-      }
-      state.raf = requestAnimationFrame(tick)
-    }
-    elastic.raf = requestAnimationFrame(tick)
-  }, [art, availableWidth, availableHeight, stopDragReturn])
-
-  const scheduleDragReturn = useCallback(() => {
-    if (!art || availableWidth === 0 || availableHeight === 0) return
-    stopDragReturn()
-    dragReturnTimerRef.current = window.setTimeout(() => {
-      dragReturnTimerRef.current = null
+    const centerDistance = Math.hypot(current.cx - rest.cx, current.cy - rest.cy)
+    if (current.k > rest.k * 1.001 || (
+      Math.abs(current.k - rest.k) < 0.0005 && centerDistance < 0.03
+    )) return
+    const depth = cameraReturnDepth(
+      current,
+      rest,
+      scenicMinK(availableWidth, availableHeight, art.background),
+      availableWidth,
+      availableHeight,
+      art.background,
+    )
+    const delay = Math.round(
+      CAMERA_RETURN_MAX_DELAY_MS
+      - (CAMERA_RETURN_MAX_DELAY_MS - CAMERA_RETURN_MIN_DELAY_MS) * depth,
+    )
+    cameraReturnTimerRef.current = window.setTimeout(() => {
+      cameraReturnTimerRef.current = null
       const from = cameraRef.current
       if (!from) return
-      const rest = constrainCamera(
-        fitCamera(availableWidth, availableHeight, art.world),
-        availableWidth,
-        availableHeight,
-        art.background,
-      )
       cameraAnimRef.current?.stop()
       cameraAnimRef.current = animate(0, 1, {
-        duration: DRAG_RETURN_DURATION_S,
+        duration: CAMERA_RETURN_DURATION_S,
         ease: [0.22, 1, 0.36, 1],
         onUpdate: (value) => {
           const next = constrainCamera({
@@ -417,17 +347,16 @@ export default function PixelMap() {
           autoFitRef.current = true
         },
       })
-    }, DRAG_RETURN_DELAY_MS)
-  }, [art, availableWidth, availableHeight, stopDragReturn])
+    }, delay)
+  }, [art, availableWidth, availableHeight, stopCameraReturn])
 
   // Refit before paint while the user still owns the whole-world framing.
   // Once they interact, resizing and panels preserve their focus and only
   // constrain it to the newly visible rectangle.
   useLayoutEffect(() => {
     if (!art || availableWidth === 0 || availableHeight === 0) return
-    if (elasticZoomRef.current) autoFitRef.current = true
-    stopElasticZoom()
-    stopDragReturn()
+    stopCameraReturn()
+    cameraAnimRef.current?.stop()
     setCamera((current) => {
       if (!current || autoFitRef.current) {
         return constrainCamera(
@@ -439,7 +368,7 @@ export default function PixelMap() {
       }
       return constrainCamera(current, availableWidth, availableHeight, art.background)
     })
-  }, [art, availableWidth, availableHeight, stopDragReturn, stopElasticZoom])
+  }, [art, availableWidth, availableHeight, stopCameraReturn])
 
   const handledCameraRequestRef = useRef(0)
   useEffect(() => {
@@ -468,17 +397,6 @@ export default function PixelMap() {
       art.background,
     )
     const target = cameraRequest.target
-    if (target.type === 'zoomBy' && (
-      elasticZoomRef.current != null || (target.factor < 1 && current.k <= fitted.k * 1.001)
-    )) {
-      handledCameraRequestRef.current = cameraRequest.seq
-      lastUserCameraRef.current = Date.now()
-      const strength = Math.log(target.factor < 1 ? 1 / target.factor : target.factor) * 5
-      pushElasticZoom(target.factor < 1 ? strength : -strength, current)
-      return
-    }
-
-    stopElasticZoom()
     let next: PixelCamera
     autoFitRef.current = target.type === 'fit'
 
@@ -488,9 +406,7 @@ export default function PixelMap() {
       next = constrainCamera(
         {
           ...current,
-          k: target.factor < 1
-            ? Math.max(fitted.k, current.k * target.factor)
-            : current.k * target.factor,
+          k: current.k * target.factor,
         },
         availableWidth,
         availableHeight,
@@ -532,7 +448,7 @@ export default function PixelMap() {
     }
 
     handledCameraRequestRef.current = cameraRequest.seq
-    stopDragReturn()
+    stopCameraReturn()
     cameraAnimRef.current?.stop()
     const from = current
     cameraAnimRef.current = animate(0, 1, {
@@ -547,8 +463,14 @@ export default function PixelMap() {
         cameraRef.current = animated
         setCamera(animated)
       },
+      onComplete: () => {
+        cameraAnimRef.current = null
+        cameraRef.current = next
+        setCamera(next)
+        if (target.type === 'zoomBy') scheduleCameraReturn()
+      },
     })
-  }, [art, spots, panelW, availableWidth, availableHeight, cameraRequest, pushElasticZoom, stopDragReturn, stopElasticZoom])
+  }, [art, spots, panelW, availableWidth, availableHeight, cameraRequest, scheduleCameraReturn, stopCameraReturn])
 
   useEffect(() => {
     const el = viewportRef.current
@@ -560,41 +482,19 @@ export default function PixelMap() {
       if (!current) return
       lastUserCameraRef.current = Date.now()
       autoFitRef.current = false
-      stopDragReturn()
+      stopCameraReturn()
       cameraAnimRef.current?.stop()
       const modeScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
         ? 16
         : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? availableHeight : 1
       const delta = Math.max(-180, Math.min(180, event.deltaY * modeScale))
-      if (elasticZoomRef.current) {
-        pushElasticZoom(delta * 0.007)
-        return
-      }
 
       const rect = el.getBoundingClientRect()
       const px = event.clientX - rect.left - rect.width / 2
       const py = event.clientY - rect.top - rect.height / 2
       const worldX = current.cx + px / current.k
       const worldY = current.cy + py / current.k
-      const rest = constrainCamera(
-        fitCamera(availableWidth, availableHeight, art.world),
-        availableWidth,
-        availableHeight,
-        art.background,
-      )
       const requestedK = current.k * Math.exp(-delta * 0.0016)
-      if (delta > 0 && requestedK < rest.k) {
-        const base = constrainCamera({
-          cx: worldX - px / rest.k,
-          cy: worldY - py / rest.k,
-          k: rest.k,
-        }, availableWidth, availableHeight, art.background)
-        cameraRef.current = base
-        setCamera(base)
-        pushElasticZoom(Math.log(rest.k / requestedK) * 7, base)
-        return
-      }
-
       const nextK = constrainCamera({ ...current, k: requestedK }, availableWidth, availableHeight, art.background).k
       const next = constrainCamera({
         cx: worldX - px / nextK,
@@ -603,42 +503,27 @@ export default function PixelMap() {
       }, availableWidth, availableHeight, art.background)
       cameraRef.current = next
       setCamera(next)
+      scheduleCameraReturn()
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [art, availableWidth, availableHeight, pushElasticZoom, stopDragReturn])
+  }, [art, availableWidth, availableHeight, scheduleCameraReturn, stopCameraReturn])
 
   useEffect(() => () => {
     cameraAnimRef.current?.stop()
-    stopElasticZoom()
-    stopDragReturn()
-  }, [stopDragReturn, stopElasticZoom])
+    stopCameraReturn()
+  }, [stopCameraReturn])
 
   const dragRef = useRef<{
     pointerId: number
     x: number
     y: number
     moved: number
-    returnOnRelease: boolean
-    interruptedElasticZoom: boolean
   } | null>(null)
   const draggedRef = useRef(false)
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
-    stopDragReturn()
-    const current = cameraRef.current
-    const interruptedElasticZoom = elasticZoomRef.current != null
-    let returnOnRelease = interruptedElasticZoom
-    if (art && current) {
-      const rest = constrainCamera(
-        fitCamera(availableWidth, availableHeight, art.world),
-        availableWidth,
-        availableHeight,
-        art.background,
-      )
-      returnOnRelease = returnOnRelease || current.k <= rest.k * 1.001
-    }
-    stopElasticZoom()
+    stopCameraReturn()
     cameraAnimRef.current?.stop()
     draggedRef.current = false
     dragRef.current = {
@@ -646,8 +531,6 @@ export default function PixelMap() {
       x: event.clientX,
       y: event.clientY,
       moved: 0,
-      returnOnRelease,
-      interruptedElasticZoom,
     }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
@@ -679,9 +562,7 @@ export default function PixelMap() {
     const drag = dragRef.current
     if (drag?.pointerId !== event.pointerId) return
     dragRef.current = null
-    if (drag.returnOnRelease && (drag.moved > 3 || drag.interruptedElasticZoom)) {
-      scheduleDragReturn()
-    }
+    if (drag.moved > 3) scheduleCameraReturn()
   }
   const suppressDraggedClick = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (!draggedRef.current) return

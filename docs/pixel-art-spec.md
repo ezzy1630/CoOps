@@ -84,11 +84,11 @@ each `door` point so they line up under every building sprite.
 The interactive world remains 960×600. The manifest places the larger background at
 world offset (-240,-300), giving the camera a 240px horizontal and 300px vertical
 scenery buffer without moving buildings, paths, walkers, or activity-follow targets.
-The stable camera fit uses the town bounds. Zooming farther out behaves as a resisted
-rubber band whose spring grows stronger as more scenery appears; the background-cover
-scale remains the hard limit, revealing scenery without exposing a flat letterbox.
-Dragging at that boundary remains direct, pauses briefly after release, then recenters.
-Panning remains free when the user has zoomed into the town.
+The stable camera fit uses the town bounds. Zooming farther out and dragging at that
+boundary remain direct while the background-cover scale provides a hard limit, revealing
+scenery without exposing a flat letterbox. After input ends, the camera recenters using
+one shared return: the pause decreases from one second near the town fit to 250ms at the
+outer edge. Panning remains persistent when the user has zoomed into the town.
 
 ## Style rules
 
