@@ -157,13 +157,11 @@ export default function App() {
         </main>
 
         {entered && (
-          <>
-            <Suspense fallback={null}>
-              {paletteOpen && <CommandPalette />}
-              {firstRunStep != null && <FirstRun />}
-              {artifactEventId && <ArtifactViewer />}
-            </Suspense>
-          </>
+          <Suspense fallback={null}>
+            {paletteOpen && <CommandPalette />}
+            {firstRunStep != null && <FirstRun />}
+            {artifactEventId && <ArtifactViewer />}
+          </Suspense>
         )}
       </div>
     </div>

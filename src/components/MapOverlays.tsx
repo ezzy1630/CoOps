@@ -47,7 +47,6 @@ export default function MapOverlays() {
         {mapStyle === 'fun' ? (
           <>
             <ValleyHealth working={workingCount} blocked={blockedCount} waiting={world.approvals.length} />
-            <ZoomControls />
             <span className="h-7 w-px shrink-0 bg-line" aria-hidden />
             <ValleyRunNarrative
               definition={selectedRehearsal?.definition}
@@ -55,6 +54,11 @@ export default function MapOverlays() {
               executionMode={executionMode}
             />
             <div className="min-w-0 flex-1" />
+            <ZoomButtons
+              onZoomBy={(factor) => useStore.getState().requestCamera({ type: 'zoomBy', factor })}
+              onFit={() => useStore.getState().requestCamera({ type: 'fit' })}
+              fitTitle="Fit the whole valley"
+            />
             {!replay && rehearsals.length > 1 && (
               <RehearsalPicker
                 selectedId={selectedRehearsal?.definition.id ?? ''}
@@ -75,7 +79,11 @@ export default function MapOverlays() {
         ) : (
           <>
             <Legend />
-            <ZoomControls />
+            <ZoomButtons
+              onZoomBy={(factor) => useStore.getState().requestCamera({ type: 'zoomBy', factor })}
+              onFit={() => useStore.getState().requestCamera({ type: 'fit' })}
+              fitTitle="Fit the whole company"
+            />
             <PulseSparkline />
             <div className="min-w-0 flex-1" />
             {!replay && rehearsals.length > 1 && (
@@ -146,16 +154,14 @@ export default function MapOverlays() {
 function ValleyHealth({ working, blocked, waiting }: { working: number; blocked: number; waiting: number }) {
   const approvalLabel = waiting === 1 ? 'approval' : 'approvals'
   return (
-    <div className="flex shrink-0 items-center gap-3" aria-label={`${working} agents working, ${blocked} blocked, ${waiting} ${approvalLabel} waiting`}>
-      <span>
-        <span className="block font-display text-[11px] font-semibold text-ink">Company activity</span>
-        <span className="mt-0.5 flex items-center gap-2 text-[9.5px] text-dim">
-          <span className="flex items-center gap-1"><i className="h-2.5 w-px bg-task" aria-hidden />{working} working</span>
-          <span className="flex items-center gap-1"><i className="h-2.5 w-px bg-human" aria-hidden />{waiting} waiting</span>
-          {blocked > 0 && <span className="flex items-center gap-1 text-escalation"><i className="h-2.5 w-px bg-escalation" aria-hidden />{blocked} blocked</span>}
-        </span>
+    <span className="flex shrink-0 items-center gap-3" aria-label={`${working} agents working, ${blocked} blocked, ${waiting} ${approvalLabel} waiting`}>
+      <span className="block font-display text-[11px] font-semibold text-ink">Company activity</span>
+      <span className="flex items-center gap-2 text-[9.5px] text-dim">
+        <span className="flex items-center gap-1"><i className="h-2.5 w-px bg-task" aria-hidden />{working} working</span>
+        <span className="flex items-center gap-1"><i className="h-2.5 w-px bg-human" aria-hidden />{waiting} waiting</span>
+        {blocked > 0 && <span className="flex items-center gap-1 text-escalation"><i className="h-2.5 w-px bg-escalation" aria-hidden />{blocked} blocked</span>}
       </span>
-    </div>
+    </span>
   )
 }
 
@@ -265,14 +271,23 @@ function Legend() {
   )
 }
 
-function ZoomControls() {
+/** Zoom cluster shared by both maps; each view wires it to its own camera. */
+function ZoomButtons({
+  onZoomBy,
+  onFit,
+  fitTitle,
+}: {
+  onZoomBy: (factor: number) => void
+  onFit: () => void
+  fitTitle: string
+}) {
   return (
     <div className="flex shrink-0 items-center border-l border-line pl-2 text-[11px] text-mut" aria-label="Map zoom controls">
-      <button className="flex size-6 items-center justify-center hover:bg-hover hover:text-ink" title="Zoom out" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1 / 1.45 })}>
+      <button className="flex size-6 items-center justify-center hover:bg-hover hover:text-ink" title="Zoom out (or pinch the trackpad)" onClick={() => onZoomBy(1 / 1.45)}>
         <Minus size={12} weight="bold" />
       </button>
-      <button className="flex h-6 min-w-9 items-center justify-center font-mono text-[10px] tabular-nums hover:bg-hover hover:text-ink" title="Fit the whole company" onClick={() => useStore.getState().requestCamera({ type: 'fit' })}>Fit</button>
-      <button className="flex size-6 items-center justify-center hover:bg-hover hover:text-ink" title="Zoom in" onClick={() => useStore.getState().requestCamera({ type: 'zoomBy', factor: 1.45 })}>
+      <button className="flex h-6 min-w-9 items-center justify-center font-mono text-[10px] tabular-nums hover:bg-hover hover:text-ink" title={fitTitle} onClick={onFit}>Fit</button>
+      <button className="flex size-6 items-center justify-center hover:bg-hover hover:text-ink" title="Zoom in (or pinch the trackpad)" onClick={() => onZoomBy(1.45)}>
         <Plus size={12} weight="bold" />
       </button>
     </div>

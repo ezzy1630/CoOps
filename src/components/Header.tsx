@@ -50,7 +50,7 @@ export default function Header() {
           {roaming.map((mark) => {
             const person = personById.get(mark.personId)
             if (!person) return null
-            return <span key={mark.personId} title={`${person.name}, viewing ${deptById.get(mark.where)?.name ?? mark.where}`} className="flex size-6 items-center justify-center border border-surface bg-raised text-[9.5px] font-semibold text-mut">{person.initials}</span>
+            return <span key={mark.personId} title={`${person.name}, viewing ${deptById.get(mark.where)?.name ?? mark.where}`} className="flex size-6 items-center justify-center rounded-full border border-surface bg-raised text-[9.5px] font-semibold text-mut">{person.initials}</span>
           })}
         </div>
         <div className="flex shrink-0 items-center border border-line" role="group" aria-label="Map view style">
