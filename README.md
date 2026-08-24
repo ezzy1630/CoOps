@@ -81,4 +81,4 @@ human did not approve.
 
 The navigation rail and Activity read the same run summary from `src/evidence/runEvidence.ts`. Secondary pages and panels load on demand so the map remains the fast initial path.
 
-See [docs/architecture.md](docs/architecture.md) for the frontend, backend, Gemini, and Google Cloud execution diagram, and [docs/messaging.md](docs/messaging.md) for the message order every public asset follows.
+See [docs/architecture.md](docs/architecture.md) for the frontend, backend, Gemini, and Google Cloud execution diagram, and [docs/messaging.md](docs/messaging.md) for the message order every public asset follows. The submission strings, and the receipt behind each claim they make, are in [docs/launch-copy.md](docs/launch-copy.md).
