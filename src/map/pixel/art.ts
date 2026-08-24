@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
+import { activeCompanyReady } from '../../data/activeCompany'
+import { getCompany } from '../../data/company'
+import type { ValleyAssets } from '../../data/company'
 
-// ─── Manifest schema (generated contract — see docs/pixel-art-spec.md) ───────
+// ─── Render model ────────────────────────────────────────────────────────────
+// The Valley scene is a projection of one company's injected ValleyAssets.
+// There is no manifest and no runtime fetch: everything arrives through the
+// CompanyTemplate, already bundled. This module only adapts that data into the
+// shape the pixel renderer consumes, plus the valley's own ink palette (a
+// property of the rendering style, not of any company).
 
 export interface Pt {
   x: number
@@ -56,158 +64,59 @@ export type PixelArtState =
   | { status: 'missing' }
   | { status: 'ready'; art: PixelArt }
 
-// ─── Loose shape validation ──────────────────────────────────────────────────
-// The manifest is generated, but a stale deploy or a half-copied public/ dir
-// must degrade to the fallback line, never crash the scene.
-
-const EMOTE_NAMES: EmoteName[] = ['working', 'blocked', 'awaiting', 'escalated', 'delivering', 'reading']
-const PALETTE_KEYS = [
-  'outline', 'ink', 'paper', 'task', 'artifact', 'permission', 'escalation', 'guard', 'human',
-] as const
-
-type Rec = Record<string, unknown>
-
-const asRec = (v: unknown): Rec | null =>
-  typeof v === 'object' && v !== null ? (v as Rec) : null
-const asStr = (v: unknown): string | null =>
-  typeof v === 'string' && v.length > 0 ? v : null
-const asNum = (v: unknown): number | null =>
-  typeof v === 'number' && Number.isFinite(v) ? v : null
-
-const asPt = (v: unknown): Pt | null => {
-  const r = asRec(v)
-  const x = r && asNum(r.x)
-  const y = r && asNum(r.y)
-  return x !== null && y !== null ? { x, y } : null
+/** Ink + accent colors of the valley rendering style (see docs/pixel-art-spec.md). */
+const VALLEY_PALETTE: PixelPalette = {
+  outline: '#2e1f2c',
+  ink: '#46303e',
+  paper: '#f2e7cd',
+  task: '#4a80cb',
+  artifact: '#48954e',
+  permission: '#bd8430',
+  escalation: '#d15a49',
+  guard: '#8a63c9',
+  human: '#e3ae52',
 }
 
-const asWorldSize = (v: unknown): PixelArt['world'] | null => {
-  const r = asRec(v)
-  const w = r && asNum(r.w)
-  const h = r && asNum(r.h)
-  return w !== null && h !== null ? { w, h } : null
-}
-
-function asBuilding(v: unknown): PixelBuilding | null {
-  const b = asRec(v)
-  if (!b) return null
-  const deptId = asStr(b.deptId)
-  const file = asStr(b.file)
-  const w = asNum(b.w)
-  const h = asNum(b.h)
-  const x = asNum(b.x)
-  const y = asNum(b.y)
-  const door = asPt(b.door)
-  return deptId && file && w !== null && h !== null && x !== null && y !== null && door
-    ? { deptId, file, w, h, x, y, door }
-    : null
-}
-
-/** Rebuilds a fully-typed PixelArt from validated fields, or null on any gap. */
-function parseManifest(raw: unknown): PixelArt | null {
-  const m = asRec(raw)
-  if (!m) return null
-  const version = asNum(m.version)
-  if (version === null) return null
-  const world = asWorldSize(m.world)
-  const plaza = asPt(m.plaza)
-  const bg = asRec(m.background)
-  const backgroundFile = bg && asStr(bg.file)
-  const buildings = Array.isArray(m.buildings)
-    ? m.buildings.map(asBuilding).filter((b): b is PixelBuilding => b !== null)
-    : []
-  if (!world || !plaza || !backgroundFile || buildings.length === 0) return null
-  const backgroundW = asNum(bg?.w) ?? world.w
-  const backgroundH = asNum(bg?.h) ?? world.h
-  const backgroundX = asNum(bg?.x) ?? 0
-  const backgroundY = asNum(bg?.y) ?? 0
-  if (backgroundW <= 0 || backgroundH <= 0) return null
-  const background: PixelBackground = {
-    file: backgroundFile,
-    w: backgroundW,
-    h: backgroundH,
-    x: backgroundX,
-    y: backgroundY,
-  }
-
-  const av = asRec(m.avatars)
-  const avCell = av && asNum(av.cell)
-  const frameOrder = Array.isArray(av?.frameOrder) ? (av.frameOrder as unknown[]).map(asStr) : []
-  const variants = Array.isArray(av?.variants) ? (av.variants as unknown[]).map(asStr) : []
-  if (
-    avCell === null ||
-    frameOrder.some((s) => s === null) || frameOrder.length === 0 ||
-    variants.length === 0 || variants.some((s) => s === null)
-  ) {
-    return null
-  }
-
-  const em = asRec(m.emotes)
-  const emCell = em && asNum(em.cell)
-  const emFiles = em && asRec(em.files)
-  if (emCell === null || !emFiles || EMOTE_NAMES.some((k) => asStr(emFiles[k]) === null)) return null
-
-  const ml = asRec(m.mail)
-  const mailFile = ml && asStr(ml.file)
-  const mailCell = ml && asNum(ml.cell)
-  if (!mailFile || mailCell === null) return null
-
-  const pl = asRec(m.palette)
-  if (!pl || PALETTE_KEYS.some((k) => asStr(pl[k]) === null)) return null
-
+function buildPixelArt(v: ValleyAssets | undefined): PixelArt | null {
+  if (!v || !v.background || !v.mail || v.buildings.length === 0 || v.avatars.variants.length === 0) return null
+  if (v.world.w <= 0 || v.world.h <= 0) return null
   return {
-    version,
-    world,
-    background,
-    plaza,
-    buildings,
-    avatars: {
-      cell: avCell,
-      frameOrder: frameOrder as string[],
-      variants: variants as string[],
-    },
-    emotes: {
-      cell: emCell,
-      files: Object.fromEntries(EMOTE_NAMES.map((k) => [k, asStr(emFiles[k])!])) as Record<EmoteName, string>,
-    },
-    mail: { file: mailFile, cell: mailCell },
-    palette: {
-      outline: asStr(pl.outline)!,
-      ink: asStr(pl.ink)!,
-      paper: asStr(pl.paper)!,
-      task: asStr(pl.task)!,
-      artifact: asStr(pl.artifact)!,
-      permission: asStr(pl.permission)!,
-      escalation: asStr(pl.escalation)!,
-      guard: asStr(pl.guard)!,
-      human: asStr(pl.human)!,
-    },
+    version: 1,
+    world: { ...v.world },
+    background: { file: v.background, x: v.backgroundBox.x, y: v.backgroundBox.y, w: v.backgroundBox.w, h: v.backgroundBox.h },
+    plaza: { ...v.plaza },
+    buildings: v.buildings.map((b) => ({
+      deptId: b.deptId, file: b.img, w: b.w, h: b.h, x: b.x, y: b.y, door: { ...b.door },
+    })),
+    avatars: { cell: v.avatars.cell, frameOrder: [...v.avatars.frameOrder], variants: [...v.avatars.variants] },
+    emotes: { cell: v.emotes.cell, files: { ...v.emotes.files } },
+    mail: { file: v.mail, cell: 16 },
+    palette: VALLEY_PALETTE,
   }
 }
 
-// ─── Loader (fetch once, cache module-level) ─────────────────────────────────
+let cached: PixelArt | null | undefined
 
-let manifestP: Promise<PixelArt | null> | null = null
-
-function loadManifest(): Promise<PixelArt | null> {
-  // no JSON imports: the manifest stays a runtime asset so tsconfig is untouched
-  manifestP ??= fetch('/pixel/manifest.json')
-    .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
-    .then((raw: unknown) => parseManifest(raw))
-    .catch(() => null)
-  return manifestP
-}
-
+/**
+ * Synchronous projection of the injected company's valley assets. Kept as a
+ * hook with the historical loading state so renderers can still distinguish a
+ * company without valley art (`missing`) from first paint.
+ */
 export function usePixelArt(): PixelArtState {
-  const [state, setState] = useState<PixelArtState>({ status: 'loading' })
+  const [state, setState] = useState<PixelArtState>(() => {
+    if (!activeCompanyReady()) return { status: 'loading' }
+    return cached !== undefined
+      ? cached ? { status: 'ready', art: cached } : { status: 'missing' }
+      : { status: 'loading' }
+  })
   useEffect(() => {
-    let alive = true
-    void loadManifest().then((art) => {
-      if (alive) setState(art ? { status: 'ready', art } : { status: 'missing' })
-    })
-    return () => {
-      alive = false
-    }
+    if (!activeCompanyReady()) return
+    if (cached === undefined) cached = buildPixelArt(getValley())
+    setState(cached ? { status: 'ready', art: cached } : { status: 'missing' })
   }, [])
   return state
+}
+
+function getValley(): ValleyAssets | undefined {
+  return getCompany().valley
 }

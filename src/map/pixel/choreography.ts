@@ -233,30 +233,27 @@ function doorOfDept(art: PixelArt, deptId: string | undefined): Pt | undefined {
 // ── The road network ─────────────────────────────────────────────────────────
 // Mirrors the streets painted by scripts/gen-pixel-art.mjs so villagers walk
 // where the world says paths are: North/South Streets (y=165/415), West/East
-// Lanes (x=150/810), the x=480 avenues, and the stone plaza between them.
+// Lanes (x=150/810), the x=480 avenue, and the stone plaza between them. Core
+// holds only street geometry — each department joins the backbone at the
+// corner nearest its building door, so any company walks the same village.
 // The plaza interior is open cobbles, so crossings bow around the fountain.
 
-interface RoadNode {
+interface StreetNode {
   id: string
   p: Pt
   adj: string[]
 }
 
-const ROAD_NODES: RoadNode[] = [
-  { id: 'NW', p: { x: 150, y: 165 }, adj: ['M', 'SW'] },
-  { id: 'M', p: { x: 188, y: 165 }, adj: ['NW', 'N'] }, // marketing spur
-  { id: 'N', p: { x: 480, y: 165 }, adj: ['M', 'L', 'F', 'PN'] },
-  { id: 'L', p: { x: 776, y: 165 }, adj: ['N', 'NE'] }, // legal spur
-  { id: 'NE', p: { x: 810, y: 165 }, adj: ['L', 'SE'] },
-  { id: 'SW', p: { x: 150, y: 415 }, adj: ['NW', 'SP'] },
-  { id: 'SP', p: { x: 192, y: 415 }, adj: ['SW', 'S'] }, // support spur
-  { id: 'S', p: { x: 480, y: 415 }, adj: ['SP', 'OP', 'PS', 'HR'] },
-  { id: 'OP', p: { x: 772, y: 415 }, adj: ['S', 'SE'] }, // operations spur
-  { id: 'SE', p: { x: 810, y: 415 }, adj: ['OP', 'NE'] },
-  { id: 'F', p: { x: 480, y: 152 }, adj: ['N'] }, // finance doorstep on the avenue
-  { id: 'HR', p: { x: 480, y: 502 }, adj: ['S'] }, // hr doorstep on the Hall Walk
-  { id: 'PN', p: { x: 480, y: 190 }, adj: ['N', 'PS'] }, // plaza north gate
-  { id: 'PS', p: { x: 480, y: 372 }, adj: ['S', 'PN'] }, // plaza south gate
+/** Street corners and plaza gates, named by geometry, never by department. */
+const STREET_NODES: StreetNode[] = [
+  { id: 'nw', p: { x: 150, y: 165 }, adj: ['n', 'sw'] },
+  { id: 'n', p: { x: 480, y: 165 }, adj: ['nw', 'ne', 'pn'] },
+  { id: 'ne', p: { x: 810, y: 165 }, adj: ['n', 'se'] },
+  { id: 'sw', p: { x: 150, y: 415 }, adj: ['nw', 's'] },
+  { id: 's', p: { x: 480, y: 415 }, adj: ['sw', 'se', 'ps'] },
+  { id: 'se', p: { x: 810, y: 415 }, adj: ['s', 'ne'] },
+  { id: 'pn', p: { x: 480, y: 190 }, adj: ['n', 'ps'] }, // plaza north gate
+  { id: 'ps', p: { x: 480, y: 372 }, adj: ['s', 'pn'] }, // plaza south gate
 ]
 
 /** Which side of the fountain a plaza crossing bows around, as waypoints. */
@@ -268,25 +265,33 @@ function plazaBow(side: number): Pt[] {
   ]
 }
 
-const NODE_BY_ID = new Map(ROAD_NODES.map((n) => [n.id, n]))
+const NODE_BY_ID = new Map(STREET_NODES.map((n) => [n.id, n]))
 
-/** deptId → its street door node. Unknown depts enter via the south gate. */
-const GATE_OF: Record<string, string> = {
-  marketing: 'M',
-  finance: 'F',
-  legal: 'L',
-  support: 'SP',
-  operations: 'OP',
-  hr: 'HR',
+/**
+ * A department enters the backbone at the street corner nearest its building
+ * door. Unknown depts (no building on file) enter via the south gate.
+ */
+function gateFor(art: PixelArt, deptId: string | undefined): string {
+  const door = doorOfDept(art, deptId)
+  if (!door) return 'ps'
+  let best = 'ps'
+  let bestD = Infinity
+  for (const n of STREET_NODES) {
+    const d = Math.hypot(n.p.x - door.x, n.p.y - door.y)
+    if (d < bestD) {
+      best = n.id
+      bestD = d
+    }
+  }
+  return best
 }
-const FALLBACK_GATE = 'PS'
 
-/** Shortest walk between two road nodes — Dijkstra over a 14-node graph. */
+/** Shortest walk between two backbone nodes — Dijkstra over an 8-node graph. */
 function roadPath(a: string, b: string): string[] {
   if (a === b) return [a]
   const dist = new Map<string, number>()
   const prev = new Map<string, string>()
-  const open = new Set(ROAD_NODES.map((n) => n.id))
+  const open = new Set(STREET_NODES.map((n) => n.id))
   for (const n of open) dist.set(n, Infinity)
   dist.set(a, 0)
   while (open.size > 0) {
@@ -326,10 +331,9 @@ function roadPath(a: string, b: string): string[] {
  * get ±3px lane jitter per runner so crowds spread across the road width
  * instead of tracing one conga line.
  */
-function legWaypoints(_art: PixelArt, e: WorldEvent, from: Pt, to: Pt, hash: number): Pt[] {
-  void _art
-  const gateA = GATE_OF[e.deptFrom ?? ''] ?? FALLBACK_GATE
-  const gateB = GATE_OF[e.deptTo ?? ''] ?? FALLBACK_GATE
+function legWaypoints(art: PixelArt, e: WorldEvent, from: Pt, to: Pt, hash: number): Pt[] {
+  const gateA = gateFor(art, e.deptFrom)
+  const gateB = gateFor(art, e.deptTo)
 
   // expand the node path into points, bowing through the plaza by hash-side
   const nodePath = roadPath(gateA, gateB)

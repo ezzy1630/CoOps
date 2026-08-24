@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 /**
- * gen-pixel-art.mjs — deterministic pixel-art generator for CoOps Valley mode.
+ * gen-pixel-art.mjs 鈥?one-time pixel-art generator for CoOps Valley mode.
  *
- * Pure Node ESM, zero dependencies (node built-ins only). Regenerates every
- * asset in public/pixel/ plus manifest.json. All pixels derive from seeded
- * PRNGs and a canonical PNG encoder (filter 0, zlib level 9), so re-running
+ * Pure Node ESM, zero dependencies (node built-ins only). Writes every valley
+ * PNG into public/pixel/<company>/ 鈥?background.png, buildings/*.png,
+ * avatars/*.png, emotes/*.png, mail.png. All pixels derive from seeded PRNGs
+ * and a canonical PNG encoder (filter 0, zlib level 9), so re-running
  * produces byte-identical files.
  *
- * Usage: node scripts/gen-pixel-art.mjs
+ * Runtime geometry (world size, doors, anchors) lives in the company file
+ * src/data/companies/<company>.ts, which imports these PNGs via Vite ?url.
+ * This script does not read that file; it only paints the images.
+ *
+ * Usage: node scripts/gen-pixel-art.mjs [--company=everpeak]
  */
 import { deflateSync } from 'node:zlib';
 import fs from 'node:fs';
@@ -15,7 +20,12 @@ import path from 'node:path';
 
 const SCRIPT_DIR = path.dirname(process.argv[1] ? path.resolve(process.argv[1]) : process.cwd());
 const ROOT = path.resolve(SCRIPT_DIR, '..');
-const OUT = path.join(ROOT, 'public', 'pixel');
+let COMPANY = 'everpeak';
+for (const arg of process.argv.slice(2)) {
+  const m = /^--company=([^]+)$/.exec(arg);
+  if (m) COMPANY = m[1];
+}
+const OUT = path.join(ROOT, 'public', 'pixel', COMPANY);
 
 /* Palette. One warm-plum ink family for ALL outlines; pastoral grounds;
  * dept accents pinned to lead hues: marketing 330 pink, finance 45 gold,
@@ -232,13 +242,12 @@ function stampOutlined(dst, w, h, ax, ay, draw) {
   s.blit(dst, ax, ay);
 }
 
-/* Pinned world layout — must stay in sync with src/map/pixel/layout.ts. */
+/* Pinned world layout 鈥?must stay in sync with src/map/pixel/layout.ts. */
 const WORLD = { w: 960, h: 600 };
 /* Decorative bleed sits behind WORLD without changing any interactive world
  * coordinate. The town occupies image pixels (240,300)..(1199,899), so Fit,
- * walking routes, building anchors and camera constraints remain 960×600. */
+ * walking routes, building anchors and camera constraints remain 960脳600. */
 const BACKGROUND = { w: 1440, h: 1200, x: -240, y: -300 };
-const PLAZA = { x: 480, y: 280, r: 85 };
 const DEPTS = [
   { id: 'marketing',  x: 140, y: 70,  w: 96,  h: 84,  door: { x: 188, y: 160 }, hue: '#d76fa4', kind: 'stall' },
   { id: 'finance',    x: 420, y: 45,  w: 120, h: 100, door: { x: 480, y: 145 }, hue: '#d9a83e', kind: 'bank' },
@@ -377,7 +386,7 @@ function buildTownBackground() {
   detailedRoad(140, 415, 820, 415, 22); // South Street
   detailedRoad(480, 140, 480, 178, 24); // North Avenue
   detailedRoad(480, 382, 480, 415, 24); // South Avenue
-  detailedRoad(480, 415, 480, 502, 16); // Hall Walk — South Avenue to the hall's stone path
+  detailedRoad(480, 415, 480, 502, 16); // Hall Walk 鈥?South Avenue to the hall's stone path
   detailedRoad(150, 165, 150, 415, 18); // West Lane
   detailedRoad(810, 165, 810, 415, 18); // East Lane
   detailedRoad(150, 415, 110, 475, 14); // Lakeside Path
@@ -736,7 +745,7 @@ function buildTownBackground() {
   return cv;
 }
 
-/* ── decorative township surroundings ─────────────────────────────────────
+/* 鈹€鈹€ decorative township surroundings 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
  * The playable town stays byte-for-byte in its original coordinate system.
  * This larger image is visual bleed only: pastoral plots sit nearest town and
  * denser woodland closes the far edge, borrowing the framing mechanism of a
@@ -810,7 +819,7 @@ function buildBackground() {
   const townBottom = townY + WORLD.h;
 
   // Continuous terrain uses town-local noise coordinates so the grass meets
-  // the original 960×600 painting without a rectangular color seam.
+  // the original 960脳600 painting without a rectangular color seam.
   const nGrass1 = makeValueNoise(42, 30, 20);
   const nGrass2 = makeValueNoise(1337, 80, 50);
   for (let y = 0; y < BACKGROUND.h; y++) {
@@ -940,7 +949,7 @@ function buildBackground() {
   }
   return cv;
 }
-/* ── shared building helpers ─────────────────────────────────────────────── */
+/* 鈹€鈹€ shared building helpers 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
 function accTones(hue) {
   return {
     main: hex(hue),
@@ -979,7 +988,7 @@ function doorPlanks(cv, cx, yTop, r, yBot, plankCol = WOOD_D) {
   for (let x = cx - r + 3; x <= cx + r - 3; x += 4) cv.vline(x, yTop + r, yBot - 2, plankCol);
 }
 
-/* ── buildings: one distinct silhouette per department ───────────────────── */
+/* 鈹€鈹€ buildings: one distinct silhouette per department 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
 
 function buildMarketing() {
   const acc = accTones('#d76fa4');
@@ -1375,9 +1384,9 @@ function buildHr() {
 
   return cv.outline(INK);
 }
-/* ── villagers: 144×24 strips, six 24×24 frames ───────────────────────────────
- * frameOrder: down0 down1 up0 up1 right0 right1. Head 8px (rows 2–9),
- * torso 8px (10–17), legs 5px (18–22), shoe sole row 23.
+/* 鈹€鈹€ villagers: 144脳24 strips, six 24脳24 frames 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+ * frameOrder: down0 down1 up0 up1 right0 right1. Head 8px (rows 2鈥?),
+ * torso 8px (10鈥?7), legs 5px (18鈥?2), shoe sole row 23.
  * X0 = contact/idle stance, X1 = passing pose. */
 const VARIANTS = [
   { skin: '#f2c99c', hair: '#4a3226', style: 'short',    outfit: 'vest',  top: '#4a80cb', pants: '#5a4a3c' },
@@ -1599,7 +1608,7 @@ function buildAvatarStrip(v) {
   return strip;
 }
 
-/* ── emotes: 16×16 speech bubbles ────────────────────────────────────────── */
+/* 鈹€鈹€ emotes: 16脳16 speech bubbles 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
 const EMOTE_ORDER = ['working', 'blocked', 'awaiting', 'escalated', 'delivering', 'reading'];
 
 function emoteBubble(cv) {
@@ -1672,7 +1681,7 @@ function buildMail() {
   return cv.outline(INK);
 }
 
-/* ── manifest + main ─────────────────────────────────────────────────────── */
+/* 鈹€鈹€ main 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
 const BUILDERS = {
   stall: buildMarketing,
   bank: buildFinance,
@@ -1682,39 +1691,13 @@ const BUILDERS = {
   hall: buildHr,
 };
 
-function buildManifest() {
-  return {
-    version: 1,
-    world: { w: WORLD.w, h: WORLD.h },
-    background: { file: '/pixel/background.png', ...BACKGROUND },
-    plaza: { x: PLAZA.x, y: PLAZA.y },
-    buildings: DEPTS.map((d) => ({
-      deptId: d.id,
-      file: `/pixel/buildings/${d.id}.png`,
-      w: d.w, h: d.h, x: d.x, y: d.y,
-      door: { x: d.door.x, y: d.door.y },
-    })),
-    avatars: {
-      cell: 24,
-      frameOrder: ['down0', 'down1', 'up0', 'up1', 'right0', 'right1'],
-      variants: Array.from({ length: 8 }, (_, i) => `/pixel/avatars/v${i}.png`),
-    },
-    emotes: {
-      cell: 16,
-      files: Object.fromEntries(EMOTE_ORDER.map((n) => [n, `/pixel/emotes/${n}.png`])),
-    },
-    mail: { file: '/pixel/mail.png', cell: 16 },
-    palette: { outline: INK, ink: DETAIL_INK, paper: PAPER, ...SEMANTIC },
-  };
-}
-
 function pngSize(buf) {
   if (buf.length < 24) return null;
   for (let i = 0; i < 8; i++) if (buf[i] !== [137, 80, 78, 71, 13, 10, 26, 10][i]) return null;
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
 }
 
-function validateAndReport(expected, manifestPath) {
+function validateAndReport(expected) {
   const rows = [];
   const problems = [];
   for (const a of expected) {
@@ -1735,18 +1718,6 @@ function validateAndReport(expected, manifestPath) {
     }
     rows.push([a.rel, `${a.w}x${a.h}`, String(a.buf.length), status]);
   }
-  const mf = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  for (const ref of [
-    mf.background.file,
-    ...mf.buildings.map((b) => b.file),
-    ...mf.avatars.variants,
-    ...Object.values(mf.emotes.files),
-    mf.mail.file,
-  ]) {
-    if (!fs.existsSync(path.join(OUT, ref.replace('/pixel/', '')))) {
-      problems.push(`manifest references missing file: ${ref}`);
-    }
-  }
 
   const w1 = Math.max(...rows.map((r) => r[0].length)) + 2;
   const w2 = 10, w3 = 8;
@@ -1758,10 +1729,10 @@ function validateAndReport(expected, manifestPath) {
 
   if (problems.length) {
     console.error(`VALIDATION FAILED (${problems.length}):`);
-    for (const p of problems) console.error('  ✗ ' + p);
+    for (const p of problems) console.error('  鉁?' + p);
     process.exitCode = 1;
   } else {
-    console.log(`OK — ${rows.length} PNGs + manifest.json written to public/pixel (deterministic).`);
+    console.log(`OK 鈥?${rows.length} PNGs written to src/assets/valley/${COMPANY} (deterministic).`);
   }
 }
 
@@ -1784,10 +1755,7 @@ function main() {
   fs.mkdirSync(path.join(OUT, 'emotes'), { recursive: true });
   for (const a of expected) fs.writeFileSync(path.join(OUT, a.rel), a.buf);
 
-  const manifestPath = path.join(OUT, 'manifest.json');
-  fs.writeFileSync(manifestPath, JSON.stringify(buildManifest(), null, 2) + '\n');
-
-  validateAndReport(expected, manifestPath);
+  validateAndReport(expected);
 }
 
 main();
