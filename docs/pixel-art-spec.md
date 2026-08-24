@@ -85,10 +85,10 @@ The interactive world remains 960×600. The manifest places the larger backgroun
 world offset (-240,-300), giving the camera a 240px horizontal and 300px vertical
 scenery buffer without moving buildings, paths, walkers, or activity-follow targets.
 The stable camera fit uses the town bounds. Zooming farther out and dragging at that
-boundary remain direct while the background-cover scale provides a hard limit, revealing
-scenery without exposing a flat letterbox. After input ends, the camera recenters using
-one shared return: the pause decreases from one second near the town fit to 250ms at the
-outer edge. Panning remains persistent when the user has zoomed into the town.
+boundary receive continuous rubber-band feedback: each outward input produces less
+movement as more scenery appears, while the background-cover scale remains the hard
+limit. One shared animation recenters after release, with only a short wheel-settle window
+to detect the end of that gesture. Panning remains persistent when zoomed into the town.
 
 ## Style rules
 
