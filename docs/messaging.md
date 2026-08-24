@@ -24,6 +24,9 @@ one who stops after the second knows why a single agent could not have done it.
 > The run preserved the local checksum, cloud object identity, approval, YouTube
 > video ID, and Cloud Run trace.
 
+The locked strings themselves are in [launch-copy.md](launch-copy.md), together
+with the receipt behind each claim they make.
+
 ## Vocabulary that waits its turn
 
 Do not open with Gemini, A2A, Firestore, Model Armor, SSE, OAuth, or protocol

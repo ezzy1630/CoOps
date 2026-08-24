@@ -3,6 +3,8 @@ import { access, readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
+import { readProofPackage } from '../../../src/evidence/proofPackage.js'
+import { readRunEvidence } from '../../../src/evidence/runEvidence.js'
 
 /**
  * The message hierarchy in docs/messaging.md, checked instead of trusted. An
@@ -25,6 +27,7 @@ interface Surface {
 const SURFACES: Surface[] = [
   { path: 'README.md', leadsWithOutcome: true },
   { path: 'docs/architecture.md', leadsWithOutcome: true },
+  { path: 'docs/launch-copy.md', leadsWithOutcome: true },
   // The spec that states the rule, and the deployment reference, are not the
   // assets the rule is about; both still defer the vendor vocabulary.
   { path: 'docs/messaging.md', leadsWithOutcome: false },
@@ -101,4 +104,35 @@ test('the outcome is only claimed in the past tense where a run can back it', as
   // gates read GO, the README describes what CoOps does, not what it did.
   assert.doesNotMatch(readme, /made it (from|to)/i)
   assert.match(readme, /CoOps moves a launch video/)
+})
+
+/** The third column of the claim table in docs/launch-copy.md. */
+function claimBackings(markdown: string): string[] {
+  return markdown
+    .split('\n')
+    .filter(line => line.startsWith('| ') && !line.startsWith('| Claim'))
+    .map(line => (line.split('|')[3] ?? '').trim().replace(/`/g, ''))
+    .filter(Boolean)
+}
+
+test('every claim in the launch copy rests on a receipt the run actually produces', async () => {
+  const root = await repoRoot()
+  const evidence = readRunEvidence({
+    events: [],
+    tasks: [],
+    executionMode: 'live',
+    liveConnection: 'connected',
+    runtimeInfo: null,
+  })
+  const sections = readProofPackage({ events: [], evidence, runtimeInfo: null }).sections.map(section => section.id)
+  // 'architecture' is the honest escape hatch: no receipt records an absence, so
+  // the claim that no credential was shared has to name the code instead.
+  const backings = new Set<string>([...sections, 'architecture'])
+
+  const claimed = claimBackings(await readFile(join(root, 'docs/launch-copy.md'), 'utf8'))
+
+  assert.ok(claimed.length >= 5, 'the launch copy has stopped listing what its claims rest on')
+  for (const backing of claimed) {
+    assert.ok(backings.has(backing), `the launch copy claims proof from "${backing}", which the proof package does not produce`)
+  }
 })
