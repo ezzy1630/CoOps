@@ -289,13 +289,6 @@ html.fun-mode {
   --color-fun-escalation: #d15a49;
   --color-fun-guard: #8a63c9;
   --color-fun-human: #e3ae52;
-
-  /* Extreme aspect ratios can outgrow even the decorative background bleed.
-     Continue its woodland edge instead of revealing an earth letterbox. */
-  --color-map-canvas: #436b28;
-}
-html.fun-mode.dark {
-  --color-map-canvas: #224818;
 }
 
 /* nearest-neighbour upscale for sprite <img>s and background strips. Also

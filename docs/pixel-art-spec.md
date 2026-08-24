@@ -60,7 +60,7 @@ All PNGs are 8-bit RGBA. Sizes are pinned by the manifest schema.
 
 | File                              | Size      | Contents                                                        |
 | --------------------------------- | --------- | --------------------------------------------------------------- |
-| `background.png`                  | 1440×1200 | The unchanged 960×600 town centered at image (240,300), surrounded by a visual-only fenced pasture, orchard, gated market garden, and dense outer woodland |
+| `background.png`                  | 1440×1200 | The unchanged 960×600 town centered at image (240,300), surrounded by two fenced orchards, a gated market garden, and dense outer woodland |
 | `buildings/marketing.png`         | 96×84     | Poster & print stall: striped scalloped awning, poster window, arch door |
 | `buildings/finance.png`           | 120×100   | Stone bank: ashlar walls, gold-trimmed pediment, pilasters, arched double door |
 | `buildings/legal.png`             | 112×96    | Courthouse: pediment + frieze, four columns, fanlight doorway, broad steps |
@@ -84,6 +84,8 @@ each `door` point so they line up under every building sprite.
 The interactive world remains 960×600. The manifest places the larger background at
 world offset (-240,-300), giving the camera a 240px horizontal and 300px vertical
 scenery buffer without moving buildings, paths, walkers, or activity-follow targets.
+Maximum zoom-out covers the viewport with these background bounds rather than fitting
+only the town, so the surrounding scenery becomes visible without a flat letterbox.
 
 ## Style rules
 

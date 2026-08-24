@@ -818,10 +818,7 @@ function buildBackground() {
       const wx = x + BACKGROUND.x;
       const wy = y + BACKGROUND.y;
       const v = nGrass1(wx / 26, wy / 26) * 0.65 + nGrass2(wx / 8, wy / 8) * 0.35;
-      const edge = Math.min(x, y, BACKGROUND.w - 1 - x, BACKGROUND.h - 1 - y);
-      const col = edge < 54
-        ? PALETTE.grass.shadow
-        : v < 0.35 ? PALETTE.grass.dark : v > 0.62 ? PALETTE.grass.light : PALETTE.grass.base;
+      const col = v < 0.35 ? PALETTE.grass.dark : v > 0.62 ? PALETTE.grass.light : PALETTE.grass.base;
       cv.set(x, y, col);
     }
   }
@@ -837,7 +834,7 @@ function buildBackground() {
     cv.set(x, y - 2, PALETTE.grass.hi);
   }
 
-  // West pasture: open grass and flowers immediately outside the township.
+  // West orchard: a complete fenced fruit plot immediately outside town.
   for (let y = 388; y <= 814; y++) {
     for (let x = 108; x <= 226; x++) {
       if (hash2i(x * 5, y * 7) > 0.82) cv.set(x, y, PALETTE.grass.light);
@@ -848,12 +845,16 @@ function buildBackground() {
   borderFenceV(cv, 104, 378, 182);
   borderFenceV(cv, 104, 610, 217); // broad gate in the middle
   borderFenceV(cv, 222, 378, 449);
-  const pastureFlowers = [PALETTE.flowers.white, PALETTE.flowers.yellow, PALETTE.flowers.pink];
+  const orchardFlowers = [PALETTE.flowers.white, PALETTE.flowers.yellow, PALETTE.flowers.pink];
   for (let i = 0; i < 44; i++) {
     const x = 122 + ((rng() * 82) | 0);
     const y = 402 + ((rng() * 390) | 0);
-    cv.set(x, y, pastureFlowers[i % pastureFlowers.length]);
+    cv.set(x, y, orchardFlowers[i % orchardFlowers.length]);
     cv.set(x, y + 1, PALETTE.foliage.dark);
+  }
+  for (let y = 440; y <= 730; y += 74) {
+    borderTree(cv, 144, y, 2);
+    borderTree(cv, 190, y + 25, 2);
   }
 
   // East orchard: cultivated rows keep the nearby boundary pastoral before

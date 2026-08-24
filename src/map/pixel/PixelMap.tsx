@@ -18,6 +18,7 @@ import {
   standPointFor,
   variantFor,
   type PixelCamera,
+  type PixelCameraBounds,
   type StandSpot,
 } from './layout'
 import { deriveWalkers, emoteFor, lastActs, lastSpeech, walkerWindowMs } from './choreography'
@@ -57,7 +58,7 @@ function hexA(hex: string, alpha: number): string {
 function frameCamera(
   vw: number,
   vh: number,
-  world: PixelArt['world'],
+  bounds: PixelCameraBounds,
   box: { x: number; y: number; w: number; h: number },
   pad: number,
 ): PixelCamera {
@@ -69,7 +70,7 @@ function frameCamera(
     },
     vw,
     vh,
-    world,
+    bounds,
   )
 }
 
@@ -251,7 +252,9 @@ export default function PixelMap() {
   // a side panel covers part of the viewport; fit and center in what remains
   const panelW = panel ? PANEL_WIDTH[panel.kind] : 0
   const availableWidth = size ? Math.max(1, size.w - panelW - 24) : 0
-  const availableHeight = size ? Math.max(1, size.h - VALLEY_TOOLBAR_HEIGHT - VALLEY_RUN_BAR_HEIGHT - 20) : 0
+  const viewportTop = VALLEY_TOOLBAR_HEIGHT + 10
+  const viewportBottom = entered ? VALLEY_RUN_BAR_HEIGHT + 10 : 0
+  const availableHeight = size ? Math.max(1, size.h - viewportTop - viewportBottom) : 0
   const autoFitRef = useRef(true)
   const cameraRef = useRef(camera)
   cameraRef.current = camera
@@ -264,8 +267,8 @@ export default function PixelMap() {
   useLayoutEffect(() => {
     if (!art || availableWidth === 0 || availableHeight === 0) return
     setCamera((current) => {
-      if (!current || autoFitRef.current) return fitCamera(availableWidth, availableHeight, art.world)
-      return constrainCamera(current, availableWidth, availableHeight, art.world)
+      if (!current || autoFitRef.current) return fitCamera(availableWidth, availableHeight, art.background)
+      return constrainCamera(current, availableWidth, availableHeight, art.background)
     })
   }, [art, availableWidth, availableHeight])
 
@@ -278,7 +281,7 @@ export default function PixelMap() {
     const container = containerRef.current
     if (!container) return
     const measuredWidth = Math.max(1, container.clientWidth - panelW - 24)
-    const measuredHeight = Math.max(1, container.clientHeight - VALLEY_TOOLBAR_HEIGHT - VALLEY_RUN_BAR_HEIGHT - 20)
+    const measuredHeight = Math.max(1, container.clientHeight - viewportTop - viewportBottom)
     // Entry and panel commits can briefly render with the previous size state.
     // Do not let a request captured against that stale box overwrite the
     // synchronous fit; the size update reruns this effect with current geometry.
@@ -289,7 +292,7 @@ export default function PixelMap() {
     }
 
     const current = cameraRef.current
-    const fitted = fitCamera(availableWidth, availableHeight, art.world)
+    const fitted = fitCamera(availableWidth, availableHeight, art.background)
     const target = cameraRequest.target
     let next: PixelCamera
     autoFitRef.current = target.type === 'fit'
@@ -301,7 +304,7 @@ export default function PixelMap() {
         { ...current, k: current.k * target.factor },
         availableWidth,
         availableHeight,
-        art.world,
+        art.background,
       )
     } else if (target.type === 'dept') {
       const building = buildingFor(art, target.deptId)
@@ -310,7 +313,7 @@ export default function PixelMap() {
             { cx: building.x + building.w / 2, cy: building.y + building.h / 2, k: Math.max(fitted.k, 1.6) },
             availableWidth,
             availableHeight,
-            art.world,
+            art.background,
           )
         : fitted
     } else if (target.type === 'agent') {
@@ -320,7 +323,7 @@ export default function PixelMap() {
             { cx: point.x, cy: point.y, k: Math.max(fitted.k, 2.2) },
             availableWidth,
             availableHeight,
-            art.world,
+            art.background,
           )
         : fitted
     } else {
@@ -334,7 +337,7 @@ export default function PixelMap() {
         const top = Math.min(...buildings.map((building) => building.y))
         const right = Math.max(...buildings.map((building) => building.x + building.w))
         const bottom = Math.max(...buildings.map((building) => building.y + building.h))
-        next = frameCamera(availableWidth, availableHeight, art.world, { x: left, y: top, w: right - left, h: bottom - top }, 48)
+        next = frameCamera(availableWidth, availableHeight, art.background, { x: left, y: top, w: right - left, h: bottom - top }, 48)
       }
     }
 
@@ -348,7 +351,7 @@ export default function PixelMap() {
         cx: from.cx + (next.cx - from.cx) * value,
         cy: from.cy + (next.cy - from.cy) * value,
         k: from.k + (next.k - from.k) * value,
-      }, availableWidth, availableHeight, art.world)),
+      }, availableWidth, availableHeight, art.background)),
     })
   }, [art, spots, panelW, availableWidth, availableHeight, cameraRequest])
 
@@ -370,7 +373,7 @@ export default function PixelMap() {
         { ...current, k: current.k * Math.exp(-event.deltaY * 0.0016) },
         availableWidth,
         availableHeight,
-        art.world,
+        art.background,
       ).k
       const worldX = current.cx + px / current.k
       const worldY = current.cy + py / current.k
@@ -378,7 +381,7 @@ export default function PixelMap() {
         cx: worldX - px / nextK,
         cy: worldY - py / nextK,
         k: nextK,
-      }, availableWidth, availableHeight, art.world))
+      }, availableWidth, availableHeight, art.background))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
@@ -411,7 +414,7 @@ export default function PixelMap() {
         { ...current, cx: current.cx - dx / current.k, cy: current.cy - dy / current.k },
         availableWidth,
         availableHeight,
-        art.world,
+        art.background,
       ))
     }
     drag.x = event.clientX
@@ -446,7 +449,7 @@ export default function PixelMap() {
         <div
           ref={viewportRef}
           className="absolute cursor-grab touch-none overflow-hidden active:cursor-grabbing"
-          style={{ left: 12, top: VALLEY_TOOLBAR_HEIGHT + 10, width: availableWidth, height: availableHeight }}
+          style={{ left: 12, top: viewportTop, width: availableWidth, height: availableHeight }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={finishPointer}
