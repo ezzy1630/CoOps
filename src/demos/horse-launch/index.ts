@@ -5,18 +5,13 @@ import { horseInterviewAuto } from './script'
 
 const STEPS = ['Route', 'Find & stage', 'Approve & publish'] as const
 
-function ownedEvents(snapshot: RehearsalSnapshot) {
-  return currentAttempt(
-    [...snapshot.log, ...snapshot.scheduled]
-      .filter((event) => event.payload?.rehearsalId === 'horse-launch'),
-  )
-}
-
 function present(snapshot: RehearsalSnapshot): RehearsalPresentation {
-  const committed = currentAttempt(
-    snapshot.log.filter((event) => event.payload?.rehearsalId === 'horse-launch'),
-  )
-  const owned = ownedEvents(snapshot)
+  const allCommitted = snapshot.log.filter((event) => event.payload?.rehearsalId === 'horse-launch')
+  const committed = currentAttempt(allCommitted)
+  const owned = currentAttempt([
+    ...allCommitted,
+    ...snapshot.scheduled.filter((event) => event.payload?.rehearsalId === 'horse-launch'),
+  ])
 
   const taskEvent = owned.find((event) => event.type === 'TaskRequest' && event.taskId)
   const taskId = taskEvent?.taskId
