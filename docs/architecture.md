@@ -45,6 +45,10 @@ flowchart LR
 - Artifact provenance is explicit. Live content, rehearsal templates, and metadata-only deliveries cannot share the same presentation state.
 - `src/evidence/runEvidence.ts` computes one Run Evidence record for the navigation rail and Activity. Those views cannot drift into different counts or runtime labels.
 - Workspace writes pass through an adapter. The Runtime Identity says whether the active deployment uses Google Workspace or a dry run.
+- Every externally observable step carries a receipt on its event (`payload.receipt`). `src/evidence/proofPackage.ts` folds those receipts into the run's checklist: a field with no recorded value reads `not recorded`, and a step that never reached its external system is labeled a dry run rather than counted as proof.
+- The chain of custody is a computed verdict, not a claim. Discovery, Cloud Storage handoff and human approval must agree on one checksum, all three live, before the package reads `verified`.
+- Publication authority is enforced by that chain: the `youtube` tool refuses to upload unless an `ApprovalGranted` event carries an authority receipt whose checksum matches the staged asset.
+- Local discovery reads nothing outside `COOPS_LOCAL_ROOTS`, and the allow-list is checked against the resolved real path, so a symlink cannot leave it.
 
 ## Frontend delivery
 
@@ -57,5 +61,6 @@ The Company Map, navigation, and runtime status form the initial browser path. S
 3. Follow the Task Envelope across departments and inspect the agent conversation.
 4. Resolve the named human Approval and watch the run continue from its checkpoint.
 5. Open Activity to inspect tool actions, guardrail blocks, the event trace, and measured latency.
-6. Open the delivered Artifact and confirm its provenance and external location.
-7. Replay the completed task from the Event Log.
+6. Open the Proof package for the receipt behind every external claim and the chain-of-custody verdict, and export it as JSON.
+7. Open the delivered Artifact and confirm its provenance and external location.
+8. Replay the completed task from the Event Log.

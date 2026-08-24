@@ -12,6 +12,7 @@ import { openJsonlMemory } from './memory/jsonl.js'
 import { openFirestoreMemory } from './memory/firestore.js'
 import { createGoogleOAuth } from './auth/google.js'
 import { createWorkspaceTools } from './tools/google.js'
+import { readApprovedPublication } from './tools/launch.js'
 import { newId, workerIdFromName } from './ids.js'
 import { cancelExchangeTask } from './brain/exchanges.js'
 import type { BrainAdapter, BrainCtx } from './brain/types.js'
@@ -57,6 +58,14 @@ const google = createGoogleOAuth(cfg.googleOAuth)
 const workspaceTools = createWorkspaceTools({
   getAccessToken: () => google.accessToken(),
   sheetsId: cfg.sheetsId,
+  launch: {
+    localRoots: cfg.launch?.localRoots ?? [],
+    connectorId: cfg.launch?.connectorId ?? 'unnamed connector',
+    bucket: cfg.launch?.bucket,
+    // publication authority is read back from the log, so only a real
+    // ApprovalGranted event can unlock the YouTube step
+    approvedPublication: () => readApprovedPublication(store.all()),
+  },
 })
 const apiKey = cfg.geminiApiKey
 const effectiveBrain =

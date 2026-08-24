@@ -1,10 +1,11 @@
 import { GoogleGenAI, Type } from '@google/genai'
 import type { Content, Tool } from '@google/genai'
-import type { AgentBlueprint, WorldEvent } from '../../../src/types.js'
-import { deptById } from '../../../src/data/company.js'
+import type { AgentBlueprint, Receipt, WorldEvent } from '../../../src/types.js'
+import { deptById, personById } from '../../../src/data/company.js'
 import type { GuardrailAdapter } from '../guardrail/types.js'
 import type { DeptMemory } from '../memory/types.js'
 import { createDryRunTools, WORKSPACE_TOOLS } from '../tools/dryrun.js'
+import { LAUNCH_TOOLS } from '../tools/launch.js'
 import type { WorkspaceToolAdapter } from '../tools/types.js'
 import { runExchange } from './exchanges.js'
 import type { ExchangeExecutor } from './exchanges.js'
@@ -59,15 +60,39 @@ const TOOLS: Tool[] = [{
     },
     {
       name: 'workspace_write',
-      description: 'Record a side-effectful write to a connected workspace tool (Drive, Sheets, Zendesk, Shopify, Slack) as an audited dry-run event.',
+      description:
+        'Perform one audited side-effect. Workspace tools (gdrive, gsheets, zendesk, shopify, slack) record a write. '
+        + 'Launch tools run the publication pipeline in order: localfile finds an asset under the allow-listed root, '
+        + 'gcs stages it in Cloud Storage, youtube publishes it — youtube only succeeds after a named human approved '
+        + 'that exact checksum. Every call returns an inspectable receipt.',
       parameters: {
         type: Type.OBJECT,
         properties: {
-          tool: { type: Type.STRING, description: 'Which workspace tool to write to.', enum: [...WORKSPACE_TOOLS] },
-          action: { type: Type.STRING, description: 'The write action, e.g. "upload file", "append row", "create ticket".' },
-          detail: { type: Type.STRING, description: 'One-line summary of exactly what the write would change.' },
+          tool: { type: Type.STRING, description: 'Which tool to use.', enum: [...WORKSPACE_TOOLS, ...LAUNCH_TOOLS] },
+          action: {
+            type: Type.STRING,
+            description:
+              'For workspace tools, the write action. For localfile, the filename search terms. '
+              + 'For gcs, the destination object name. For youtube, the video description.',
+          },
+          detail: { type: Type.STRING, description: 'One-line summary of exactly what the call changes.' },
         },
         required: ['tool', 'action', 'detail'],
+      },
+    },
+    {
+      name: 'request_publication_approval',
+      description:
+        'Ask a named human to approve publishing the staged asset. Required before youtube can publish: the approval '
+        + 'is bound to the staged file checksum, so it cannot be reused for a different file.',
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING, description: 'The exact title you propose to publish under.' },
+          privacy: { type: Type.STRING, description: 'Proposed privacy setting.', enum: ['public', 'unlisted', 'private'] },
+          approver: { type: Type.STRING, description: 'Person id who holds this right; defaults to the department lead.' },
+        },
+        required: ['title', 'privacy'],
       },
     },
   ],
@@ -296,10 +321,62 @@ async function runTurn(
         title: `${tool}: ${action}`,
         detail: result.detail,
         // latency is measured; cost is omitted because no billing data exists
-        payload: { tool, action, latencyMs },
+        payload: { tool, action, latencyMs, ...(result.receipt ? { receipt: result.receipt } : {}) },
       })
       contents.push(functionResponse(call.name, result.detail))
-      replied = await say(`Recorded ${tool}.${action} as a dry-run write. No external system was touched.`)
+      replied = await say(
+        result.receipt?.live
+          ? `${result.detail} The receipt is in the run's proof package.`
+          : `Recorded ${tool}.${action} without touching an external system. ${result.detail}`,
+      )
+      continue
+    }
+
+    if (call.name === 'request_publication_approval') {
+      contents.push({ role: 'model', parts: [{ functionCall: call }] })
+      const asset = workspaceTools.staged?.() ?? null
+      if (!asset) {
+        contents.push(functionResponse(call.name, 'error: no asset staged — run localfile first'))
+        continue
+      }
+      const title = asString(args.title).trim() || asset.filename
+      const privacy = asString(args.privacy).trim() || 'private'
+      const approver = approverFor(asString(args.approver).trim(), deptId)
+      if (!approver) {
+        contents.push(functionResponse(call.name, 'error: no approver holds this right in this department'))
+        continue
+      }
+      const channel = `CoOps · ${deptName} · Work & Approvals`
+      const proposal: Receipt = {
+        kind: 'authority',
+        claim: 'A named human was asked to approve this exact asset, title and privacy setting.',
+        live: true,
+        ok: false,
+        at: new Date().toISOString(),
+        fields: {
+          approver: personById.get(approver)?.name ?? approver,
+          channel,
+          title,
+          privacy,
+          checksum: `sha256:${asset.sha256}`,
+        },
+      }
+      ctx.emit({
+        type: 'PermissionRequest',
+        from: { kind: 'agent', id: agentId },
+        to: { kind: 'person', id: approver },
+        deptFrom: deptId,
+        deptTo: deptId,
+        title: `Publish “${title}” to YouTube (${privacy})`,
+        detail: `${asset.filename} · sha256 ${asset.sha256.slice(0, 12)} · awaiting ${personById.get(approver)?.name ?? approver}`,
+        blockedOn: { what: `Publish “${title}” to YouTube`, personId: approver, kind: 'approval' },
+        payload: { receipt: proposal },
+      })
+      contents.push(functionResponse(call.name, `approval requested from ${approver}`))
+      replied = await say(
+        `I asked ${personById.get(approver)?.name ?? approver} to approve publishing “${title}” as ${privacy}. `
+        + `The request carries the file's checksum, so approving it authorises this file and no other.`,
+      )
       continue
     }
 
@@ -308,6 +385,12 @@ async function runTurn(
   }
 
   if (!replied) await say('Done for now. Tell me if you want anything else.')
+}
+
+/** Publication authority belongs to a person in the department; the lead holds it by default. */
+function approverFor(requested: string, deptId: string): string | null {
+  if (requested && personById.get(requested)?.deptId === deptId) return requested
+  return deptById.get(deptId)?.leadId ?? null
 }
 
 function emitBlocked(ctx: BrainCtx, deptId: string, guardrail: GuardrailAdapter, category?: string): void {

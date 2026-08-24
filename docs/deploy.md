@@ -37,6 +37,9 @@ backend do not share an origin.
 | `COOPS_SHEETS_ID` | empty | Default spreadsheet for Sheets append operations |
 | `COOPS_A2A_TOKEN` | empty | Bearer token protecting A2A routes |
 | `COOPS_A2A_PRINCIPAL` | `a2a-peer` | Caller identity recorded on authenticated A2A requests |
+| `COOPS_LOCAL_ROOTS` | empty | Comma- or colon-separated absolute roots the `localfile` connector may read; empty means discovery refuses |
+| `COOPS_CONNECTOR_ID` | hostname | Machine identity recorded on every local discovery receipt |
+| `COOPS_GCS_BUCKET` | empty | Cloud Storage bucket for the `gcs` handoff; empty keeps the step a labeled dry run |
 
 ## What runs at each capability level
 
@@ -46,7 +49,23 @@ backend do not share an origin.
 | Gemini | `GEMINI_API_KEY` | Gemini 3.7 Flash function-calling operator turns and generated exchange artifacts |
 | Google Cloud | Firestore and Model Armor variables | Firestore department memory and Model Armor inspection |
 | Workspace | Google OAuth variables | Scoped Drive uploads and Sheets appends after a user grant; other tools stay dry-run |
+| Publication | `COOPS_LOCAL_ROOTS`, `COOPS_GCS_BUCKET`, Google OAuth | Allow-listed local discovery, verified Cloud Storage handoff, and YouTube upload behind a named human approval |
 | A2A | `COOPS_ENABLE_A2A=1` | Agent cards and `SendMessage` per operator; add `COOPS_A2A_TOKEN` outside local development |
+
+## Proof package
+
+Every externally observable step returns a receipt on its event
+(`payload.receipt`): local discovery, Cloud Storage handoff, the human approval,
+and the YouTube publication. Activity → **Proof package** folds them into the
+run's receipt checklist and reports one chain-of-custody verdict.
+
+The verdict is `verified` only when the discovered file, the stored object and
+the approved asset carry one identical checksum *and* all three steps touched
+their real external system. A step that could not reach its system records a
+`dry-run` receipt and the verdict stays `incomplete`; a field that was never
+recorded reads `not recorded` rather than disappearing. Publication is enforced,
+not narrated: `youtube` refuses to upload unless an `ApprovalGranted` event
+carries an authority receipt whose checksum matches the staged asset.
 
 Gemini errors surface as errors in the agent room. They never fall back to a
 scripted response. `GET /runtime` is the source of truth for the effective

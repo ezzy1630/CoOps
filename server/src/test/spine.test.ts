@@ -229,6 +229,83 @@ test('approval flow: decision resolves AuthRequired once, second attempt conflic
   assert.equal(again.status, 409)
 })
 
+test('a publication decision stamps the authority receipt the human actually saw', async t => {
+  const dir = await tempDir()
+  const s = await startStack(dir)
+  t.after(() => closeServer(s.server))
+
+  const proposal = {
+    kind: 'authority' as const,
+    claim: 'A named human was asked to approve this exact asset, title and privacy setting.',
+    live: true,
+    ok: false,
+    at: '2026-08-24T10:00:00.000Z',
+    fields: {
+      approver: 'Mara Quinn',
+      channel: 'CoOps · Marketing · Work & Approvals',
+      title: 'Horses, but make it dating',
+      privacy: 'public',
+      checksum: 'sha256:8f1d2c3b',
+    },
+  }
+  const seeded = await s.store.append({
+    type: 'PermissionRequest',
+    taskId: 'T-pub',
+    blockedOn: { what: 'Publish to YouTube', personId: 'mara', kind: 'approval' },
+    from: { kind: 'agent', id: 'a-marketing' },
+    to: { kind: 'person', id: 'mara' },
+    deptFrom: 'marketing',
+    deptTo: 'marketing',
+    title: 'Publish “Horses, but make it dating” to YouTube (public)',
+    payload: { receipt: proposal },
+    ts: 1000,
+  })
+
+  const res = await requestJson('POST', `${s.base}/approvals/${seeded.id}/decision`, { personId: 'mara' })
+  assert.equal(res.status, 200)
+  const granted = (res.json as WorldEvent).payload?.receipt
+  assert.equal(granted?.kind, 'authority')
+  assert.equal(granted?.ok, true)
+  assert.equal(granted?.fields.approver, 'mara')
+  assert.equal(granted?.fields.checksum, 'sha256:8f1d2c3b')
+  assert.equal(granted?.fields.title, 'Horses, but make it dating')
+  assert.ok(granted?.fields.approvedAt)
+})
+
+test('a denied publication records the refusal without an approval timestamp', async t => {
+  const dir = await tempDir()
+  const s = await startStack(dir)
+  t.after(() => closeServer(s.server))
+
+  const seeded = await s.store.append({
+    type: 'PermissionRequest',
+    taskId: 'T-pub',
+    blockedOn: { what: 'Publish to YouTube', personId: 'mara', kind: 'approval' },
+    from: { kind: 'agent', id: 'a-marketing' },
+    to: { kind: 'person', id: 'mara' },
+    deptFrom: 'marketing',
+    deptTo: 'marketing',
+    title: 'Publish to YouTube',
+    payload: {
+      receipt: {
+        kind: 'authority' as const,
+        claim: 'asked',
+        live: true,
+        ok: false,
+        at: '2026-08-24T10:00:00.000Z',
+        fields: { approver: 'Mara Quinn', channel: 'c', title: 't', privacy: 'public', checksum: 'sha256:8f1d2c3b' },
+      },
+    },
+    ts: 1000,
+  })
+
+  const res = await requestJson('POST', `${s.base}/approvals/${seeded.id}/decision`, { personId: 'mara', decision: 'deny' })
+  assert.equal(res.status, 200)
+  const refused = (res.json as WorldEvent).payload?.receipt
+  assert.equal(refused?.ok, false)
+  assert.equal(refused?.fields.approvedAt, undefined)
+})
+
 test('dev/emit stores when allowed; restart reloads full log from disk', async t => {
   const dir = await tempDir()
   const s = await startStack(dir)
