@@ -290,13 +290,12 @@ html.fun-mode {
   --color-fun-guard: #8a63c9;
   --color-fun-human: #e3ae52;
 
-  /* the letterbox around the scaled stage reads as packed earth (a manifest
-     ground tone), part of the valley rather than app chrome; the dark theme
-     drops it to warm earth-shadow so a lit board doesn't glow at midnight */
-  --color-map-canvas: #cdbd97;
+  /* Extreme aspect ratios can outgrow even the decorative background bleed.
+     Continue its woodland edge instead of revealing an earth letterbox. */
+  --color-map-canvas: #436b28;
 }
 html.fun-mode.dark {
-  --color-map-canvas: #443227;
+  --color-map-canvas: #224818;
 }
 
 /* nearest-neighbour upscale for sprite <img>s and background strips. Also

@@ -60,7 +60,7 @@ All PNGs are 8-bit RGBA. Sizes are pinned by the manifest schema.
 
 | File                              | Size      | Contents                                                        |
 | --------------------------------- | --------- | --------------------------------------------------------------- |
-| `background.png`                  | 960×600   | Mottled grass, street grid of dirt roads — North/South Streets (y=165/415), West/East Lanes (x=150/810), x=480 avenues + Hall Walk to the hall door — stone plaza square (380..580 × 190..370) with central fountain at (480,280), pond, fences, trees ×8 (2 sizes), bushes, flower patches, rocks |
+| `background.png`                  | 1440×1200 | The unchanged 960×600 town centered at image (240,300), surrounded by a visual-only fenced pasture, orchard, gated market garden, and dense outer woodland |
 | `buildings/marketing.png`         | 96×84     | Poster & print stall: striped scalloped awning, poster window, arch door |
 | `buildings/finance.png`           | 120×100   | Stone bank: ashlar walls, gold-trimmed pediment, pilasters, arched double door |
 | `buildings/legal.png`             | 112×96    | Courthouse: pediment + frieze, four columns, fanlight doorway, broad steps |
@@ -81,11 +81,16 @@ Building placement is pinned in both the generator and the manifest (single sour
 truth is the `DEPTS` table in `scripts/gen-pixel-art.mjs`); background paths start at
 each `door` point so they line up under every building sprite.
 
+The interactive world remains 960×600. The manifest places the larger background at
+world offset (-240,-300), giving the camera a 240px horizontal and 300px vertical
+scenery buffer without moving buildings, paths, walkers, or activity-follow targets.
+
 ## Style rules
 
-- **Unified 1:1 Texel Density.** Every sprite and background pixel maps 1:1 to the 960×600
-  world canvas (`SPRITE_SCALE = 1`), eliminating mixels so all line weights and textures
-  remain visually cohesive.
+- **Unified 1:1 Texel Density.** Every sprite and background pixel maps 1:1 to world
+  space (`SPRITE_SCALE = 1`). The town remains 960×600 while its decorative background
+  bleeds beyond that boundary at the same density, eliminating mixels so all line
+  weights and textures remain visually cohesive.
 - **One ink.** Every silhouette is outlined with the same warm plum-brown `#2e1f2c`,
   applied as a crisp 1px pass around each sprite (avatars are outlined per 24×24 cell
   before being packed into strips). Ground elements (paths, plaza) use darker-tone rims

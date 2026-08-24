@@ -612,11 +612,16 @@ function Scene({
       }}
     >
       <img
-        src={art.background}
+        src={art.background.file}
         alt=""
         draggable={false}
-        className="pixelated pointer-events-none absolute inset-0 select-none"
-        style={{ width: art.world.w, height: art.world.h }}
+        className="pixelated pointer-events-none absolute select-none"
+        style={{
+          left: art.background.x,
+          top: art.background.y,
+          width: art.background.w,
+          height: art.background.h,
+        }}
       />
 
       {/* ground-level ink: walked routes + mail request lines live under everything */}

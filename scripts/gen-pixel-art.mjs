@@ -234,6 +234,10 @@ function stampOutlined(dst, w, h, ax, ay, draw) {
 
 /* Pinned world layout — must stay in sync with src/map/pixel/layout.ts. */
 const WORLD = { w: 960, h: 600 };
+/* Decorative bleed sits behind WORLD without changing any interactive world
+ * coordinate. The town occupies image pixels (240,300)..(1199,899), so Fit,
+ * walking routes, building anchors and camera constraints remain 960×600. */
+const BACKGROUND = { w: 1440, h: 1200, x: -240, y: -300 };
 const PLAZA = { x: 480, y: 280, r: 85 };
 const DEPTS = [
   { id: 'marketing',  x: 140, y: 70,  w: 96,  h: 84,  door: { x: 188, y: 160 }, hue: '#d76fa4', kind: 'stall' },
@@ -267,7 +271,7 @@ function makeValueNoise(seed, gw, gh) {
   };
 }
 
-function buildBackground() {
+function buildTownBackground() {
   const cv = new Cv(WORLD.w, WORLD.h);
 
   // 1. Organic Base Grass Terrain
@@ -292,19 +296,7 @@ function buildBackground() {
     cv.set(x, y - 2, PALETTE.grass.hi);
   }
 
-  // 2. Horizon Forest Treeline (Dense natural canopy layer framing the valley)
-  for (let x = -10; x < WORLD.w + 20; x += 12) {
-    const pr = mulberry32(0x9812 + x * 41);
-    const depth = 28 + Math.floor(pr() * 10);
-    cv.rect(x + 4, depth, 4, 18, PALETTE.trunk.dark);
-    cv.rect(x + 5, depth, 2, 18, PALETTE.trunk.base);
-    cv.disc(x + 6, depth - 6, 20, PALETTE.foliage.shadow);
-    cv.disc(x + 6, depth - 10, 16, PALETTE.foliage.dark);
-    cv.disc(x + 5, depth - 13, 13, PALETTE.foliage.base);
-    cv.disc(x + 4, depth - 16, 8, PALETTE.foliage.light);
-  }
-
-  // 3. Central Town Square Plaza (x: 380..580, y: 190..370)
+  // 2. Central Town Square Plaza (x: 380..580, y: 190..370)
   const psq = { x0: 380, y0: 190, x1: 580, y1: 370 };
   for (let y = psq.y0 - 3; y <= psq.y1 + 3; y++)
     for (let x = psq.x0 - 3; x <= psq.x1 + 3; x++)
@@ -741,6 +733,210 @@ function buildBackground() {
     }
   }
 
+  return cv;
+}
+
+/* ── decorative township surroundings ─────────────────────────────────────
+ * The playable town stays byte-for-byte in its original coordinate system.
+ * This larger image is visual bleed only: pastoral plots sit nearest town and
+ * denser woodland closes the far edge, borrowing the framing mechanism of a
+ * game-board border without copying any external art. */
+function borderFenceH(dst, x, y, len) {
+  stampOutlined(dst, len, 9, x, y, (p) => {
+    p.hline(0, len - 1, 2, PALETTE.wood.dark);
+    p.hline(0, len - 1, 3, PALETTE.wood.base);
+    p.hline(0, len - 1, 6, PALETTE.wood.dark);
+    p.hline(0, len - 1, 7, PALETTE.wood.base);
+    for (let px = 2; px <= len - 4; px += 12) {
+      p.rect(px, 0, 3, 8, PALETTE.wood.base);
+      p.vline(px, 0, 8, PALETTE.wood.light);
+      p.vline(px + 2, 0, 8, PALETTE.wood.dark);
+    }
+  });
+}
+
+function borderFenceV(dst, x, y, len) {
+  stampOutlined(dst, 9, len, x, y, (p) => {
+    p.vline(2, 0, len - 1, PALETTE.wood.dark);
+    p.vline(3, 0, len - 1, PALETTE.wood.base);
+    p.vline(6, 0, len - 1, PALETTE.wood.dark);
+    p.vline(7, 0, len - 1, PALETTE.wood.base);
+    for (let py = 2; py <= len - 4; py += 12) {
+      p.rect(0, py, 8, 3, PALETTE.wood.base);
+      p.hline(0, 8, py, PALETTE.wood.light);
+      p.hline(0, 8, py + 2, PALETTE.wood.dark);
+    }
+  });
+}
+
+function borderTree(dst, bx, by, kind) {
+  const pine = kind === 0;
+  const w = pine ? 34 : 44;
+  const h = pine ? 58 : 52;
+  stampOutlined(dst, w, h, bx - (w >> 1), by - h + 1, (p) => {
+    const cx = w >> 1;
+    p.rect(cx - 2, h - 13, 5, 12, PALETTE.trunk.base);
+    p.vline(cx + 2, h - 13, h - 2, PALETTE.trunk.dark);
+    if (pine) {
+      const layers = [[h - 21, 14], [h - 34, 11], [h - 45, 8]];
+      for (const [cy, r] of layers) {
+        p.disc(cx + 1, cy + 1, r, PALETTE.pine.shadow);
+        p.disc(cx, cy, r - 1, PALETTE.pine.dark);
+        p.disc(cx - 2, cy - 2, r - 4, PALETTE.pine.base);
+        p.disc(cx - 3, cy - 3, Math.max(2, r - 7), PALETTE.pine.light);
+      }
+    } else {
+      const lobes = [[0, 0, 15], [-12, 3, 11], [12, 4, 11], [-6, -11, 10], [8, -10, 10]];
+      const cy = h - 27;
+      for (const [ox, oy, r] of lobes) p.disc(cx + ox + 1, cy + oy + 1, r, PALETTE.foliage.shadow);
+      for (const [ox, oy, r] of lobes) p.disc(cx + ox, cy + oy, r - 1, PALETTE.foliage.dark);
+      for (const [ox, oy, r] of lobes) p.disc(cx + ox - 2, cy + oy - 2, Math.max(3, r - 4), PALETTE.foliage.base);
+      for (const [ox, oy, r] of lobes) p.disc(cx + ox - 3, cy + oy - 3, Math.max(2, r - 7), PALETTE.foliage.light);
+      if (kind === 2) {
+        for (const [ax, ay] of [[-10, -2], [7, -7], [12, 5], [-2, 8]]) {
+          p.disc(cx + ax, cy + ay, 2, PALETTE.apple);
+          p.set(cx + ax - 1, cy + ay - 1, PALETTE.appleL);
+        }
+      }
+    }
+  });
+}
+
+function buildBackground() {
+  const cv = new Cv(BACKGROUND.w, BACKGROUND.h);
+  const townX = -BACKGROUND.x;
+  const townY = -BACKGROUND.y;
+  const townRight = townX + WORLD.w;
+  const townBottom = townY + WORLD.h;
+
+  // Continuous terrain uses town-local noise coordinates so the grass meets
+  // the original 960×600 painting without a rectangular color seam.
+  const nGrass1 = makeValueNoise(42, 30, 20);
+  const nGrass2 = makeValueNoise(1337, 80, 50);
+  for (let y = 0; y < BACKGROUND.h; y++) {
+    for (let x = 0; x < BACKGROUND.w; x++) {
+      const wx = x + BACKGROUND.x;
+      const wy = y + BACKGROUND.y;
+      const v = nGrass1(wx / 26, wy / 26) * 0.65 + nGrass2(wx / 8, wy / 8) * 0.35;
+      const edge = Math.min(x, y, BACKGROUND.w - 1 - x, BACKGROUND.h - 1 - y);
+      const col = edge < 54
+        ? PALETTE.grass.shadow
+        : v < 0.35 ? PALETTE.grass.dark : v > 0.62 ? PALETTE.grass.light : PALETTE.grass.base;
+      cv.set(x, y, col);
+    }
+  }
+
+  const rng = mulberry32(0xB04D3A);
+  for (let i = 0; i < 5200; i++) {
+    const x = 8 + ((rng() * (BACKGROUND.w - 16)) | 0);
+    const y = 8 + ((rng() * (BACKGROUND.h - 16)) | 0);
+    if (x >= townX && x < townRight && y >= townY && y < townBottom) continue;
+    cv.set(x, y, PALETTE.grass.shadow);
+    cv.set(x - 1, y - 1, PALETTE.grass.dark);
+    cv.set(x + 1, y - 1, PALETTE.grass.dark);
+    cv.set(x, y - 2, PALETTE.grass.hi);
+  }
+
+  // West pasture: open grass and flowers immediately outside the township.
+  for (let y = 388; y <= 814; y++) {
+    for (let x = 108; x <= 226; x++) {
+      if (hash2i(x * 5, y * 7) > 0.82) cv.set(x, y, PALETTE.grass.light);
+    }
+  }
+  borderFenceH(cv, 104, 378, 126);
+  borderFenceH(cv, 104, 818, 126);
+  borderFenceV(cv, 104, 378, 182);
+  borderFenceV(cv, 104, 610, 217); // broad gate in the middle
+  borderFenceV(cv, 222, 378, 449);
+  const pastureFlowers = [PALETTE.flowers.white, PALETTE.flowers.yellow, PALETTE.flowers.pink];
+  for (let i = 0; i < 44; i++) {
+    const x = 122 + ((rng() * 82) | 0);
+    const y = 402 + ((rng() * 390) | 0);
+    cv.set(x, y, pastureFlowers[i % pastureFlowers.length]);
+    cv.set(x, y + 1, PALETTE.foliage.dark);
+  }
+
+  // East orchard: cultivated rows keep the nearby boundary pastoral before
+  // the outer woodland becomes dense.
+  borderFenceH(cv, 1210, 350, 184);
+  borderFenceH(cv, 1210, 846, 184);
+  borderFenceV(cv, 1210, 350, 210);
+  borderFenceV(cv, 1210, 610, 245);
+  borderFenceV(cv, 1386, 350, 505);
+  for (let y = 420; y <= 790; y += 74) {
+    borderTree(cv, 1252, y, 2);
+    borderTree(cv, 1328, y + 12, 2);
+  }
+
+  // South market garden: every fence belongs to one complete enclosure. Its
+  // north gate faces town, the center path serves the gate, and planted beds
+  // make the enclosed purpose legible even when the camera only shows a slice.
+  borderFenceH(cv, 390, 948, 306);
+  borderFenceH(cv, 744, 948, 306); // 48px gate centered on the town
+  borderFenceH(cv, 390, 1093, 660);
+  borderFenceV(cv, 390, 948, 154);
+  borderFenceV(cv, 1041, 948, 154);
+  cv.rect(707, 957, 26, 136, PALETTE.dirt.rim);
+  cv.rect(711, 957, 18, 136, PALETTE.dirt.base);
+  const gardenBeds = [
+    { x: 424, y: 976, w: 248, h: 25 },
+    { x: 424, y: 1035, w: 248, h: 25 },
+    { x: 768, y: 976, w: 248, h: 25 },
+    { x: 768, y: 1035, w: 248, h: 25 },
+  ];
+  const cropColors = [PALETTE.farm.cabbageL, PALETTE.flowers.yellow, PALETTE.flowers.pink, PALETTE.farm.pumpkin];
+  gardenBeds.forEach((bed, bedIndex) => {
+    cv.rect(bed.x, bed.y, bed.w, bed.h, PALETTE.farm.furrow);
+    cv.rect(bed.x + 2, bed.y + 2, bed.w - 4, bed.h - 4, PALETTE.farm.soil);
+    for (let x = bed.x + 9; x < bed.x + bed.w - 5; x += 16) {
+      for (const y of [bed.y + 8, bed.y + 17]) {
+        cv.set(x, y, PALETTE.foliage.dark);
+        cv.disc(x, y - 2, 2, cropColors[bedIndex]);
+        cv.set(x - 1, y - 3, PALETTE.grass.hi);
+      }
+    }
+  });
+
+  // Far forest: several staggered rows across the north and clustered groves
+  // at the outer sides/corners create depth without competing with the town.
+  const trees = [];
+  for (let y = 66; y <= 292; y += 44) {
+    for (let x = -8; x <= BACKGROUND.w + 8; x += 34) {
+      const jitter = hash2i(x * 11, y * 17);
+      trees.push({ x: x + Math.floor(jitter * 16) - 8, y: y + Math.floor(jitter * 12), kind: jitter > 0.58 ? 1 : 0 });
+    }
+  }
+  for (let y = 340; y <= 1180; y += 48) {
+    for (const x of [24, 66, 92, 1348, 1384, 1420]) {
+      const jitter = hash2i(x * 7, y * 13);
+      trees.push({ x: x + Math.floor(jitter * 14) - 7, y: y + Math.floor(jitter * 18), kind: jitter > 0.58 ? 1 : 0 });
+    }
+  }
+  for (let x = 86; x <= 1328; x += 54) {
+    const jitter = hash2i(x * 19, 0x51D3);
+    trees.push({ x: x + Math.floor(jitter * 18) - 9, y: 1174 + Math.floor(jitter * 18), kind: jitter > 0.58 ? 1 : 0 });
+  }
+  trees.sort((a, b) => a.y - b.y);
+  for (const tree of trees) borderTree(cv, tree.x, tree.y, Math.abs(tree.kind));
+
+  // Compose the interactive town after the surrounding plots so every road,
+  // pond, building apron and keep-clear zone remains where runtime expects it.
+  buildTownBackground().blit(cv, townX, townY);
+
+  // Repaint the town's former horizon treeline in background coordinates. It
+  // keeps its familiar profile through the playable area but continues well
+  // past both old canvas edges, so no crown or trunk ends on a rectangular cut.
+  for (let wx = -136; wx < WORLD.w + 136; wx += 12) {
+    const pr = mulberry32(0x9812 + wx * 41);
+    const depth = townY + 28 + Math.floor(pr() * 10);
+    const x = townX + wx;
+    cv.rect(x + 4, depth, 4, 18, PALETTE.trunk.dark);
+    cv.rect(x + 5, depth, 2, 18, PALETTE.trunk.base);
+    cv.disc(x + 6, depth - 6, 20, PALETTE.foliage.shadow);
+    cv.disc(x + 6, depth - 10, 16, PALETTE.foliage.dark);
+    cv.disc(x + 5, depth - 13, 13, PALETTE.foliage.base);
+    cv.disc(x + 4, depth - 16, 8, PALETTE.foliage.light);
+  }
   return cv;
 }
 /* ── shared building helpers ─────────────────────────────────────────────── */
@@ -1489,7 +1685,7 @@ function buildManifest() {
   return {
     version: 1,
     world: { w: WORLD.w, h: WORLD.h },
-    background: { file: '/pixel/background.png' },
+    background: { file: '/pixel/background.png', ...BACKGROUND },
     plaza: { x: PLAZA.x, y: PLAZA.y },
     buildings: DEPTS.map((d) => ({
       deptId: d.id,
@@ -1594,6 +1790,3 @@ function main() {
 }
 
 main();
-
-
-
