@@ -3,10 +3,12 @@ import { dirname, join } from 'node:path'
 import type { AgentDef, Department, WorldEvent } from '../../src/types.js'
 import { getAgents, getDepartments, setCompanyTemplate, AGENT_DEPT } from '../../src/data/company.js'
 import { everpeak } from '../../src/data/companies/everpeak.js'
+import { horse } from '../../src/data/companies/horse.js'
 
 // Backend and client register the same single company definition; the valley
-// asset paths are inert strings here.
-setCompanyTemplate(everpeak)
+// asset paths are inert strings here. Selected at boot via VITE_COMPANY.
+const COMPANIES: Record<string, Parameters<typeof setCompanyTemplate>[0]> = { everpeak, horse }
+setCompanyTemplate(COMPANIES[process.env.VITE_COMPANY ?? 'everpeak'] ?? everpeak)
 
 type Appendable = Omit<WorldEvent, 'id' | 'ts'> & Partial<Pick<WorldEvent, 'id' | 'ts'>>
 
