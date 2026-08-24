@@ -25,7 +25,8 @@ Open http://localhost:5173 in **Chrome on a desktop** (voice input uses the Web 
 4. Choose **Run rehearsal** on the landing screen for the deterministic scripted path. Choosing a persona enters Live mode; press **Start demo** to switch the mounted app into that same guided rehearsal.
 5. Click any finished task and press **↺ Replay** to replay asynchronous work in seconds.
 6. Open **Activity** to inspect the runtime, event log, tool actions, human gates, artifact provenance, guardrail blocks, and per-task traces.
-7. **⌘K** jumps to any agent, task, person, department, or approval.
+7. Open **Proof package** in the Activity evidence strip for the receipt behind every external claim, and the chain-of-custody verdict tying them together.
+8. **⌘K** jumps to any agent, task, person, department, or approval.
 
 ## Stack
 
@@ -51,6 +52,16 @@ capability levels, and Cloud Run deployment.
 The entire UI is a fold over a typed event log (`src/engine/reducer.ts`). The rehearsal datasets (`src/data/scenarios.ts`, `src/data/hero.ts`) emit the same `WorldEvent` types as the backend and tag every scripted event with `payload.simulated`. Live mode never falls back to those datasets.
 
 Artifact views read one record from `src/artifacts/model.ts`. That module distinguishes live content, rehearsal templates, and metadata-only deliveries. A live event without content never renders authored rehearsal material, and external actions appear only when an event carries a valid URL.
+
+Every externally observable step carries an inspectable receipt on its event
+(`payload.receipt`): the discovered file's checksum, the Cloud Storage object,
+the named human's approval, the YouTube video id. `src/evidence/proofPackage.ts`
+folds those receipts into the run's checklist. Its chain-of-custody verdict is
+`verified` only when discovery, handoff and approval agree on one checksum and
+each step actually reached its external system; anything less reads `incomplete`
+or `mismatch`, and an unrecorded field reads `not recorded`. Publication is
+enforced by that chain — the YouTube tool refuses any asset whose checksum a
+human did not approve.
 
 The navigation rail and Activity read the same run summary from `src/evidence/runEvidence.ts`. Secondary pages and panels load on demand so the map remains the fast initial path.
 

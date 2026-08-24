@@ -10,7 +10,7 @@ import { mountA2a } from './a2a/mount.js'
 import { PresenceRegistry } from './presence.js'
 import { createGoogleOAuth } from './auth/google.js'
 import type { GoogleOAuth } from './auth/google.js'
-import type { RuntimeInfo, WorldEvent } from '../../src/types.js'
+import type { Receipt, RuntimeInfo, WorldEvent } from '../../src/types.js'
 
 type Appendable = Omit<WorldEvent, 'id' | 'ts'> & Partial<Pick<WorldEvent, 'id' | 'ts'>>
 
@@ -220,6 +220,8 @@ async function postDecision(store: EventStore, eventId: string, body: unknown, r
 
   const what = orig.blockedOn?.what ?? orig.payload?.blueprint?.name ?? orig.title
 
+  const authority = authorityReceipt(orig, b.personId, decision === 'approve')
+
   if (decision === 'deny') {
     // A denied request is a real terminal outcome: task-bound denials close the
     // task as failed; blueprint denials close the review itself.
@@ -234,7 +236,7 @@ async function postDecision(store: EventStore, eventId: string, body: unknown, r
         ? `New agent: ${orig.payload?.blueprint?.name ?? what}: rejected`
         : `${what}: denied`,
       detail: `Denied by ${b.personId}.`,
-      payload: { reason: eventId },
+      payload: { reason: eventId, ...(authority ? { receipt: authority } : {}) },
       id: newId('res'),
     })
     return send(res, 200, ev)
@@ -249,10 +251,34 @@ async function postDecision(store: EventStore, eventId: string, body: unknown, r
     deptTo: orig.deptTo ?? orig.deptFrom,
     title: `${what}: approved`,
     detail: `Approved by ${b.personId}`,
-    payload: { reason: eventId },
+    payload: { reason: eventId, ...(authority ? { receipt: authority } : {}) },
     id: newId('res'),
   })
   send(res, 200, ev)
+}
+
+/**
+ * A decision on a request that proposed a publication becomes the authority
+ * receipt: the proposed title, privacy and asset checksum the human actually
+ * saw, stamped with who decided and when.
+ */
+function authorityReceipt(request: WorldEvent, personId: string, approved: boolean): Receipt | null {
+  const proposal = request.payload?.receipt
+  if (proposal?.kind !== 'authority') return null
+  return {
+    ...proposal,
+    live: true,
+    ok: approved,
+    at: new Date().toISOString(),
+    claim: approved
+      ? 'A named human approved this exact asset, title and privacy setting.'
+      : 'A named human refused this publication; no external action is authorised.',
+    fields: {
+      ...proposal.fields,
+      approver: personId,
+      ...(approved ? { approvedAt: new Date().toISOString() } : {}),
+    },
+  }
 }
 
 async function getGoogleCallback(oauth: GoogleOAuth, store: EventStore, req: Request, res: Response): Promise<void> {

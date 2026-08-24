@@ -75,6 +75,28 @@ export interface AgentDef {
   bornAt?: number
 }
 
+// ─── Receipts (inspectable proof for externally observable claims) ───────────
+
+/** The four externally observable steps a launch run has to prove. */
+export type ReceiptKind = 'local-discovery' | 'cloud-handoff' | 'authority' | 'publication'
+
+/**
+ * A machine-recorded receipt for one claim the run makes about the outside
+ * world. `fields` holds the keys the proof package requires for that kind;
+ * anything absent renders as "not recorded" rather than quietly disappearing.
+ */
+export interface Receipt {
+  kind: ReceiptKind
+  /** the claim this receipt backs, in one plain sentence */
+  claim: string
+  /** false when the step was recorded but no external system was touched */
+  live: boolean
+  ok: boolean
+  /** ISO timestamp of the recorded step */
+  at: string
+  fields: Record<string, string>
+}
+
 // ─── Events (the system of record) ───────────────────────────────────────────
 
 export type EdgeKind = 'task' | 'artifact' | 'permission' | 'escalation'
@@ -143,6 +165,8 @@ export interface TypedPayload {
   simulated?: boolean
   /** owning optional rehearsal; preserved through approvals and continuations */
   rehearsalId?: string
+  /** inspectable receipt for an externally observable step */
+  receipt?: Receipt
 }
 
 export interface WorldEvent {

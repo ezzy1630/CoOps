@@ -30,6 +30,9 @@ const SCOPES = [
   'profile',
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/devstorage.read_write',
+  'https://www.googleapis.com/auth/youtube.upload',
+  'https://www.googleapis.com/auth/youtube.readonly',
 ]
 const STATE_TTL_MS = 10 * 60 * 1000
 const EXPIRY_MARGIN_MS = 60_000

@@ -7,6 +7,8 @@ import { cx, fmtClock, fmtDay, fmtDuration, fmtUsd } from '../utils'
 import { Chip, Pill, typeLabel } from './ui'
 import type { EventType, Task, WorldEvent } from '../types'
 import { readRunEvidence } from '../evidence/runEvidence'
+import { readProofPackage } from '../evidence/proofPackage'
+import ProofPackage from './ProofPackage'
 
 /** Live + historical run feed for the whole company. */
 export default function ActivityPanel() {
@@ -19,6 +21,7 @@ export default function ActivityPanel() {
   const [dept, setDept] = useState<string>('all')
   const [group, setGroup] = useState<string>('all')
   const [traceTaskId, setTraceTaskId] = useState<string | null>(null)
+  const [proofOpen, setProofOpen] = useState(false)
 
   const midnight = useMemo(() => {
     const d = new Date()
@@ -57,6 +60,7 @@ export default function ActivityPanel() {
             executionMode={executionMode}
             liveConnection={liveConnection}
             runtimeInfo={runtimeInfo}
+            onOpenProof={() => setProofOpen(true)}
           />
           <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1">
             <FilterChip label="All" active={dept === 'all'} onClick={() => setDept('all')} />
@@ -113,6 +117,7 @@ export default function ActivityPanel() {
       </div>
 
       {traceTaskId && <TraceModal taskId={traceTaskId} onClose={() => setTraceTaskId(null)} />}
+      {proofOpen && <ProofPackage onClose={() => setProofOpen(false)} />}
     </div>
   )
 }
@@ -123,12 +128,14 @@ function RunEvidenceStrip({
   executionMode,
   liveConnection,
   runtimeInfo,
+  onOpenProof,
 }: {
   events: WorldEvent[]
   tasks: Task[]
   executionMode: ReturnType<typeof useStore.getState>['executionMode']
   liveConnection: ReturnType<typeof useStore.getState>['liveConnection']
   runtimeInfo: ReturnType<typeof useStore.getState>['runtimeInfo']
+  onOpenProof: () => void
 }) {
   const evidence = readRunEvidence({
     events,
@@ -137,9 +144,10 @@ function RunEvidenceStrip({
     liveConnection,
     runtimeInfo,
   })
+  const proof = readProofPackage({ events, evidence, runtimeInfo })
 
   return (
-    <section aria-label="Run evidence" className="mt-3 grid min-w-[760px] grid-cols-[1.2fr_0.8fr_1fr_1.25fr_1fr] border-y border-line">
+    <section aria-label="Run evidence" className="mt-3 grid min-w-[880px] grid-cols-[1.2fr_0.8fr_1fr_1.25fr_1fr_1fr] border-y border-line">
       <EvidenceCell label="Runtime" value={evidence.runtime} detail={evidence.runtimeDetail} />
       <EvidenceCell label="Event log" value={`${evidence.events} events`} detail={`${evidence.tasks} tasks`} />
       <EvidenceCell label="Tool actions" value={`${evidence.tools} recorded`} detail={`${evidence.humanGates} human gates`} />
@@ -149,8 +157,28 @@ function RunEvidenceStrip({
         detail={`${evidence.artifacts.live} live, ${evidence.artifacts.rehearsal} rehearsal, ${evidence.artifacts.metadataOnly} metadata only`}
       />
       <EvidenceCell label="Guardrails" value={`${evidence.guardrails} ${evidence.guardrails === 1 ? 'block' : 'blocks'}`} detail="Inspect every event below" />
+      <button
+        type="button"
+        className="min-w-0 cursor-pointer border-r border-line bg-raised/20 px-3 py-2.5 text-left last:border-r-0 hover:bg-hover"
+        title="Open the receipt behind every external claim"
+        onClick={onOpenProof}
+      >
+        <div className="text-[10px] font-medium text-dim">Proof package</div>
+        <div className="mt-1 truncate text-[12.5px] font-medium" style={{ color: CUSTODY_TINT[proof.chainOfCustody.verdict] }}>
+          Custody {proof.chainOfCustody.verdict}
+        </div>
+        <div className="mt-0.5 truncate font-mono text-[9.5px] text-dim">
+          {proof.recorded}/{proof.required} receipt fields ↗
+        </div>
+      </button>
     </section>
   )
+}
+
+const CUSTODY_TINT: Record<string, string> = {
+  verified: 'var(--color-ok)',
+  mismatch: 'var(--color-escalation)',
+  incomplete: 'var(--color-permission)',
 }
 
 function EvidenceCell({ label, value, detail }: { label: string; value: string; detail: string }) {

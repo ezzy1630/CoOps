@@ -1,3 +1,4 @@
+import { hostname } from 'node:os'
 import { resolve } from 'node:path'
 import type { GoogleOAuthConfig } from './auth/google.js'
 
@@ -18,6 +19,8 @@ export interface Config {
   sheetsId?: string
   a2aToken?: string
   a2aPrincipal?: string
+  /** the launch pipeline: allow-listed discovery roots and its Cloud Storage bucket */
+  launch?: { localRoots: string[]; connectorId: string; bucket?: string }
 }
 
 export function loadConfig(): Config {
@@ -45,6 +48,21 @@ export function loadConfig(): Config {
     sheetsId: process.env.COOPS_SHEETS_ID,
     a2aToken: process.env.COOPS_A2A_TOKEN,
     a2aPrincipal: process.env.COOPS_A2A_PRINCIPAL,
+    launch: launchFromEnv(),
+  }
+}
+
+/** Discovery reads nothing outside COOPS_LOCAL_ROOTS, so an unset value is a closed door. */
+function launchFromEnv(): { localRoots: string[]; connectorId: string; bucket?: string } {
+  const roots = (process.env.COOPS_LOCAL_ROOTS ?? '')
+    .split(/[:,]/)
+    .map(root => root.trim())
+    .filter(Boolean)
+    .map(root => resolve(root))
+  return {
+    localRoots: roots,
+    connectorId: process.env.COOPS_CONNECTOR_ID ?? `${hostname()} (CoOps connector)`,
+    bucket: process.env.COOPS_GCS_BUCKET,
   }
 }
 

@@ -1,15 +1,23 @@
 import { google } from 'googleapis'
-import type { ToolResult, WorkspaceToolAdapter } from './types.js'
+import type { StagedAsset, ToolResult, WorkspaceToolAdapter } from './types.js'
 import { WORKSPACE_TOOLS } from './dryrun.js'
+import { createLaunchTools, LAUNCH_TOOLS } from './launch.js'
+import type { LaunchToolDeps } from './launch.js'
 
 export interface WorkspaceToolsDeps {
   getAccessToken?: () => Promise<string | null>
   sheetsId?: string
+  /** allow-listed local discovery, Cloud Storage handoff and YouTube publication */
+  launch?: Omit<LaunchToolDeps, 'getAccessToken'>
 }
 
 const DRY_RUN_TOOLS = new Set(['zendesk', 'shopify', 'slack'])
 
 export function createWorkspaceTools(deps: WorkspaceToolsDeps): WorkspaceToolAdapter {
+  const launch = deps.launch
+    ? createLaunchTools({ ...deps.launch, getAccessToken: deps.getAccessToken })
+    : null
+
   function errorMessage(err: unknown): string {
     return err instanceof Error ? err.message : String(err)
   }
@@ -61,9 +69,17 @@ export function createWorkspaceTools(deps: WorkspaceToolsDeps): WorkspaceToolAda
   }
 
   return {
+    staged(): StagedAsset | null {
+      return launch?.staged() ?? null
+    },
     async call(tool, action) {
       const name = tool.trim().toLowerCase()
       const act = action.trim()
+      if ((LAUNCH_TOOLS as readonly string[]).includes(name)) {
+        return launch
+          ? launch.call(name, action)
+          : { ok: false, detail: `${name} failed: the launch pipeline is not configured for this deployment` }
+      }
       if (!(WORKSPACE_TOOLS as readonly string[]).includes(name)) {
         return { ok: false, detail: `unknown tool ${name || '(empty)'}` }
       }
