@@ -1,10 +1,14 @@
 # CoOps
 
-**Every department gets its own agent team.**
+CoOps moves a launch video off a developer's laptop and onto the company's YouTube channel, without either department holding the other's credentials.
 
-CoOps (Company Operations) is the visual organizational layer for a company's agent fleet: every department has a persistent department agent that runs local worker agents, trades typed tasks with peer departments, and, when blocked, knows exactly **which named human** can unblock it. There is deliberately no company-wide root agent: the empty center of the map is the point.
+Marketing cannot read the laptop. Engineering cannot reach the channel. One agent holding both permissions would be the easy answer and the wrong one, so CoOps coordinates the handoff instead. Marketing's agent sends typed work to Engineering, an Engineering connector finds and hashes the file inside an allow-listed folder, the bytes cross into Cloud Storage, publication stops for a named human, and the Marketing-owned publisher uploads the object that person approved.
 
-The repository contains a React frontend and a TypeScript event server. Live mode streams real server events and reports the exact model, storage, guardrail, workspace adapter, A2A posture, Cloud Run revision, and run ID in the UI. Rehearsal mode is an explicit, labeled local dataset for walking through the full product-launch scenario without credentials.
+Every one of those steps leaves a receipt: the checksum of the file on the laptop, the stored object and its generation, the approver with the exact title and privacy setting they saw, the YouTube video id, and the revision that ran. Read them in Activity → **Proof package**. Its chain-of-custody verdict says `verified` only when the discovered, stored and approved bytes carry one checksum, so an unfinished run cannot read as a finished one.
+
+**Every department gets its own agent team.** CoOps (Company Operations) is the visual organizational layer for a company's agent fleet: every department has a persistent department agent that runs local worker agents, trades typed tasks with peer departments, and, when blocked, knows exactly **which named human** can unblock it. There is deliberately no company-wide root agent: the empty center of the map is the point.
+
+The repository contains a React frontend and a TypeScript event server. Live mode streams real server events and names the providers behind them in the UI. Rehearsal mode is an explicit, labeled local dataset for walking through the full product-launch scenario without credentials.
 
 ## Run it
 
@@ -19,7 +23,7 @@ Open http://localhost:5173 in **Chrome on a desktop** (voice input uses the Web 
 
 ## What to try
 
-1. Open the runtime inspector in the top bar and confirm the active providers.
+1. Open the runtime inspector in the top bar. It reports the exact model, storage, guardrail, workspace adapter, A2A posture, Cloud Run revision, and run ID behind the events you are watching.
 2. Pick a persona on the landing screen. The app adapts to Marketing Manager, COO, or Finance Ops Lead authority.
 3. Scroll to zoom the company map: departments → agents → task envelopes on the edges.
 4. Choose **Run rehearsal** on the landing screen for the deterministic scripted path. Choosing a persona enters Live mode; press **Start demo** to switch the mounted app into that same guided rehearsal.
@@ -77,4 +81,4 @@ human did not approve.
 
 The navigation rail and Activity read the same run summary from `src/evidence/runEvidence.ts`. Secondary pages and panels load on demand so the map remains the fast initial path.
 
-See [docs/architecture.md](docs/architecture.md) for the frontend, backend, Gemini, and Google Cloud execution diagram.
+See [docs/architecture.md](docs/architecture.md) for the frontend, backend, Gemini, and Google Cloud execution diagram, and [docs/messaging.md](docs/messaging.md) for the message order every public asset follows.

@@ -1,5 +1,7 @@
 # CoOps architecture
 
+A launch video sits on a developer's laptop and has to reach the company's YouTube channel. Marketing cannot read the laptop, Engineering cannot reach the channel, and neither department is given the other's credentials. What follows is the machinery that carries the work across that boundary.
+
 CoOps gives each department a persistent Department Agent. Department Agents exchange typed Task Envelopes, delegate scoped work to Worker Agents, and route blocked work to the named person who owns the required Approval. The Event Log is the source for the Company Map, Activity, Documents, approvals, and replay.
 
 ```mermaid
