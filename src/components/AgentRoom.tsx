@@ -197,69 +197,46 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
   const departmentHue = owner ? `hsl(${owner.hue} 56% 52%)` : 'var(--color-linebright)'
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-surface">
       {/* ── header ── */}
-      <div className="flex shrink-0 items-start gap-2.5 border-b border-line px-3 py-2.5">
-        <StatusDot status={status} className="mt-1.5" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="truncate text-[15px] font-semibold tracking-[-0.01em]">{agent.name}</h2>
-            <Chip className="shrink-0">{agent.kind === 'operator' ? 'Department Agent' : 'Worker'}</Chip>
-          </div>
-          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12.5px]">
-            <span aria-hidden className="h-3 w-0.5 shrink-0 rounded-full" style={{ background: departmentHue }} />
-            <button
-              className="shrink-0 rounded-sm px-1 py-0.5 text-mut transition-colors hover:bg-hover hover:text-ink"
-              onClick={() => {
-                const st = useStore.getState()
-                st.openPanel('dept', agent.deptId)
-                st.requestCamera({ type: 'dept', deptId: agent.deptId })
-              }}
-            >
-              {deptName}
-            </button>
-            <span className="text-dim">·</span>
-            <span
-              className={cx(
-                'min-w-0 truncate',
-                status === 'idle' && 'text-dim',
-                status === 'working' && 'text-task',
-                status === 'blocked' && 'text-permission',
-              )}
-            >
-              {status}
-              {currentTask && status !== 'idle' && ` · ${currentTask.title}`}
-            </span>
-          </div>
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-4 bg-surface/95 backdrop-blur-md">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <StatusDot status={status} />
+          <h2 className="truncate text-[14.5px] font-bold tracking-tight text-ink">{agent.name}</h2>
+          <span className="shrink-0 rounded px-1.5 py-0.2 font-mono text-[9.5px] font-bold uppercase tracking-wider bg-raised border border-line text-dim">
+            {agent.kind === 'operator' ? 'Lead' : 'Specialist'}
+          </span>
         </div>
 
-        {owner && (
-          <div className="flex shrink-0 items-center gap-1.5">
-            <Avatar personId={owner.id} />
-            <span className="max-w-28 truncate text-[12.5px] text-mut">{owner.name}</span>
-          </div>
-        )}
-        <button
-          className="shrink-0 rounded-sm px-1.5 py-1 text-dim transition-colors hover:bg-hover hover:text-ink"
-          title="Close"
-          onClick={() => useStore.getState().closePanel()}
-        >
-          <X size={15} />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {owner && (
+            <div className="flex items-center gap-1.5" title={`Owner: ${owner.name}`}>
+              <Avatar personId={owner.id} />
+              <span className="hidden max-w-24 truncate text-[11.5px] font-medium text-mut md:inline">{owner.name.split(' ')[0]}</span>
+            </div>
+          )}
+          <button
+            className="flex size-7 cursor-pointer items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-ink active:scale-95"
+            title="Close"
+            onClick={() => useStore.getState().closePanel()}
+          >
+            <X size={15} />
+          </button>
+        </div>
       </div>
 
       {/* ── info strip ── */}
-      <div className="shrink-0 border-b border-line px-3 py-2">
-        <p className="text-[12.5px] leading-snug text-mut">{agent.purpose}</p>
+      <div className="shrink-0 border-b border-line bg-raised/20 px-4 py-3">
+        <p className="text-[12.5px] leading-relaxed text-mut">{agent.purpose}</p>
         {agent.skills.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <Label>skills</Label>
             {agent.skills.map((s) => (
-              <Chip key={s}>{s}</Chip>
+              <Chip key={s} className="border border-line/60 bg-surface/80 text-[11px]">{s}</Chip>
             ))}
           </div>
         )}
-        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <Label>tools</Label>
           {agent.toolIds.length === 0 ? (
             <span className="text-[11.5px] text-dim">none granted</span>
@@ -270,7 +247,12 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
               return (
                 <Chip
                   key={id}
-                  className={cx(needsAuth && 'border-permission/40 text-permission')}
+                  className={cx(
+                    'border text-[11px]',
+                    needsAuth
+                      ? 'border-permission/40 bg-permission/10 text-permission'
+                      : 'border-line/60 bg-surface/80 text-mut',
+                  )}
                   title={needsAuth ? 'Owner must connect this account' : t?.kind}
                 >
                   {needsAuth && <LockGlyph />}
@@ -282,7 +264,7 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
         </div>
         {blueprintEventId && (
           <button
-            className="btn mt-2 h-7 px-2.5 py-1 text-[12px]"
+            className="btn mt-2.5 h-7 rounded-lg px-3 py-1 text-[11.5px] font-medium"
             onClick={() => useStore.getState().openPanel('diff', blueprintEventId)}
           >
             View inheritance diff
@@ -291,13 +273,13 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
       </div>
 
       {/* ── tabs ── */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-line px-2">
+      <div className="flex shrink-0 items-center gap-1 border-b border-line px-3 pt-1 bg-surface">
         <TabButton active={tab === 'chat'} onClick={() => setTab('chat')}>Conversation</TabButton>
         <TabButton active={tab === 'timeline'} onClick={() => setTab('timeline')}>
-          Timeline
+          Activity History
           <span
             className={cx(
-              'ml-1.5 rounded-sm px-1 font-mono text-[10px] tabular-nums',
+              'ml-1.5 rounded-full px-1.5 py-0.2 font-mono text-[9.5px] font-bold tabular-nums',
               tab === 'timeline' ? 'bg-task/15 text-task' : 'bg-raised text-dim',
             )}
           >
@@ -910,11 +892,13 @@ function Composer({ agentId }: { agentId: string }) {
   const ready = shown.trim().length > 0
 
   return (
-    <div className="shrink-0 border-t border-line px-3 py-2">
+    <div className="shrink-0 border-t border-line bg-surface/90 px-4 py-3 backdrop-blur-sm">
       <div
         className={cx(
-          'flex items-center gap-2 rounded-sm border bg-raised px-2 py-1 transition-colors',
-          listening ? 'border-task/50' : 'border-line focus-within:border-linebright',
+          'flex items-center gap-2 rounded-xl border bg-raised/70 px-3 py-1.5 shadow-xs transition-all',
+          listening
+            ? 'border-task/60 ring-2 ring-task/20 bg-task/5'
+            : 'border-line focus-within:border-linebright focus-within:ring-2 focus-within:ring-task/15 focus-within:bg-surface',
         )}
       >
         <input
@@ -929,7 +913,7 @@ function Composer({ agentId }: { agentId: string }) {
               send(shown)
             }
           }}
-          placeholder="Ask for work, a status, or a new agent…"
+          placeholder="Ask for work, a status read, or a new agent…"
           className="min-w-0 flex-1 bg-transparent py-1 text-[12.5px] text-ink placeholder:text-dim focus:outline-none"
         />
         <button
@@ -937,10 +921,10 @@ function Composer({ agentId }: { agentId: string }) {
           disabled={!supported}
           title={supported ? (listening ? 'Stop listening' : 'Speak your message') : 'Voice input needs Chrome'}
           className={cx(
-            'flex size-7 shrink-0 items-center justify-center rounded-sm border transition-colors',
+            'flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg border transition-all active:scale-95',
             !supported && 'cursor-not-allowed border-line text-dim opacity-40',
-            supported && listening && 'border-task/60 bg-task/15 text-task',
-            supported && !listening && 'border-line text-mut hover:border-linebright hover:text-ink',
+            supported && listening && 'border-task/60 bg-task/15 text-task beacon-pulse',
+            supported && !listening && 'border-line/70 bg-surface/60 text-mut hover:border-linebright hover:bg-hover hover:text-ink',
           )}
         >
           <MicGlyph />
@@ -950,27 +934,30 @@ function Composer({ agentId }: { agentId: string }) {
           disabled={!ready}
           title="Send"
           className={cx(
-            'shrink-0 rounded-sm border px-2.5 py-1 text-[12.5px] transition-colors',
+            'shrink-0 cursor-pointer rounded-lg border px-3 py-1 text-[12px] font-semibold transition-all active:scale-95',
             ready
-              ? 'border-task/40 bg-task/10 text-task hover:border-task/60 hover:bg-task/20'
-              : 'cursor-not-allowed border-line text-dim',
+              ? 'border-transparent bg-ink text-bg shadow-xs hover:bg-ink/85'
+              : 'cursor-not-allowed border-line/60 bg-raised/60 text-dim',
           )}
         >
           Send
         </button>
       </div>
-      <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-dim">
+      <div className="mt-1.5 flex items-center gap-2 text-[10.5px] text-dim">
         {listening ? (
-          <span className="whitespace-nowrap text-task">Listening…</span>
+          <span className="whitespace-nowrap font-medium text-task flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-task animate-pulse" />
+            Listening…
+          </span>
         ) : (
           <>
             <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
               <span className="kbd">↵</span>
-              <span>to send</span>
+              <span>send</span>
             </span>
             <span aria-hidden className="shrink-0 text-linebright">·</span>
             <button
-              className="min-w-0 flex-1 truncate text-left font-mono text-[10.5px] text-dim hover:text-mut"
+              className="min-w-0 flex-1 truncate text-left font-mono text-[10px] text-dim hover:text-mut cursor-pointer"
               title={SUGGESTION}
               onClick={() => setText(SUGGESTION)}
             >

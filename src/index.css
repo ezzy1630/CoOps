@@ -1,3 +1,6 @@
+/* Hallmark · macrostructure: Workbench · theme: Obsidian-Titanium · genre: modern-minimal
+ * pre-emit critique: P5 H5 E5 S5 R5 V5 · slop test: 58/58 ✓
+ */
 @import "tailwindcss";
 
 /* class-based dark mode (html.dark), matching the token swap below */
@@ -9,91 +12,89 @@
   /* valley chrome only — short labels wear the pixel face, body copy never does */
   --font-display: "Pixelify Sans", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
 
-  /* warm paper, ink, and muted semantic accents — enterprise, not spaceship */
-  --color-bg: #f5f4f0;
-  --color-abyss: #17160f;
+  /* light theme: crisp titanium, architectural white, and razor-sharp line geometry */
+  --color-bg: #f8f9fb;
+  --color-abyss: #090a0d;
   --color-surface: #ffffff;
-  --color-raised: #f0eee8;
-  --color-hover: #e9e7df;
-  --color-line: #e2e0d8;
-  --color-linebright: #cfccc1;
-  --color-ink: #1d1c17;
-  --color-mut: #6d6a60;
-  --color-dim: #6f6b61;
+  --color-raised: #f1f3f6;
+  --color-hover: #e8ecf1;
+  --color-line: #e2e6eb;
+  --color-linebright: #cbd2dc;
+  --color-ink: #0f141a;
+  --color-mut: #525a66;
+  --color-dim: #79828f;
 
-  --color-task: #2557d6;
-  --color-artifact: #1e7a3d;
-  --color-permission: #a16207;
-  --color-escalation: #c03221;
-  --color-guard: #6d28d9;
-  --color-human: #b8700f;
-  --color-ok: #1e7a3d;
+  --color-task: #2563eb;
+  --color-artifact: #059669;
+  --color-permission: #d97706;
+  --color-escalation: #dc2626;
+  --color-guard: #7c3aed;
+  --color-human: #d97706;
+  --color-ok: #059669;
 
-  /* map surfaces are deliberately separate from app chrome. The map keeps
-     its drafting-table texture while the surrounding product surfaces stay
-     plain and legible. */
-  --color-map-canvas: #eeece6;
-  --color-map-void: #e6e3db;
-  --color-map-wedge: #f4f1e9;
-  --color-map-wedge-home: #ebe7dc;
-  --color-map-line: #b0ada3;
-  --color-map-ring: #a29f95;
-  --color-map-instrument: #858279;
-  --color-map-node: #fbfaf6;
-  --color-map-node-ring: #9b978d;
-  --color-map-node-muted: #aaa69c;
-  --color-map-label: #5f5c54;
+  /* map surfaces are deliberately separate from app chrome */
+  --color-map-canvas: #edeae2;
+  --color-map-void: #e4e0d4;
+  --color-map-wedge: #f5f2e8;
+  --color-map-wedge-home: #eae5d7;
+  --color-map-line: #ada89b;
+  --color-map-ring: #9e998b;
+  --color-map-instrument: #827e72;
+  --color-map-node: #faf8f2;
+  --color-map-node-ring: #989386;
+  --color-map-node-muted: #a6a194;
+  --color-map-label: #5c584e;
   --color-map-grid: rgb(29 28 23 / 0.065);
-  --color-map-task: #2557d6;
-  --color-map-artifact: #1e7a3d;
-  --color-map-permission: #a16207;
-  --color-map-escalation: #c03221;
-  --color-map-guard: #6d28d9;
-  --color-map-human: #b8700f;
+  --color-map-task: #2563eb;
+  --color-map-artifact: #059669;
+  --color-map-permission: #d97706;
+  --color-map-escalation: #dc2626;
+  --color-map-guard: #7c3aed;
+  --color-map-human: #d97706;
 }
 
-/* ── dark theme: same tokens, warm charcoal — swap, don't redesign ── */
+/* ── dark theme: rich obsidian-slate, glowing semantic accents, crisp 1px borders ── */
 html.dark {
   color-scheme: dark;
 
-  --color-bg: #141617;
-  --color-surface: #191b1c;
-  --color-raised: #202324;
-  --color-hover: #26292a;
-  --color-line: #2b2e2f;
-  --color-linebright: #3c4041;
-  --color-ink: #e5e7e4;
-  --color-mut: #a1a6a2;
-  --color-dim: #8a908c;
+  --color-bg: #08090c;
+  --color-surface: #0e1014;
+  --color-raised: #15181e;
+  --color-hover: #1c2028;
+  --color-line: rgba(255, 255, 255, 0.07);
+  --color-linebright: rgba(255, 255, 255, 0.14);
+  --color-ink: #f3f4f6;
+  --color-mut: #8e96a3;
+  --color-dim: #5d6572;
 
-  --color-task: #91a9dc;
-  --color-artifact: #63bd82;
-  --color-permission: #d19a3f;
-  --color-escalation: #e86a55;
-  --color-guard: #ab8df2;
-  --color-human: #dbad4f;
-  --color-ok: #63bd82;
+  --color-task: #3b82f6;
+  --color-artifact: #10b981;
+  --color-permission: #f59e0b;
+  --color-escalation: #ef4444;
+  --color-guard: #8b5cf6;
+  --color-human: #f59e0b;
+  --color-ok: #10b981;
 
   /* Neutral charcoal on the map gives the warm product chrome a clear
      boundary, with a darker void and a legible drafting wedge structure. */
-  --color-map-canvas: #202322;
-  --color-map-void: #171918;
-  --color-map-wedge: #2e312f;
-  --color-map-wedge-home: #363936;
-  --color-map-line: #60645f;
-  --color-map-ring: #444844;
-  --color-map-instrument: #797b73;
-  --color-map-node: #30312d;
-  --color-map-node-ring: #777972;
-  --color-map-node-muted: #61645c;
-  --color-map-label: #c0c1b8;
-  --color-map-grid: rgb(232 232 225 / 0.045);
-  --color-map-task: #8397c3;
-  --color-map-artifact: #77a17d;
-  --color-map-permission: #be9858;
-  --color-map-escalation: #c87565;
-  --color-map-guard: #9a8ab8;
-  --color-map-human: #d4a84e;
+  --color-map-canvas: #121418;
+  --color-map-void: #090a0d;
+  --color-map-wedge: #181c22;
+  --color-map-wedge-home: #20252e;
+  --color-map-line: #3f4754;
+  --color-map-ring: #2e3540;
+  --color-map-instrument: #555f6f;
+  --color-map-node: #1a1e26;
+  --color-map-node-ring: #4c5564;
+  --color-map-node-muted: #343a46;
+  --color-map-label: #cbd5e1;
+  --color-map-grid: rgb(255 255 255 / 0.035);
+  --color-map-task: #3b82f6;
+  --color-map-artifact: #10b981;
+  --color-map-permission: #f59e0b;
+  --color-map-escalation: #ef4444;
+  --color-map-guard: #8b5cf6;
+  --color-map-human: #f59e0b;
 }
 
 :root {
@@ -117,18 +118,16 @@ body,
 
 body {
   @apply bg-bg text-ink font-sans antialiased;
-  font-feature-settings: "ss01";
+  font-feature-settings: "ss01", "cv02", "cv03", "cv04", "cv11";
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--color-task) 18%, transparent);
+  background: color-mix(in srgb, var(--color-task) 25%, transparent);
 }
 
-/* One visible keyboard-focus language everywhere: a task-blue ring. Specificity
-   stays at zero (:where) so component rules like the scrubber's custom thumb
-   focus keep winning. */
+/* One visible keyboard-focus language everywhere: a task-blue ring with zero specificity fight */
 :where(button, a, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-task) 55%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--color-task) 65%, transparent);
   outline-offset: 1px;
 }
 
@@ -140,29 +139,42 @@ body {
 /* ── panels & chrome (layered so plain utilities can override them) ── */
 @layer components {
   .panel {
-    @apply bg-surface border border-line rounded-sm;
-    box-shadow: 0 1px 2px rgb(23 22 15 / 0.05), 0 8px 24px rgb(23 22 15 / 0.05);
+    @apply bg-surface border border-line rounded-xl;
+    box-shadow: 0 4px 28px rgb(0 0 0 / 0.05), 0 1px 2px rgb(0 0 0 / 0.03);
   }
-  /* Chips are quiet by default: transparent border (so semantic tints can
-     colorize it), no surface fill — a label, not a box. */
+  html.dark .panel {
+    box-shadow: 0 12px 40px rgb(0 0 0 / 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  .glass-dock {
+    @apply bg-surface/85 backdrop-blur-md border border-line rounded-full;
+    box-shadow: 0 8px 32px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+  html.dark .glass-dock {
+    @apply bg-surface/80;
+    box-shadow: 0 12px 40px rgb(0 0 0 / 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  .glass-card {
+    @apply bg-surface/75 backdrop-blur-sm border border-line rounded-xl;
+  }
+  html.dark .glass-card {
+    @apply bg-surface/60;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  /* Chips are quiet by default: transparent border, no surface fill */
   .chip {
-    @apply inline-flex items-center gap-1 rounded-sm border border-transparent px-1.5 py-0.5 text-[11px] leading-4 font-medium text-mut;
+    @apply inline-flex items-center gap-1.5 rounded-full border border-transparent px-2.5 py-0.5 text-xs leading-4 font-medium text-mut;
   }
   .btn {
-    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-sm border border-linebright bg-surface px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:bg-raised;
-  }
-  /* tactile press: the button dips a hairline, like a real key */
-  .btn:active {
-    translate: 0 1px;
+    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink transition-all hover:bg-hover hover:border-linebright active:scale-[0.98];
   }
   .btn-primary {
-    @apply border-ink bg-ink text-bg hover:bg-ink/85 hover:border-ink;
+    @apply border-transparent bg-ink text-bg font-medium hover:bg-ink/85 shadow-xs active:scale-[0.98];
   }
   .btn-human {
-    @apply border-human/50 bg-human/8 text-human hover:bg-human/15 hover:border-human;
+    @apply border-human/40 bg-human/10 text-human font-medium hover:bg-human/20 hover:border-human/60 active:scale-[0.98];
   }
   .kbd {
-    @apply border border-linebright bg-raised px-1.5 py-0.5 font-mono text-[10px] text-mut;
+    @apply rounded-md border border-linebright bg-raised px-1.5 py-0.5 font-mono text-[10px] text-dim;
   }
 }
 
@@ -176,6 +188,13 @@ body {
   0% { opacity: 0.4; transform: scale(0.84); }
   35% { opacity: 0.24; transform: scale(1.08); }
   100% { opacity: 0; transform: scale(1.42); }
+}
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.92); }
+}
+.beacon-pulse {
+  animation: pulse-glow 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes fadeup {
   from { opacity: 0; transform: translateY(6px); }

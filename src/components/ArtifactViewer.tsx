@@ -39,7 +39,7 @@ export default function ArtifactViewer() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-abyss/45 p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6 backdrop-blur-sm"
           onClick={close}
         >
           <motion.div
@@ -47,11 +47,11 @@ export default function ArtifactViewer() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 6 }}
             transition={{ type: 'spring', stiffness: 480, damping: 38, mass: 0.9 }}
-            className="relative max-h-[88vh] w-full max-w-[660px] border border-line bg-surface shadow-[0_1px_2px_rgb(23_22_15/0.06),0_24px_64px_rgb(23_22_15/0.2)]"
+            className="relative max-h-[88vh] w-full max-w-[680px] overflow-hidden rounded-2xl border border-linebright bg-surface/98 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              className="absolute top-3 right-3 z-10 rounded-sm px-1 py-0.5 text-dim hover:bg-hover hover:text-ink"
+              className="absolute top-4 right-4 z-10 flex size-7 cursor-pointer items-center justify-center rounded-full text-dim transition-colors hover:bg-hover hover:text-ink active:scale-95"
               title="Close (Esc)"
               onClick={close}
             >
@@ -60,9 +60,9 @@ export default function ArtifactViewer() {
 
             <div className="max-h-[88vh] overflow-y-auto overscroll-contain px-12 py-10 max-sm:px-6">
               {/* ── letterhead ── */}
-              <header>
+              <header className="relative">
                 <div className="flex items-baseline justify-between gap-4 pr-8">
-                  <div className="text-[11px] font-semibold tracking-[0.32em] text-ink uppercase">
+                  <div className="text-[11px] font-bold tracking-[0.3em] text-ink uppercase">
                     Everpeak Outfitters
                   </div>
                   <div className="flex shrink-0 items-baseline gap-2">
@@ -73,8 +73,8 @@ export default function ArtifactViewer() {
                   </div>
                 </div>
                 <div className="mt-3 border-t border-linebright" />
-                <h1 className="mt-5 text-[23px] leading-snug font-semibold tracking-[-0.015em] text-ink">{cleanText(record.title)}</h1>
-                <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-mono text-[10.5px] text-mut">
+                <h1 className="mt-5 text-[22px] leading-snug font-bold tracking-tight text-ink">{cleanText(record.title)}</h1>
+                <div className="mt-2.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 font-mono text-[10.5px] text-mut">
                   {meta.map((m, i) => (
                     <span key={i} className="inline-flex items-baseline gap-2">
                       {i > 0 && <span className="text-dim">·</span>}
@@ -94,12 +94,12 @@ export default function ArtifactViewer() {
                   : <MetadataOnlyBody eventId={ev.id} taskId={ev.taskId} type={record.type} />}
               </div>
 
-              <footer className="mt-10 border-t border-line pt-3">
+              <footer className="mt-10 border-t border-line pt-3.5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-mono text-[10.5px] text-dim">Artifact event {record.eventId}</span>
+                  <span className="font-mono text-[10.5px] text-dim">Event ID: {record.eventId}</span>
                   {record.location ? (
                     <a
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-sm border border-line px-2 py-1 font-mono text-[10.5px] text-mut transition-colors hover:border-linebright hover:bg-raised hover:text-ink"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-line bg-raised/60 px-2.5 py-1 font-mono text-[10.5px] text-mut transition-colors hover:border-linebright hover:bg-hover hover:text-ink"
                       href={record.location.url}
                       target="_blank"
                       rel="noreferrer"
@@ -121,14 +121,14 @@ export default function ArtifactViewer() {
 }
 
 const PROVENANCE_CLASS: Record<ArtifactProvenance, string> = {
-  'live-content': 'border-artifact/45 bg-artifact/8 text-artifact',
-  'rehearsal-template': 'border-permission/45 bg-permission/8 text-permission',
-  'metadata-only': 'border-escalation/45 bg-escalation/8 text-escalation',
+  'live-content': 'border-artifact/45 bg-artifact/10 text-artifact shadow-xs',
+  'rehearsal-template': 'border-permission/45 bg-permission/10 text-permission shadow-xs',
+  'metadata-only': 'border-escalation/45 bg-escalation/10 text-escalation shadow-xs',
 }
 
 function ProvenanceBadge({ provenance, children }: { provenance: ArtifactProvenance; children: string }) {
   return (
-    <span className={cx('rounded-sm border px-1.5 py-0.5 font-mono text-[9px] font-medium tracking-wider uppercase', PROVENANCE_CLASS[provenance])}>
+    <span className={cx('rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold tracking-wider uppercase', PROVENANCE_CLASS[provenance])}>
       {children}
     </span>
   )
@@ -136,8 +136,8 @@ function ProvenanceBadge({ provenance, children }: { provenance: ArtifactProvena
 
 function ProvenanceNotice({ provenance, detail }: { provenance: ArtifactProvenance; detail: string }) {
   return (
-    <div className={cx('mt-5 border-l-2 bg-raised/40 px-3 py-2.5', provenance === 'live-content' ? 'border-artifact' : provenance === 'rehearsal-template' ? 'border-permission' : 'border-escalation')}>
-      <div className="text-[11px] font-medium text-ink">Artifact provenance</div>
+    <div className={cx('mt-5 rounded-xl border-l-3 bg-raised/40 p-3.5', provenance === 'live-content' ? 'border-artifact bg-artifact/5' : provenance === 'rehearsal-template' ? 'border-permission bg-permission/5' : 'border-escalation bg-escalation/5')}>
+      <div className="text-[11.5px] font-semibold text-ink">Document Source</div>
       <p className="mt-0.5 text-[11px] leading-relaxed text-mut">{detail}</p>
     </div>
   )

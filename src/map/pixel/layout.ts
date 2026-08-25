@@ -1,5 +1,22 @@
-import type { AgentDef } from '../../types'
+import type { AgentDef, World } from '../../types'
 import type { PixelArt, PixelBuilding, Pt } from './art'
+
+export type ValleyFilter = 'all' | 'working' | 'attention'
+
+export function readValleyFilterCounts(world: World): { working: number; attention: number } {
+  const working = world.agents.filter((agent) => world.agentStatus.get(agent.id) === 'working').length
+  const attentionAgentIds = new Set(
+    world.agents
+      .filter((agent) => world.agentStatus.get(agent.id) === 'blocked')
+      .map((agent) => agent.id),
+  )
+  let unassignedApprovals = 0
+  for (const approval of world.approvals) {
+    if (approval.requestedBy?.kind === 'agent') attentionAgentIds.add(approval.requestedBy.id)
+    else unassignedApprovals += 1
+  }
+  return { working, attention: attentionAgentIds.size + unassignedApprovals }
+}
 
 /** All pixel art assets render at native 1:1 canvas units for uniform texel density. */
 export const SPRITE_SCALE = 1
@@ -78,10 +95,10 @@ export const variantFor = (agentId: string, variantCount: number): number =>
 
 // ─── Villager stand points ───────────────────────────────────────────────────
 
-const OP_DOOR_GAP = 30 // operators clear their doorway (and the worker fan)
-const RING_RADII = [24, 44] // sized for 24-unit sprites: neighbours need ~20 units
-const RING_SLOTS = 6 // workers per ring before spilling outward
-const FAN_ARC = Math.PI // half-circle toward the street, not back at the wall
+const OP_DOOR_GAP = 32 // operators stand clearly in front of their doorway
+const RING_RADII = [34, 56] // wider spacing prevents sprite overlap and bubble collision
+const RING_SLOTS = 5 // workers per ring before spilling outward
+const FAN_ARC = Math.PI * 0.9 // gentle arc toward the street
 
 export interface StandSpot {
   pt: Pt

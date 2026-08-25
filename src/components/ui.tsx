@@ -10,7 +10,7 @@ export function Modal({
   onClose,
   children,
   width,
-  scrim = 'bg-ink/25',
+  scrim = 'bg-ink/30 backdrop-blur-xs',
   ariaLabel,
 }: {
   onClose: () => void
@@ -60,14 +60,14 @@ export function Modal({
   }, [onClose])
 
   return createPortal(
-    <div className={`fixed inset-0 z-50 flex items-center justify-center ${scrim}`} onClick={onClose}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${scrim}`} onClick={onClose}>
       <div
         ref={ref}
         role="dialog"
         aria-modal
         aria-label={ariaLabel}
         tabIndex={-1}
-        className="panel anim-fadeup overflow-hidden"
+        className="panel anim-fadeup overflow-hidden rounded-2xl border border-linebright bg-surface shadow-2xl transition-all"
         style={{ width }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -88,7 +88,7 @@ export function Chip({ className, ...rest }: HTMLAttributes<HTMLSpanElement>) {
     <span
       {...rest}
       className={cx(
-        'inline-flex items-center gap-1 rounded-sm border border-transparent px-1.5 py-0.5 text-[11px] leading-4 font-medium whitespace-nowrap text-mut',
+        'inline-flex items-center gap-1.5 rounded-full border border-transparent px-2.5 py-0.5 text-xs leading-4 font-medium whitespace-nowrap text-mut transition-colors',
         className,
       )}
     />
@@ -101,7 +101,7 @@ export function Pill({ className, ...rest }: HTMLAttributes<HTMLSpanElement>) {
     <span
       {...rest}
       className={cx(
-        'inline-flex items-center gap-1 rounded-sm border border-transparent px-1 py-0.5 font-mono text-[10px] tracking-wide text-mut',
+        'inline-flex items-center gap-1 rounded-full border border-transparent px-2 py-0.5 font-mono text-[10.5px] font-medium tracking-wide text-mut transition-colors',
         className,
       )}
     />

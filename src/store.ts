@@ -148,6 +148,8 @@ interface Store {
   cameraRequest: CameraRequest
   theme: Theme
   mapStyle: MapStyle
+  valleyFilter: 'all' | 'working' | 'attention'
+  valleyShowNames: boolean
 
   // engine
   startEngine(): void
@@ -178,6 +180,8 @@ interface Store {
   setPaletteOpen(open: boolean): void
   toggleTheme(): void
   setMapStyle(style: MapStyle): void
+  setValleyFilter(filter: 'all' | 'working' | 'attention'): void
+  setValleyShowNames(show: boolean): void
   setFirstRunStep(step: number | null): void
   requestCamera(target: CameraTarget, opts?: { gentle?: boolean }): void
   toast(title: string, detail?: string, kind?: Toast['kind']): void
@@ -539,6 +543,8 @@ export const useStore = create<Store>()((set, get) => {
     cameraRequest: initialEntry?.cameraRequest ?? { seq: 0, target: { type: 'fit' } },
     theme: theme0,
     mapStyle: mapStyle0,
+    valleyFilter: 'all',
+    valleyShowNames: false,
 
     startEngine() {
       if (!startEngineLoop()) return
@@ -829,6 +835,12 @@ export const useStore = create<Store>()((set, get) => {
       localStorage.setItem('coops_map_style', style)
       applyMapStyle(style)
       set({ mapStyle: style })
+    },
+    setValleyFilter(filter) {
+      set({ valleyFilter: filter })
+    },
+    setValleyShowNames(show) {
+      set({ valleyShowNames: show })
     },
     setFirstRunStep(step) {
       if (step === null) localStorage.setItem('coops_onboarded', '1')

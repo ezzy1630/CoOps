@@ -50,16 +50,16 @@ export default function PreflightPanel({ onClose }: { onClose: () => void }) {
   const executionMode = useStore((s) => s.executionMode)
 
   return (
-    <Modal onClose={onClose} width={600} ariaLabel="Go/No-Go gates">
+    <Modal onClose={onClose} width={600} ariaLabel="System readiness checks">
       <div className="flex max-h-[86vh] flex-col">
         <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
-          <span className="font-mono text-[10px] tracking-wider text-dim uppercase">Go / No-Go gates</span>
+          <span className="font-mono text-[10px] tracking-wider text-dim uppercase">System Checks</span>
           <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
-            {report ? VERDICT_LABEL[report.verdict] : 'Fetching the gates from the server…'}
+            {report ? VERDICT_LABEL[report.verdict] : 'Checking system readiness…'}
           </span>
           <button
             type="button"
-            className="btn h-7 px-2 text-[11px]"
+            className="btn h-7 rounded-full px-3 text-[11px]"
             onClick={() => {
               if (executionMode === 'live') void fetchGateReport().then((r) => {
                 if (r) useStore.setState({ preflightReport: r })
@@ -69,7 +69,11 @@ export default function PreflightPanel({ onClose }: { onClose: () => void }) {
           >
             refresh
           </button>
-          <button className="rounded-sm px-1 py-0.5 text-dim hover:bg-hover hover:text-ink" title="Close" onClick={onClose}>
+          <button
+            className="flex size-7 items-center justify-center rounded-full text-dim transition-colors hover:bg-hover hover:text-ink"
+            title="Close"
+            onClick={onClose}
+          >
             <X size={14} />
           </button>
         </div>

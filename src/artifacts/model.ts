@@ -72,7 +72,7 @@ function provenanceLabel(provenance: ArtifactProvenance): string {
     case 'live-content':
       return 'Live content'
     case 'rehearsal-template':
-      return 'Rehearsal template'
+      return 'Demo template'
     case 'metadata-only':
       return 'Metadata only'
   }
@@ -85,7 +85,7 @@ function provenanceDetail(provenance: ArtifactProvenance, source: string | undef
         ? `Content attached by ${source.trim()}.`
         : 'Content attached by the live backend.'
     case 'rehearsal-template':
-      return 'Authored sample content from the labeled local rehearsal.'
+      return 'Sample document from the local demo scenario.'
     case 'metadata-only':
       return 'The live event announced a delivery but attached no readable content.'
   }
