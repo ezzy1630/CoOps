@@ -48,16 +48,16 @@ export default function ProofPackage({ onClose }: { onClose: () => void }) {
   const json = formatProofPackage(pkg)
 
   return (
-    <Modal onClose={onClose} width={720} ariaLabel="Proof package">
+    <Modal onClose={onClose} width={720} ariaLabel="Audit package">
       <div className="flex max-h-[86vh] flex-col">
-        <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
-          <span className="font-mono text-[10px] tracking-wider text-dim uppercase">Proof package</span>
-          <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
-            {pkg.recorded} of {pkg.required} receipt fields recorded
+        <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
+          <span className="font-mono text-[10px] font-semibold tracking-wider text-dim uppercase">Audit Package</span>
+          <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-ink">
+            {pkg.recorded} of {pkg.required} verification checks recorded
           </span>
           <button
             type="button"
-            className="cursor-pointer rounded-sm px-1.5 py-0.5 text-[10.5px] text-dim hover:bg-hover hover:text-ink"
+            className="cursor-pointer rounded-full border border-line bg-raised/60 px-2.5 py-1 text-[11px] font-medium text-dim transition-colors hover:bg-hover hover:text-ink"
             title="Copy the package as JSON"
             onClick={() => {
               void navigator.clipboard?.writeText(json)
@@ -68,13 +68,17 @@ export default function ProofPackage({ onClose }: { onClose: () => void }) {
           </button>
           <button
             type="button"
-            className="cursor-pointer rounded-sm px-1.5 py-0.5 text-[10.5px] text-dim hover:bg-hover hover:text-ink"
+            className="cursor-pointer rounded-full border border-line bg-raised/60 px-2.5 py-1 text-[11px] font-medium text-dim transition-colors hover:bg-hover hover:text-ink"
             title="Download the package as a JSON file"
             onClick={() => downloadJson(json, runtimeInfo?.runId ?? 'run')}
           >
             download
           </button>
-          <button className="rounded-sm px-1 py-0.5 text-dim hover:bg-hover hover:text-ink" title="Close" onClick={onClose}>
+          <button
+            className="flex size-7 items-center justify-center rounded-full text-dim transition-colors hover:bg-hover hover:text-ink"
+            title="Close"
+            onClick={onClose}
+          >
             <X size={14} />
           </button>
         </div>

@@ -13,31 +13,31 @@ interface Step {
 
 const STEPS: Step[] = [
   {
-    kicker: 'ZOOM TO EXPLORE',
+    kicker: 'Zoom to explore',
     title: 'The map is the company',
     body:
-      'Scroll to zoom, drag to pan. Far out you see departments; closer, their agents; closer still, live tasks traveling between them. The center is empty on purpose because there is no root agent.',
+      'Scroll to zoom, drag to pan. Far out you see departments; closer, their agents; closer still, live tasks traveling between them. The center is open because work routes peer-to-peer.',
   },
   {
-    kicker: 'CLICK TO FOCUS',
+    kicker: 'Click to focus',
     title: 'Every task lights its path',
     body:
-      "Click an agent, an edge, or a traveling envelope. The map dims to that task's path. When work is blocked, a dotted line points to the one named human who can unblock it. Finished tasks replay end-to-end in seconds.",
+      "Click an agent, an edge, or a traveling envelope. The map dims to that task's path. When work is blocked, a line points to the person who can unblock it.",
   },
   {
-    kicker: '⌘K TO JUMP',
-    title: 'You are never lost',
+    kicker: '⌘K to jump',
+    title: 'Quick navigation',
     body:
-      'The command palette reaches any agent, task, person, department, or approval from anywhere. The breadcrumb up top always says where you are.',
+      'The command palette reaches any agent, task, person, department, or approval from anywhere. The breadcrumb at the top always indicates where you are.',
   },
 ]
 
 const CARD_W = 380
 
 const VALLEY_STEP_0 = {
-  kicker: 'ZOOM TO EXPLORE',
+  kicker: 'Zoom to explore',
   body:
-    'Scroll to zoom and drag to pan inside the valley. Click buildings and villagers to open their work; the small walkers carry tasks between departments. The plaza stays open on purpose because there is no root agent.',
+    'Scroll to zoom and drag to pan inside the valley. Click buildings and villagers to inspect their work; walkers carry tasks between departments.',
 }
 
 
@@ -177,13 +177,13 @@ export default function FirstRun() {
 
           {i > 0 && (
             <button
-              className="cursor-pointer rounded-sm px-3 py-1.5 text-[13px] font-medium text-mut transition-colors hover:bg-hover hover:text-ink"
+              className="cursor-pointer rounded-lg px-3 py-1.5 text-[13px] font-medium text-mut transition-colors hover:bg-hover hover:text-ink"
               onClick={() => setStep(i - 1)}
             >
               Back
             </button>
           )}
-          <button className="btn btn-primary h-8" onClick={() => setStep(last ? null : i + 1)}>
+          <button className="btn btn-primary h-8 rounded-lg px-4" onClick={() => setStep(last ? null : i + 1)}>
             {last ? 'Start exploring' : 'Next'}
           </button>
         </div>

@@ -22,9 +22,10 @@ import {
   type PixelCamera,
   type PixelCameraBounds,
   type StandSpot,
+  readValleyFilterCounts,
+  type ValleyFilter,
 } from './layout'
 import { deriveWalkers, emoteFor, lastActs, lastSpeech, walkerWindowMs } from './choreography'
-import ValleyToolbar, { readValleyFilterCounts, type ValleyFilter, type ValleyInspection } from './ValleyToolbar'
 const CELL = 24 // avatar cell in the strip, manifest avatars.cell
 const CELL_PX = CELL * SPRITE_SCALE
 const AGENT_CONTROL_SIZE = 28
@@ -34,8 +35,7 @@ const EMOTE_PX = 16
 const EMOTE_FRESH_MS = 6000
 /** a spoken line hangs over its speaker briefly, then the emote returns */
 const SPEECH_MS = 6000
-const VALLEY_TOOLBAR_HEIGHT = 52
-const VALLEY_RUN_BAR_HEIGHT = 56
+const VALLEY_RUN_BAR_HEIGHT = 44
 const ELASTIC_CAMERA_STIFFNESS = 26
 const ELASTIC_CAMERA_DAMPING = 7.4
 
@@ -175,9 +175,8 @@ export default function PixelMap() {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null)
   const [camera, setCamera] = useState<PixelCamera | null>(null)
   const [now, setNow] = useState(() => Date.now())
-  const [filter, setFilter] = useState<ValleyFilter>('all')
-  const [showNames, setShowNames] = useState(false)
-  const [inspection, setInspection] = useState<ValleyInspection>(null)
+  const filter = useStore((s) => s.valleyFilter)
+  const showNames = useStore((s) => s.valleyShowNames)
   const artState = usePixelArt()
   const world = useStore((s) => s.world)
   const log = useStore((s) => s.log)
@@ -252,7 +251,7 @@ export default function PixelMap() {
   useEffect(() => {
     const counts = readValleyFilterCounts(renderWorld)
     if ((filter === 'working' && counts.working === 0) || (filter === 'attention' && counts.attention === 0)) {
-      setFilter('all')
+      useStore.getState().setValleyFilter('all')
     }
   }, [filter, renderWorld])
 
@@ -268,10 +267,8 @@ export default function PixelMap() {
 
   // a side panel covers part of the viewport; fit and center in what remains
   const panelW = panel ? PANEL_WIDTH[panel.kind] : 0
-  const availableWidth = size ? Math.max(1, size.w - panelW - 24) : 0
-  const viewportTop = VALLEY_TOOLBAR_HEIGHT + 10
-  const viewportBottom = entered ? VALLEY_RUN_BAR_HEIGHT + 10 : 0
-  const availableHeight = size ? Math.max(1, size.h - viewportTop - viewportBottom) : 0
+  const availableWidth = size ? Math.max(1, size.w - panelW) : 0
+  const availableHeight = size ? Math.max(1, size.h) : 0
   const autoFitRef = useRef(true)
   const cameraRef = useRef(camera)
   cameraRef.current = camera
@@ -407,8 +404,8 @@ export default function PixelMap() {
     ) return
     const container = containerRef.current
     if (!container) return
-    const measuredWidth = Math.max(1, container.clientWidth - panelW - 24)
-    const measuredHeight = Math.max(1, container.clientHeight - viewportTop - viewportBottom)
+    const measuredWidth = Math.max(1, container.clientWidth - panelW)
+    const measuredHeight = Math.max(1, container.clientHeight)
     // Entry and panel commits can briefly render with the previous size state.
     // Do not let a request captured against that stale box overwrite the
     // synchronous fit; the size update reruns this effect with current geometry.
@@ -684,20 +681,11 @@ export default function PixelMap() {
       className="coops-valley absolute inset-0 overflow-hidden"
       style={{ backgroundColor: 'var(--color-map-canvas)' }}
     >
-      <ValleyToolbar
-        world={renderWorld}
-        filter={filter}
-        showNames={showNames}
-        inspection={inspection}
-        panelWidth={panelW}
-        onFilterChange={setFilter}
-        onShowNamesChange={setShowNames}
-      />
       {size && (
         <div
           ref={viewportRef}
-          className="absolute cursor-grab touch-none overflow-hidden active:cursor-grabbing"
-          style={{ left: 12, top: viewportTop, width: availableWidth, height: availableHeight }}
+          className="absolute inset-0 cursor-grab touch-none overflow-hidden active:cursor-grabbing"
+          style={{ width: availableWidth, height: availableHeight }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={finishPointer}
@@ -720,7 +708,6 @@ export default function PixelMap() {
               viewportHeight={availableHeight}
               filter={filter}
               showNames={showNames}
-              onInspect={setInspection}
             />
           )}
         </div>
@@ -742,7 +729,7 @@ export default function PixelMap() {
  * DOM order never decides who stands in front.
  */
 function Scene({
-  art, world, spots, focus, selectedTaskId, highlightEventId, presence, renderTime, camera, viewportWidth, viewportHeight, filter, showNames, onInspect,
+  art, world, spots, focus, selectedTaskId, highlightEventId, presence, renderTime, camera, viewportWidth, viewportHeight, filter, showNames,
 }: {
   art: PixelArt
   world: World
@@ -757,7 +744,6 @@ function Scene({
   viewportHeight: number
   filter: ValleyFilter
   showNames: boolean
-  onInspect: (inspection: ValleyInspection) => void
 }) {
   const { cx, cy, k } = camera
   const approvalAgentIds = useMemo(
@@ -942,10 +928,6 @@ function Scene({
                 event.stopPropagation()
                 useStore.getState().openPanel('dept', b.deptId)
               }}
-              onMouseEnter={() => onInspect({ kind: 'dept', id: b.deptId })}
-              onMouseLeave={() => onInspect(null)}
-              onFocus={() => onInspect({ kind: 'dept', id: b.deptId })}
-              onBlur={() => onInspect(null)}
               className="valley-building absolute inset-0 cursor-pointer select-none"
             >
             <img
@@ -1217,10 +1199,6 @@ function Scene({
               event.stopPropagation()
               useStore.getState().openPanel('agent', ag.id)
             }}
-            onMouseEnter={() => onInspect({ kind: 'agent', id: ag.id })}
-            onMouseLeave={() => onInspect(null)}
-            onFocus={() => onInspect({ kind: 'agent', id: ag.id })}
-            onBlur={() => onInspect(null)}
             className="valley-agent-control absolute cursor-pointer select-none border-0 bg-transparent p-0"
             style={{
               left: spot.pt.x - AGENT_CONTROL_SIZE / 2,

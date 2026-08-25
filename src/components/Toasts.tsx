@@ -13,36 +13,37 @@ export default function Toasts() {
     <div
       className={cx(
         'absolute z-40 flex w-80 flex-col gap-2 transition-all',
-        mapDock ? 'bottom-[70px]' : 'bottom-3',
+        mapDock ? 'bottom-[56px]' : 'bottom-4',
       )}
-      style={{ right: mapDock && panel ? PANEL_WIDTH[panel.kind] + 12 : 12 }}
+      style={{ right: mapDock && panel ? PANEL_WIDTH[panel.kind] + 12 : 16 }}
       aria-live="polite"
     >
       <AnimatePresence initial={false}>
         {toasts.slice(-3).map((toast) => (
           <motion.div
             key={toast.id}
-            initial={{ opacity: 0, y: mapDock ? 8 : -8, scale: 0.98 }}
+            initial={{ opacity: 0, y: mapDock ? 8 : -8, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 30 }}
+            exit={{ opacity: 0, x: 30, scale: 0.96 }}
             className={cx(
-              'cursor-pointer rounded-sm border border-line bg-surface p-3 shadow-[0_2px_10px_rgb(23_22_15/0.1)] [border-left-width:2px]',
-              toast.kind === 'block' && 'border-l-guard',
-              toast.kind === 'human' && 'border-l-human',
-              toast.kind === 'info' && 'border-l-linebright',
+              'cursor-pointer rounded-xl border border-line bg-surface p-3.5 shadow-[0_8px_30px_rgb(0_0_0/0.12)] transition-all hover:border-linebright',
+              toast.kind === 'block' && 'border-l-4 border-l-guard',
+              toast.kind === 'human' && 'border-l-4 border-l-human',
+              toast.kind === 'info' && 'border-l-4 border-l-task',
             )}
             onClick={() => useStore.getState().dismissToast(toast.id)}
           >
             <div
               className={cx(
-                'text-[13px] font-medium',
+                'text-[13px] font-semibold',
                 toast.kind === 'block' && 'text-guard',
                 toast.kind === 'human' && 'text-human',
+                toast.kind === 'info' && 'text-ink',
               )}
             >
               {toast.title}
             </div>
-            {toast.detail && <div className="mt-0.5 text-[12px] leading-snug text-mut">{toast.detail}</div>}
+            {toast.detail && <div className="mt-1 text-[12px] leading-snug text-mut">{toast.detail}</div>}
           </motion.div>
         ))}
       </AnimatePresence>

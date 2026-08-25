@@ -140,7 +140,7 @@ export default function App() {
                 className="absolute top-0 right-0 bottom-0 z-20"
                 style={{ width }}
               >
-                <div className="h-full overflow-hidden border-l border-line bg-surface shadow-[-8px_0_24px_rgb(23_22_15/0.04)]">
+                <div className="h-full overflow-hidden border-l border-line bg-surface shadow-[-12px_0_40px_rgba(0,0,0,0.18)]">
                   <Suspense fallback={<LoadingSurface compact />}>
                     {panel.kind === 'agent' && <AgentRoom agentId={panel.id!} />}
                     {panel.kind === 'dept' && <DeptWorkspace deptId={panel.id!} />}
@@ -182,13 +182,13 @@ function PageContent({ view }: { view: ReturnType<typeof useStore.getState>['vie
 function LoadingSurface({ compact = false }: { compact?: boolean }) {
   return (
     <div className="h-full bg-surface px-6 py-5" role="status" aria-label="Loading view">
-      <div className="h-5 w-28 bg-raised" />
-      <div className="mt-5 border-t border-line pt-4">
+      <div className="h-5 w-28 rounded bg-raised animate-pulse" />
+      <div className="mt-5 border-t border-line pt-4 space-y-3">
         {Array.from({ length: compact ? 4 : 7 }, (_, index) => (
-          <div key={index} className="mb-3 grid grid-cols-[96px_1fr_120px] gap-4">
-            <span className="h-3 bg-raised" />
-            <span className="h-3 bg-raised" />
-            <span className="h-3 bg-raised" />
+          <div key={index} className="grid grid-cols-[96px_1fr_120px] gap-4">
+            <span className="h-3 rounded bg-raised" />
+            <span className="h-3 rounded bg-raised" />
+            <span className="h-3 rounded bg-raised" />
           </div>
         ))}
       </div>
@@ -199,13 +199,15 @@ function LoadingSurface({ compact = false }: { compact?: boolean }) {
 export function Wordmark({ size = 22 }: { size?: number }) {
   return (
     <div className="flex items-center gap-2 select-none">
-      <svg width={size} height={size} viewBox="0 0 32 32">
-        <circle cx="16" cy="16" r="10.5" fill="none" stroke="var(--color-task)" strokeWidth="1.6" strokeDasharray="3.4 3.1" />
-        <circle cx="16" cy="6" r="3" fill="var(--color-ink)" />
-        <circle cx="25" cy="21" r="3" fill="var(--color-ink)" />
-        <circle cx="7" cy="21" r="3" fill="var(--color-ink)" />
-      </svg>
-      <span className="text-[15px] font-semibold tracking-tight">CoOps</span>
+      <div className="relative flex items-center justify-center rounded-lg bg-ink p-1 text-bg shadow-xs">
+        <svg width={size} height={size} viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r="10.5" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3.4 3.1" />
+          <circle cx="16" cy="6" r="3.2" fill="var(--color-task)" />
+          <circle cx="25" cy="21" r="3.2" fill="var(--color-artifact)" />
+          <circle cx="7" cy="21" r="3.2" fill="var(--color-human)" />
+        </svg>
+      </div>
+      <span className="text-[15.5px] font-bold tracking-tight text-ink">CoOps</span>
     </div>
   )
 }

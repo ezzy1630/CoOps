@@ -24,7 +24,7 @@ export default function ReplayScrubber() {
 
   return (
     <div
-      className="pointer-events-none absolute bottom-[70px] left-0 z-20 flex justify-center px-3 transition-[right] duration-300"
+      className="pointer-events-none absolute bottom-[58px] left-0 z-20 flex justify-center px-3 transition-[right] duration-300"
       style={{ right: panelW }}
     >
       <div className="panel anim-fadeup pointer-events-auto flex w-[620px] max-w-full flex-col gap-2 px-4 py-3">

@@ -1,4 +1,4 @@
-import { ArrowCounterClockwise, Minus, Play, Plus, X } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, CaretDown, Minus, Play, Plus, X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { PANEL_WIDTH, useStore } from '../store'
 import { deptById } from '../data/company'
@@ -7,7 +7,7 @@ import type { RehearsalDefinition, RehearsalPresentation } from '../engine/rehea
 import { cx } from '../utils'
 import { Chip } from './ui'
 
-/** Map-only chrome. The status bar keeps controls visible without floating over the map. */
+/** Map-only chrome. The status bar keeps controls visible with an ultra-sleek floating HUD dock. */
 export default function MapOverlays() {
   const selectedTaskId = useStore((s) => s.selectedTaskId)
   const replay = useStore((s) => s.replay)
@@ -34,114 +34,126 @@ export default function MapOverlays() {
     presentations.find(({ presentation }) => presentation.state === 'active') ??
     presentations.find(({ definition }) => definition.id === selectedRehearsalId) ??
     presentations[0]
+
   return (
     <>
+      {/* Floating HUD Island Dock */}
       <div
-        className={cx(
-          'absolute bottom-0 left-0 z-10 flex items-center border-t border-line bg-surface',
-          mapStyle === 'fun' ? 'h-14 gap-4 px-4' : 'h-10 gap-3 px-3',
-        )}
+        className="pointer-events-none absolute bottom-3 left-0 z-20 flex justify-center px-4 transition-[right] duration-300"
         style={{ right: panelW }}
         aria-label="Map status bar"
       >
-        {mapStyle === 'fun' ? (
-          <>
-            <ValleyHealth working={workingCount} blocked={blockedCount} waiting={world.approvals.length} />
-            <span className="h-7 w-px shrink-0 bg-line" aria-hidden />
-            <ValleyRunNarrative
-              definition={selectedRehearsal?.definition}
-              presentation={selectedRehearsal?.presentation}
-              executionMode={executionMode}
-            />
-            <div className="min-w-0 flex-1" />
-            <ZoomButtons
-              onZoomBy={(factor) => useStore.getState().requestCamera({ type: 'zoomBy', factor })}
-              onFit={() => useStore.getState().requestCamera({ type: 'fit' })}
-              fitTitle="Fit the whole valley"
-            />
-            {!replay && rehearsals.length > 1 && (
-              <RehearsalPicker
-                selectedId={selectedRehearsal?.definition.id ?? ''}
-                executionMode={executionMode}
-                disabled={selectedRehearsal?.presentation.state === 'active'}
-                onChange={setSelectedRehearsalId}
-              />
-            )}
-            {!replay && selectedRehearsal && selectedRehearsal.presentation.state !== 'active' && (
-              <RehearsalAction
-                prominent
-                definition={selectedRehearsal.definition}
-                presentation={selectedRehearsal.presentation}
-                executionMode={executionMode}
-              />
-            )}
-          </>
-        ) : (
-          <>
-            <Legend />
-            <ZoomButtons
-              onZoomBy={(factor) => useStore.getState().requestCamera({ type: 'zoomBy', factor })}
-              onFit={() => useStore.getState().requestCamera({ type: 'fit' })}
-              fitTitle="Fit the whole company"
-            />
-            <PulseSparkline />
-            <div className="min-w-0 flex-1" />
-            {!replay && rehearsals.length > 1 && (
-              <RehearsalPicker
-                selectedId={selectedRehearsal?.definition.id ?? ''}
-                executionMode={executionMode}
-                disabled={selectedRehearsal?.presentation.state === 'active'}
-                onChange={setSelectedRehearsalId}
-              />
-            )}
-            {!replay && selectedRehearsal && (
-              <RehearsalAction
-                definition={selectedRehearsal.definition}
-                presentation={selectedRehearsal.presentation}
-                executionMode={executionMode}
-              />
-            )}
-          </>
-        )}
+        <div className="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-line/80 bg-surface/90 px-3 py-1.5 backdrop-blur-md shadow-xl transition-all">
+          {mapStyle === 'fun' ? (
+            <>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <ValleyHealth working={workingCount} blocked={blockedCount} waiting={world.approvals.length} />
+                <ValleyRunNarrative
+                  definition={selectedRehearsal?.definition}
+                  presentation={selectedRehearsal?.presentation}
+                  executionMode={executionMode}
+                />
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <ZoomButtons
+                  onZoomBy={(factor) => useStore.getState().requestCamera({ type: 'zoomBy', factor })}
+                  onFit={() => useStore.getState().requestCamera({ type: 'fit' })}
+                  fitTitle="Fit the whole valley"
+                />
+                {!replay && rehearsals.length > 1 && selectedRehearsal?.presentation.state !== 'active' && (
+                  <RehearsalPicker
+                    selectedId={selectedRehearsal?.definition.id ?? ''}
+                    executionMode={executionMode}
+                    disabled={selectedRehearsal?.presentation.state !== 'idle'}
+                    onChange={setSelectedRehearsalId}
+                  />
+                )}
+                {!replay && selectedRehearsal && selectedRehearsal.presentation.state !== 'active' && (
+                  <RehearsalAction
+                    prominent
+                    definition={selectedRehearsal.definition}
+                    presentation={selectedRehearsal.presentation}
+                    executionMode={executionMode}
+                  />
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Legend />
+                <PulseSparkline />
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <ZoomButtons
+                  onZoomBy={(factor) => useStore.getState().requestCamera({ type: 'zoomBy', factor })}
+                  onFit={() => useStore.getState().requestCamera({ type: 'fit' })}
+                  fitTitle="Fit the whole company"
+                />
+                {!replay && rehearsals.length > 1 && (
+                  <RehearsalPicker
+                    selectedId={selectedRehearsal?.definition.id ?? ''}
+                    executionMode={executionMode}
+                    disabled={selectedRehearsal?.presentation.state === 'active'}
+                    onChange={setSelectedRehearsalId}
+                  />
+                )}
+                {!replay && selectedRehearsal && (
+                  <RehearsalAction
+                    definition={selectedRehearsal.definition}
+                    presentation={selectedRehearsal.presentation}
+                    executionMode={executionMode}
+                  />
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {task && !replay && (
         <div
-          className={cx(
-            'pointer-events-none absolute left-0 z-10 flex justify-center px-3 transition-[right] duration-300',
-            mapStyle === 'fun' ? 'bottom-[68px]' : 'bottom-[52px]',
-          )}
+          className="pointer-events-none absolute bottom-[62px] left-0 z-20 flex justify-center px-3 transition-[right] duration-300"
           style={{ right: panelW }}
         >
-          <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-sm border border-line bg-surface px-3 py-2 shadow-[0_2px_8px_rgb(23_22_15/0.08)] anim-fadeup">
+          <div className="pointer-events-auto flex max-w-full items-center gap-2.5 rounded-full border border-linebright bg-surface/95 px-3.5 py-1.5 shadow-2xl backdrop-blur-md anim-fadeup">
             <Chip
               className={cx(
-                'shrink-0',
-                task.status === 'done' && 'border-artifact/50! text-artifact!',
-                (task.status === 'waiting_auth' || task.status === 'waiting_approval') && 'border-permission/50! text-permission!',
-                task.status === 'running' && 'border-task/50! text-task!',
-                task.status === 'failed' && 'border-escalation/50! text-escalation!',
+                'shrink-0 rounded-full font-mono text-[10.5px] uppercase tracking-wider',
+                task.status === 'done' && 'border-artifact/50! text-artifact! bg-artifact/10!',
+                (task.status === 'waiting_auth' || task.status === 'waiting_approval') && 'border-permission/50! text-permission! bg-permission/10!',
+                task.status === 'running' && 'border-task/50! text-task! bg-task/10!',
+                task.status === 'failed' && 'border-escalation/50! text-escalation! bg-escalation/10!',
               )}
             >
               {task.status.replace('_', ' ')}
             </Chip>
-            <span className="max-w-56 truncate text-[13px] font-medium">{task.title}</span>
-            <span className="flex items-center gap-1 text-[12px] text-mut">
+            <span className="max-w-64 truncate text-[12.5px] font-semibold text-ink">{task.title}</span>
+            <span className="flex items-center gap-1.5 text-[11.5px] text-mut">
               {task.path.map((dept, index) => (
-                <span key={dept} className="flex items-center gap-1">
-                  {index > 0 && <span className="text-dim">→</span>}
-                  {deptById.get(dept)?.name ?? dept}
+                <span key={dept} className="flex items-center gap-1.5">
+                  {index > 0 && <span className="text-dim text-[10px]">→</span>}
+                  <span className="font-medium text-ink/80">{deptById.get(dept)?.name ?? dept}</span>
                 </span>
               ))}
-              {task.status === 'done' && <span className="text-artifact">→ done</span>}
+              {task.status === 'done' && <span className="font-semibold text-artifact">→ done</span>}
             </span>
             {task.eventIds.length > 2 && (
-              <button className="btn h-7 text-[12px]" onClick={() => useStore.getState().startReplay(task.id)}>
+              <button
+                className="flex h-6 cursor-pointer items-center gap-1 rounded-full border border-line bg-raised px-2.5 text-[11px] font-medium text-ink transition-all hover:bg-hover hover:border-linebright"
+                onClick={() => useStore.getState().startReplay(task.id)}
+              >
                 <ArrowCounterClockwise size={11} weight="bold" />
-                Replay
+                <span>Replay</span>
               </button>
             )}
-            <button className="text-dim hover:text-ink" title="Exit focus" onClick={() => useStore.getState().selectTask(null)}>
+            <button
+              className="cursor-pointer rounded-full p-1 text-dim transition-colors hover:bg-hover hover:text-ink"
+              title="Exit focus"
+              onClick={() => useStore.getState().selectTask(null)}
+            >
               <X size={13} />
             </button>
           </div>
@@ -154,69 +166,81 @@ export default function MapOverlays() {
 function ValleyHealth({ working, blocked, waiting }: { working: number; blocked: number; waiting: number }) {
   const approvalLabel = waiting === 1 ? 'approval' : 'approvals'
   return (
-    <span className="flex shrink-0 items-center gap-3" aria-label={`${working} agents working, ${blocked} blocked, ${waiting} ${approvalLabel} waiting`}>
-      <span className="block font-display text-[11px] font-semibold text-ink">Company activity</span>
-      <span className="flex items-center gap-2 text-[9.5px] text-dim">
-        <span className="flex items-center gap-1"><i className="h-2.5 w-px bg-task" aria-hidden />{working} working</span>
-        <span className="flex items-center gap-1"><i className="h-2.5 w-px bg-human" aria-hidden />{waiting} waiting</span>
-        {blocked > 0 && <span className="flex items-center gap-1 text-escalation"><i className="h-2.5 w-px bg-escalation" aria-hidden />{blocked} blocked</span>}
+    <div
+      className="flex shrink-0 items-center gap-2 rounded-full border border-line bg-raised/70 px-3 py-1 text-[11.5px] shadow-xs"
+      aria-label={`${working} agents working, ${blocked} blocked, ${waiting} ${approvalLabel} waiting`}
+    >
+      <span className="flex items-center gap-1.5 font-semibold text-ink">
+        <span className="relative flex size-2 items-center justify-center">
+          {working > 0 && <span className="absolute inline-flex size-full rounded-full bg-task opacity-75 beacon-pulse" />}
+          <span className={cx('size-1.5 rounded-full bg-task', working > 0 && 'shadow-[0_0_6px_rgba(37,99,235,0.6)]')} />
+        </span>
+        <span className="tabular-nums">{working} working</span>
       </span>
-    </span>
+      <span className="text-linebright">·</span>
+      <span className="flex items-center gap-1.5 text-mut font-medium">
+        <span className={cx('size-1.5 rounded-full bg-human', waiting > 0 && 'shadow-[0_0_6px_rgba(217,119,6,0.5)]')} />
+        <span className="tabular-nums">{waiting} waiting</span>
+      </span>
+      {blocked > 0 && (
+        <>
+          <span className="text-linebright">·</span>
+          <span className="flex items-center gap-1.5 font-semibold text-escalation">
+            <span className="size-1.5 rounded-full bg-escalation shadow-[0_0_6px_rgba(220,38,38,0.6)]" />
+            <span className="tabular-nums">{blocked} blocked</span>
+          </span>
+        </>
+      )}
+    </div>
   )
 }
 
 function ValleyRunNarrative({
   definition,
   presentation,
-  executionMode,
 }: {
   definition?: RehearsalDefinition
   presentation?: RehearsalPresentation
   executionMode: ReturnType<typeof useStore.getState>['executionMode']
 }) {
-  if (!definition || !presentation) {
-    return (
-      <span className="min-w-0">
-        <span className="block truncate text-[11px] font-medium text-ink">Ambient company activity</span>
-        <span className="block truncate text-[10px] text-dim">No authored rehearsal is installed; ambient work continues.</span>
-      </span>
-    )
+  if (!definition || !presentation || presentation.state === 'idle') {
+    // When idle, do not duplicate the button title in the center of the bar
+    return null
   }
 
   const steps = presentation.steps ?? []
-  const current = presentation.state === 'idle'
-    ? 0
-    : presentation.state === 'complete'
-      ? steps.length
-      : Math.max(1, Math.min(presentation.current ?? 1, Math.max(steps.length, 1)))
-  const title = presentation.state === 'idle'
-    ? definition.command[executionMode].title
-    : presentation.state === 'complete'
-      ? 'Rehearsal complete'
-      : steps[current - 1] ?? 'Rehearsal running'
-  const detail = presentation.state === 'idle'
-    ? definition.command[executionMode].description
-    : presentation.detail ?? (presentation.state === 'complete' ? 'Explore the completed work or restart the demo.' : 'Follow the run as work moves across the company.')
+  const current = presentation.state === 'complete'
+    ? steps.length
+    : Math.max(1, Math.min(presentation.current ?? 1, Math.max(steps.length, 1)))
+  const title = presentation.state === 'complete'
+    ? 'Rehearsal complete'
+    : steps[current - 1] ?? 'Rehearsal running'
 
   return (
-    <div className="flex min-w-0 max-w-[620px] items-center gap-3">
+    <div className="hidden min-w-0 max-w-[480px] items-center gap-2.5 rounded-full border border-line/80 bg-raised/70 px-3 py-1 shadow-xs lg:flex">
       {steps.length > 0 && (
         <div
-          className="hidden shrink-0 items-center gap-1.5 lg:flex"
-          aria-label={current === 0 ? 'Rehearsal not started' : `Rehearsal step ${current} of ${steps.length}`}
+          className="flex shrink-0 items-center gap-1"
+          aria-label={`Rehearsal step ${current} of ${steps.length}`}
         >
           {steps.map((label, index) => (
             <span
               key={label}
-              className={cx('h-1 w-7', index + 1 <= current ? 'bg-task' : 'bg-linebright')}
+              className={cx(
+                'h-1.5 rounded-full transition-all duration-300',
+                index + 1 === current
+                  ? 'w-5 bg-task shadow-[0_0_6px_rgba(37,99,235,0.6)]'
+                  : index + 1 < current
+                    ? 'w-3 bg-task/60'
+                    : 'w-3 bg-linebright',
+              )}
               title={label}
             />
           ))}
         </div>
       )}
-      <span className="min-w-0">
-        <span className="block truncate text-[11px] font-medium text-ink">{title}</span>
-        <span className="block truncate text-[10px] text-dim">{detail}</span>
+      <span className="min-w-0 truncate text-[11.5px] text-mut">
+        <span className="font-semibold text-ink">{title}</span>
       </span>
     </div>
   )
@@ -234,19 +258,22 @@ function RehearsalPicker({
   onChange: (id: string) => void
 }) {
   return (
-    <select
-      aria-label="Choose rehearsal"
-      value={selectedId}
-      onChange={(event) => onChange(event.target.value)}
-      disabled={disabled}
-      className="h-6 max-w-40 shrink-0 border-l border-line bg-surface px-2 text-[11px] text-mut outline-none hover:bg-hover hover:text-ink"
-    >
-      {rehearsals.map((definition) => (
-        <option key={definition.id} value={definition.id}>
-          {definition.command[executionMode].title}
-        </option>
-      ))}
-    </select>
+    <div className="relative flex shrink-0 items-center">
+      <select
+        aria-label="Choose scenario"
+        value={selectedId}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        className="h-7 cursor-pointer appearance-none rounded-full border border-line bg-surface py-0 pr-7 pl-3 text-[11.5px] font-medium text-mut shadow-xs outline-none transition-all hover:border-linebright hover:bg-hover hover:text-ink disabled:opacity-50"
+      >
+        {rehearsals.map((definition) => (
+          <option key={definition.id} value={definition.id}>
+            {definition.command[executionMode].title.replace(/^Run (the )?/, '').replace(/ rehearsal$/, '')}
+          </option>
+        ))}
+      </select>
+      <CaretDown size={10} className="pointer-events-none absolute right-2.5 text-dim" />
+    </div>
   )
 }
 
@@ -260,11 +287,11 @@ function Legend() {
   ] as const
 
   return (
-    <div className="flex shrink-0 items-center gap-2 text-[10px] text-dim">
+    <div className="flex shrink-0 items-center gap-3 rounded-full border border-line bg-raised/70 px-3 py-1 text-[11px] text-dim shadow-xs">
       {entries.map(([color, label]) => (
         <span key={label} className="flex items-center gap-1.5 whitespace-nowrap">
-          <span className="h-2 w-px" style={{ background: color }} />
-          <span className="hidden lg:inline">{label}</span>
+          <span className="size-2 rounded-full" style={{ background: color }} />
+          <span className="hidden lg:inline font-medium">{label}</span>
         </span>
       ))}
     </div>
@@ -282,13 +309,30 @@ function ZoomButtons({
   fitTitle: string
 }) {
   return (
-    <div className="flex shrink-0 items-center border-l border-line pl-2 text-[11px] text-mut" aria-label="Map zoom controls">
-      <button className="flex size-6 items-center justify-center hover:bg-hover hover:text-ink" title="Zoom out (or pinch the trackpad)" onClick={() => onZoomBy(1 / 1.45)}>
-        <Minus size={12} weight="bold" />
+    <div className="flex shrink-0 items-center rounded-full border border-line bg-raised/70 p-0.5 text-[11px] shadow-xs" aria-label="Map zoom controls">
+      <button
+        type="button"
+        className="flex size-6 cursor-pointer items-center justify-center rounded-full text-dim transition-all hover:bg-surface hover:text-ink hover:shadow-xs active:scale-95"
+        title="Zoom out (or pinch the trackpad)"
+        onClick={() => onZoomBy(1 / 1.45)}
+      >
+        <Minus size={11} weight="bold" />
       </button>
-      <button className="flex h-6 min-w-9 items-center justify-center font-mono text-[10px] tabular-nums hover:bg-hover hover:text-ink" title={fitTitle} onClick={onFit}>Fit</button>
-      <button className="flex size-6 items-center justify-center hover:bg-hover hover:text-ink" title="Zoom in (or pinch the trackpad)" onClick={() => onZoomBy(1.45)}>
-        <Plus size={12} weight="bold" />
+      <button
+        type="button"
+        className="flex h-6 min-w-8 cursor-pointer items-center justify-center rounded-full font-mono text-[10.5px] font-medium tabular-nums text-mut transition-all hover:bg-surface hover:text-ink hover:shadow-xs active:scale-95"
+        title={fitTitle}
+        onClick={onFit}
+      >
+        Fit
+      </button>
+      <button
+        type="button"
+        className="flex size-6 cursor-pointer items-center justify-center rounded-full text-dim transition-all hover:bg-surface hover:text-ink hover:shadow-xs active:scale-95"
+        title="Zoom in (or pinch the trackpad)"
+        onClick={() => onZoomBy(1.45)}
+      >
+        <Plus size={11} weight="bold" />
       </button>
     </div>
   )
@@ -298,7 +342,6 @@ function RehearsalAction({
   definition,
   presentation,
   executionMode,
-  prominent = false,
 }: {
   definition: RehearsalDefinition
   presentation: RehearsalPresentation
@@ -308,32 +351,26 @@ function RehearsalAction({
   if (presentation.state === 'idle') {
     return (
       <button
-        className={cx(
-          'flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium disabled:cursor-wait disabled:text-dim',
-          prominent ? 'btn btn-primary h-8' : 'h-6 border-l border-line text-ink hover:bg-hover',
-        )}
+        className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-ink px-3.5 text-[11.5px] font-semibold text-bg shadow-sm transition-all hover:bg-ink/85 hover:shadow-md active:scale-[0.97] disabled:cursor-wait disabled:opacity-40"
         aria-label={definition.command[executionMode].title}
         title={definition.command[executionMode].description}
         onClick={() => useStore.getState().runRehearsal(definition.id)}
       >
-        <Play size={11} weight="fill" />
-        Start demo
+        <Play size={10} weight="fill" />
+        <span>Start demo</span>
       </button>
     )
   }
   if (presentation.state === 'complete') {
     return (
       <button
-        className={cx(
-          'flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium',
-          prominent ? 'btn h-8' : 'h-6 border-l border-line text-ink hover:bg-hover',
-        )}
+        className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-[11.5px] font-semibold text-ink shadow-xs transition-all hover:border-linebright hover:bg-hover active:scale-[0.97]"
         aria-label="Restart demo"
         title="Clear this rehearsal and start it again from the beginning"
         onClick={() => useStore.getState().openRehearsal(definition.id)}
       >
-        <ArrowCounterClockwise size={12} weight="bold" />
-        Restart demo
+        <ArrowCounterClockwise size={11} weight="bold" />
+        <span>Restart demo</span>
       </button>
     )
   }
@@ -342,18 +379,20 @@ function RehearsalAction({
   const current = Math.max(1, Math.min(presentation.current ?? 1, Math.max(steps.length, 1)))
   return (
     <div className="flex min-w-0 max-w-[520px] items-center gap-3" title={presentation.detail}>
-      {steps.length > 0 && <div className="flex shrink-0 items-center gap-1.5 text-[10px]">
-        {steps.map((label, index) => (
-          <span key={label} className="flex items-center gap-1.5">
-            {index > 0 && <span className="text-dim">→</span>}
-            <span className={cx(index + 1 === current ? 'text-ink' : index + 1 < current ? 'text-mut' : 'text-dim')}>
-              {label}
+      {steps.length > 0 && (
+        <div className="flex shrink-0 items-center gap-1.5 text-[10px]">
+          {steps.map((label, index) => (
+            <span key={label} className="flex items-center gap-1.5">
+              {index > 0 && <span className="text-dim">→</span>}
+              <span className={cx(index + 1 === current ? 'text-ink font-semibold' : index + 1 < current ? 'text-mut' : 'text-dim')}>
+                {label}
+              </span>
             </span>
-          </span>
-        ))}
-      </div>}
+          ))}
+        </div>
+      )}
       {steps.length > 0 && presentation.detail && <span className="h-4 w-px shrink-0 bg-line" aria-hidden />}
-      {presentation.detail && <span className="min-w-0 truncate text-[12px] text-mut">{presentation.detail}</span>}
+      {presentation.detail && <span className="min-w-0 truncate text-[11.5px] font-medium text-mut">{presentation.detail}</span>}
     </div>
   )
 }

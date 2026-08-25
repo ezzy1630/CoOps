@@ -94,15 +94,15 @@ export default function CommandPalette() {
       {
         key: 'act:approvals',
         group: 'Actions',
-        title: 'Open Work & Approvals',
-        sub: 'Everything waiting on a human right now',
+        title: 'Open Approvals',
+        sub: 'Everything waiting on a human review',
         action: () => st().openPanel('approvals'),
       },
       {
         key: 'act:activity',
         group: 'Actions',
         title: 'Open Activity',
-        sub: 'The raw event log behind the map',
+        sub: 'The live event log across the company',
         action: () => st().openPanel('activity'),
       },
       {
@@ -116,21 +116,21 @@ export default function CommandPalette() {
         key: 'act:theme',
         group: 'Actions',
         title: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode',
-        sub: 'Flip the whole map between warm paper and warm charcoal',
+        sub: 'Toggle light and dark mode',
         action: () => st().toggleTheme(),
       },
       {
         key: 'act:style-blueprint',
         group: 'Actions',
         title: 'View: Blueprint map',
-        sub: 'The classic drafting-table visualization',
+        sub: 'The classic blueprint visualization',
         action: () => st().setMapStyle('classic'),
       },
       {
         key: 'act:style-valley',
         group: 'Actions',
         title: 'View: Valley map',
-        sub: 'Pixel-art village rendering of the same company',
+        sub: 'Pixel-art valley rendering of the company',
         action: () => st().setMapStyle('fun'),
       },
     )
@@ -154,7 +154,7 @@ export default function CommandPalette() {
         key: `agent:${a.id}`,
         group: 'Agents',
         title: a.name,
-        sub: `${a.kind === 'operator' ? 'Department Agent' : 'Worker'} · ${deptName(a.deptId)}`,
+        sub: `${a.kind === 'operator' ? 'Department Lead' : 'Specialist'} · ${deptName(a.deptId)}`,
         tickHue: personById.get(a.ownerId)?.hue,
         action: () => {
           st().requestCamera({ type: 'agent', agentId: a.id })
@@ -258,14 +258,14 @@ export default function CommandPalette() {
   }
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-ink/25" onClick={close} />
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[14vh] p-4">
+      <div className="absolute inset-0 bg-ink/35 backdrop-blur-xs" onClick={close} />
 
-      <div className="absolute top-[18vh] left-1/2 w-[560px] -translate-x-1/2">
-        <div className="panel anim-fadeup flex max-h-[60vh] flex-col overflow-hidden rounded-sm">
+      <div className="relative w-[580px] max-w-full">
+        <div className="panel anim-fadeup flex max-h-[64vh] flex-col overflow-hidden rounded-2xl border border-linebright bg-surface/98 backdrop-blur-md shadow-2xl">
           {/* search */}
-          <div className="flex shrink-0 items-center gap-2.5 border-b border-line px-3">
-            <MagnifyingGlass size={14} className="shrink-0 text-dim" />
+          <div className="flex shrink-0 items-center gap-3 border-b border-line px-4 bg-raised/20">
+            <MagnifyingGlass size={18} className="shrink-0 text-task" />
             <input
               ref={inputRef}
               value={query}
@@ -274,24 +274,24 @@ export default function CommandPalette() {
                 setIndex(0)
               }}
               onKeyDown={onKeyDown}
-              placeholder="Jump to any agent, task, person, department, or approval…"
-              className="h-12 w-full bg-transparent text-[14px] text-ink outline-none placeholder:text-dim"
+              placeholder="Search or jump to any agent, task, person, department, or approval…"
+              className="h-13 w-full bg-transparent text-[14px] text-ink outline-none placeholder:text-dim"
               spellCheck={false}
               autoComplete="off"
             />
           </div>
 
           {/* results */}
-          <div className="min-h-0 flex-1 overflow-y-auto p-1">
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {visible.length === 0 && (
-              <div className="px-3 py-8 text-center text-[12.5px] text-dim">
-                Nothing matches that. Try a department, a person, or a task.
+              <div className="px-3 py-10 text-center text-[12.5px] text-dim">
+                Nothing matches that. Try searching for a department, a person, or a task.
               </div>
             )}
             {visible.map((e, i) => (
               <div key={e.key}>
                 {(i === 0 || visible[i - 1].group !== e.group) && (
-                  <div className="px-2 pt-2 pb-1 font-mono text-[10px] tracking-wider text-dim uppercase">
+                  <div className="px-3 pt-2.5 pb-1 font-mono text-[10px] font-bold tracking-wider text-dim uppercase">
                     {e.group}
                   </div>
                 )}
@@ -302,40 +302,41 @@ export default function CommandPalette() {
                   onClick={() => run(e)}
                   onMouseMove={() => setIndex(i)}
                   className={cx(
-                    'flex w-full items-center gap-2.5 rounded-sm px-2 py-1.5 text-left transition-colors',
-                    i === index ? 'bg-hover ring-1 ring-linebright/80' : 'hover:bg-hover/50',
+                    'flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left transition-all',
+                    i === index
+                      ? 'border border-line bg-raised font-medium text-ink shadow-xs'
+                      : 'border border-transparent text-mut hover:bg-hover/60 hover:text-ink',
                   )}
                 >
-                  <span className="flex shrink-0 items-center gap-1">
-                    <span className="size-1.5 rounded-full" style={{ background: GROUP_DOT[e.group] }} />
-                    {e.tickHue != null && (
-                      <span
-                        aria-hidden
-                        className="h-3 w-0.5 rounded-full"
-                        style={{ background: `hsl(${e.tickHue} 56% 52%)` }}
-                      />
-                    )}
+                  <span className="flex shrink-0 items-center">
+                    <span className="size-2 rounded-full" style={{ background: GROUP_DOT[e.group] }} />
                   </span>
                   {e.group === 'Approvals' && <CapabilityGlyph />}
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13.5px]">{e.title}</span>
-                    <span className="block truncate text-[11.5px] text-dim">{e.sub}</span>
+                    <span className="block truncate text-[13px] font-bold text-ink">{e.title}</span>
+                    <span className="block truncate text-[11px] text-dim">{e.sub}</span>
                   </span>
+                  {i === index && (
+                    <span className="font-mono text-[10px] text-task shrink-0 font-bold">↵</span>
+                  )}
                 </button>
               </div>
             ))}
           </div>
 
           {/* footer */}
-          <div className="flex shrink-0 items-center gap-1.5 border-t border-line bg-raised/60 px-3 py-2 text-[11.5px] text-dim">
-            <span className="kbd">↑↓</span>
-            navigate
-            <span className="px-1">·</span>
-            <span className="kbd">↵</span>
-            open
-            <span className="px-1">·</span>
-            <span className="kbd">esc</span>
-            close
+          <div className="flex shrink-0 items-center justify-between border-t border-line bg-raised/40 px-4 py-2.5 text-[11px] text-dim">
+            <div className="flex items-center gap-2">
+              <span className="kbd">↑↓</span>
+              <span>navigate</span>
+              <span className="text-linebright">·</span>
+              <span className="kbd">↵</span>
+              <span>select</span>
+              <span className="text-linebright">·</span>
+              <span className="kbd">esc</span>
+              <span>dismiss</span>
+            </div>
+            <span className="font-mono text-[10px] text-dim/70">CoOps Command Palette</span>
           </div>
         </div>
       </div>

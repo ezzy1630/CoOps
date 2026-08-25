@@ -47,7 +47,7 @@ function Avatar({ personId }: { personId: string }) {
   if (!p) return null
   return (
     <span
-      className="flex size-6 shrink-0 items-center justify-center border border-linebright bg-raised text-[10px] font-semibold text-mut"
+      className="flex size-6 shrink-0 items-center justify-center rounded-full border border-line bg-raised text-[10px] font-semibold text-mut shadow-xs"
     >
       {p.initials}
     </span>
@@ -158,54 +158,56 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-surface">
       {/* ── header ── */}
-      <div className="flex shrink-0 items-start gap-3 border-b border-line px-3 py-2.5">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span aria-hidden className="h-3.5 w-0.5 shrink-0 rounded-full" style={{ background: departmentHue }} />
-            <h2 className="truncate text-[15px] font-semibold tracking-[-0.01em]">{dept.name}</h2>
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-4 bg-surface/95 backdrop-blur-md">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-raised font-mono text-[11px] font-bold text-ink">
+            {dept.name.slice(0, 2).toUpperCase()}
           </div>
-          <p className="mt-0.5 truncate text-[12.5px] text-dim">{dept.blurb}</p>
+          <h2 className="truncate text-[14.5px] font-bold tracking-tight text-ink">{dept.name}</h2>
+          <span className="hidden truncate text-[11.5px] text-dim sm:inline">· {dept.blurb}</span>
         </div>
-        {lead && (
-          <div className="flex shrink-0 items-center gap-2" title={`Department lead: ${lead.name}`}>
-            <Avatar personId={lead.id} />
-            <span className="min-w-0 leading-tight">
-              <span className="block max-w-32 truncate text-[12.5px]">{lead.name}</span>
-              <span className="block max-w-32 truncate text-[10.5px] text-dim">{lead.role}</span>
-            </span>
-          </div>
-        )}
-        <button
-          className="shrink-0 rounded-sm px-1.5 py-0.5 text-dim transition-colors hover:bg-hover hover:text-ink"
-          title="Close"
-          onClick={() => useStore.getState().closePanel()}
-        >
-          <X size={15} />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {lead && (
+            <div className="flex items-center gap-1.5" title={`Department lead: ${lead.name}`}>
+              <Avatar personId={lead.id} />
+              <span className="hidden max-w-28 truncate text-[11.5px] font-medium text-mut md:inline">{lead.name.split(' ')[0]}</span>
+            </div>
+          )}
+          <button
+            className="flex size-7 cursor-pointer items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-ink active:scale-95"
+            title="Close"
+            onClick={() => useStore.getState().closePanel()}
+          >
+            <X size={15} />
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {/* ── department agent ── */}
         {operator && (
-          <div className="px-3 py-2.5">
-            <div className="border-l border-linebright pl-3">
-              <div className="flex items-center gap-2">
+          <div className="p-4">
+            <div className="rounded-xl border border-line bg-raised/50 p-3.5 shadow-xs transition-all hover:border-linebright">
+              <div className="flex items-center gap-2.5">
                 <StatusDot status={world.agentStatus.get(operator.id) ?? 'idle'} />
-                <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">{operator.name}</span>
-                <span className="text-[10.5px] text-dim">Department agent</span>
+                <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-ink">{operator.name}</span>
+                <span className="rounded-full bg-surface border border-line px-2.5 py-0.5 text-[10px] font-semibold text-mut shadow-xs">
+                  Department Lead
+                </span>
               </div>
-              <p className="mt-1.5 text-[12.5px] leading-snug text-mut">{operator.purpose}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <p className="mt-2 text-[12px] leading-relaxed text-mut">{operator.purpose}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
-                  className="btn btn-primary h-7 px-2.5 py-1 text-[12px]"
+                  className="btn btn-primary h-7 rounded-full px-3 text-xs"
                   onClick={() => useStore.getState().openPanel('agent', operator.id)}
                 >
-                  Open Agent Room
+                  <span>Open Room</span>
+                  <ArrowRight size={11} weight="bold" />
                 </button>
                 <button
-                  className="rounded-sm px-2 py-1 text-[12px] text-mut transition-colors hover:bg-hover hover:text-ink"
+                  className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-mut transition-all hover:bg-hover hover:text-ink cursor-pointer"
                   title="Describe the job in chat. The agent interviews you, then drafts a blueprint."
                   onClick={() => useStore.getState().openPanel('agent', operator.id)}
                 >
@@ -217,9 +219,9 @@ export default function DeptWorkspace({ deptId }: { deptId: string }) {
         )}
 
         {/* ── workers ── */}
-        <Section title="Workers" meta={`${workers.length}`}>
+        <Section title="Specialists" meta={`${workers.length}`}>
           {workers.length === 0 ? (
-            <Empty>No workers yet. Ask the department agent for one.</Empty>
+            <Empty>No specialists yet. Ask the department lead for one.</Empty>
           ) : (
             <div className="space-y-px">
               {workers.map((w) => {

@@ -65,23 +65,15 @@ export default function InheritanceDiff() {
   )
 }
 
-function PanelHeader({ title, subtitle, hue }: { title: string; subtitle: string; hue?: number }) {
+function PanelHeader({ title, subtitle }: { title: string; subtitle: string; hue?: number }) {
   return (
-    <header className="flex shrink-0 items-start gap-2 border-b border-line px-3 py-2">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="h-3.5 w-0.5 shrink-0 rounded-full"
-            style={{ background: hue == null ? 'var(--color-linebright)' : `hsl(${hue} 56% 52%)` }}
-          />
-          <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
-        </div>
-        <p className="truncate text-[12.5px] text-dim">{subtitle}</p>
+    <header className="flex h-11 shrink-0 items-center justify-between border-b border-line px-4 bg-surface">
+      <div className="flex min-w-0 items-center gap-2">
+        <h2 className="truncate text-[14.5px] font-bold tracking-tight text-ink">{title}</h2>
+        <span className="hidden truncate text-[11.5px] text-dim md:inline">· {subtitle}</span>
       </div>
-      <div className="flex-1" />
       <button
-        className="rounded-sm px-1.5 py-0.5 text-dim transition-colors hover:bg-hover hover:text-ink"
+        className="flex size-7 items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-ink cursor-pointer"
         title="Close"
         onClick={() => useStore.getState().closePanel()}
       >
