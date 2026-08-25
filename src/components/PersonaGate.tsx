@@ -49,7 +49,7 @@ export default function PersonaGate() {
 
       {/* Editorial column: asymmetric whitespace right, the running map visible there */}
       <div className="flex min-h-0 flex-1 items-center overflow-y-auto">
-        <div className="w-full max-w-[600px] shrink-0 py-10 pl-[8vw] pr-6">
+        <div className="w-full max-w-[640px] shrink-0 py-10 pl-[8vw] pr-6">
           <motion.h1 {...rise(0.08)} className="text-[34px] leading-[1.08] font-semibold tracking-[-0.03em]">
             Every department gets an agent team.
           </motion.h1>
@@ -81,7 +81,7 @@ export default function PersonaGate() {
                       <span className="truncate text-[15px] font-medium tracking-[-0.01em] text-ink">{person.name}</span>
                       <span className="truncate text-[12px] text-dim">{p.label}</span>
                     </span>
-                    <span className="mt-1 block truncate text-[12px] leading-snug text-mut">{p.description.replace(' — ', ', ')}</span>
+                    <span className="mt-1 block text-[12px] leading-snug text-mut line-clamp-2">{p.description.replace(' — ', ', ')}</span>
                   </span>
                   <span className={p.personId === APPROVER_PERSONA
                     ? 'inline-flex items-center gap-1 text-[11px] font-medium text-human'

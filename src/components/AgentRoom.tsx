@@ -176,7 +176,9 @@ export default function AgentRoom({ agentId }: { agentId: string }) {
   const chatScroll = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = chatScroll.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    if (nearBottom || pending) el.scrollTop = el.scrollHeight
   }, [messages.length, pending, blueprint?.eventId, tab])
 
   if (!agent) {
@@ -530,7 +532,7 @@ function Thinking({ agentName }: { agentName: string }) {
         {agentName} is thinking
         <span className="inline-flex items-center gap-[3px]">
           {[0, 1, 2].map((i) => (
-            <span key={i} className="size-[3px] rounded-full bg-dim" />
+            <span key={i} className="thinking-dot size-[3px] rounded-full bg-dim" />
           ))}
         </span>
       </span>

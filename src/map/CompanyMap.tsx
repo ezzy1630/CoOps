@@ -551,17 +551,28 @@ export default function CompanyMap() {
                   stroke="var(--color-map-line)"
                   strokeWidth={1.2 * inv}
                   className="cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${d.name} department`}
                   onClick={(ev) => {
                     ev.stopPropagation()
                     const st = useStore.getState()
                     if (k < ZOOM_MID * 1.6) st.requestCamera({ type: 'dept', deptId: d.id })
                     st.openPanel('dept', d.id)
                   }}
+                  onKeyDown={(ev) => {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                      ev.preventDefault()
+                      const st = useStore.getState()
+                      if (k < ZOOM_MID * 1.6) st.requestCamera({ type: 'dept', deptId: d.id })
+                      st.openPanel('dept', d.id)
+                    }
+                  }}
                 />
                 {showText && (
                   <text
                     fill="var(--color-map-label)"
-                    opacity={`calc(${0.52 * districtLabelFade} * var(--map-label-alpha))`}
+                    opacity={`calc(${0.68 * districtLabelFade} * var(--map-label-alpha))`}
                     fontSize={Math.min(30, 14 * inv)}
                     fontWeight={600}
                     letterSpacing="var(--map-label-spacing)"
@@ -828,11 +839,22 @@ export default function CompanyMap() {
                   transform={`translate(${p.x},${p.y})`}
                   opacity={dimmed(ag.deptId, ag.id) ? 0.12 : 1}
                   style={{ transition: 'opacity 0.35s', cursor: 'pointer' }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${ag.name}, ${ag.kind === 'operator' ? 'department agent' : 'worker'}, ${status}`}
                   onClick={(ev) => {
                     ev.stopPropagation()
                     const st = useStore.getState()
                     st.openPanel('agent', ag.id)
                     if (taskId) st.selectTask(taskId)
+                  }}
+                  onKeyDown={(ev) => {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                      ev.preventDefault()
+                      const st = useStore.getState()
+                      st.openPanel('agent', ag.id)
+                      if (taskId) st.selectTask(taskId)
+                    }
                   }}
                 >
                   <g transform={`scale(${born})`}>

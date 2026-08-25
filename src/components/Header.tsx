@@ -5,6 +5,7 @@ import { cx } from '../utils'
 import RuntimeStatus from './RuntimeStatus'
 
 const PAGE_LABELS = { approvals: 'Approvals', activity: 'Activity', agents: 'Agents', documents: 'Documents' } as const
+export const HEADER_H = 42
 interface Crumb { label: string; onClick?: () => void; hue?: number }
 
 export default function Header() {

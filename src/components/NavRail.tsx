@@ -10,7 +10,7 @@ import {
   Sun,
   type Icon,
 } from '@phosphor-icons/react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getPersonas, personById } from '../data/company'
 import { readRunEvidence } from '../evidence/runEvidence'
 import { useStore, type AppView } from '../store'
@@ -38,7 +38,10 @@ export default function NavRail() {
   const executionMode = useStore((s) => s.executionMode)
   const liveConnection = useStore((s) => s.liveConnection)
   const runtimeInfo = useStore((s) => s.runtimeInfo)
-  const evidence = readRunEvidence({ events: log, tasks: [...world.tasks.values()], executionMode, liveConnection, runtimeInfo })
+  const evidence = useMemo(
+    () => readRunEvidence({ events: log, tasks: [...world.tasks.values()], executionMode, liveConnection, runtimeInfo }),
+    [log, world.tasks, executionMode, liveConnection, runtimeInfo],
+  )
 
   return (
     <aside className="relative z-40 flex w-[164px] shrink-0 flex-col border-r border-line bg-bg" aria-label="Primary navigation">
@@ -56,7 +59,7 @@ export default function NavRail() {
               <ItemIcon size={15} weight={active ? 'fill' : 'regular'} className={cx('shrink-0 text-dim', active && 'text-task')} />
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
               {item.view === 'map' && mapActivity && <span className="size-1.5 rounded-full bg-task" title="Work in flight" aria-label="Work in flight" />}
-              {item.view === 'approvals' && approvals > 0 && <span className="font-mono text-[11px] tabular-nums text-human">{approvals}</span>}
+              {item.view === 'approvals' && approvals > 0 && <span className="rounded-sm bg-human/15 px-1.5 font-mono text-[11px] tabular-nums text-human">{approvals}</span>}
             </button>
           )
         })}
@@ -93,6 +96,7 @@ function RunSnapshot({ evidence }: { evidence: ReturnType<typeof readRunEvidence
         Run evidence
         <ArrowRight size={12} className="text-dim transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
       </span>
+      {evidence.events > 0 && (
       <span className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 border-b border-line pb-3">
         {metrics.map((metric) => (
           <span key={metric.label} className="min-w-0">
@@ -101,6 +105,7 @@ function RunSnapshot({ evidence }: { evidence: ReturnType<typeof readRunEvidence
           </span>
         ))}
       </span>
+      )}
       <span className="mt-2 block truncate text-[10px] text-dim" title={evidence.runtime}>{evidence.runtime}</span>
     </button>
   )

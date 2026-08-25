@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { PANEL_WIDTH, useStore } from '../store'
 import { cx } from '../utils'
 import { NAV_RAIL_WIDTH } from './NavRail'
+import { HEADER_H } from './Header'
 
 interface Step {
   kicker: string
@@ -38,7 +39,7 @@ const VALLEY_STEP_0 = {
   body:
     'Scroll to zoom and drag to pan inside the valley. Click buildings and villagers to open their work; the small walkers carry tasks between departments. The plaza stays open on purpose because there is no root agent.',
 }
-const HEADER = 56 // header height, the map starts below it
+
 
 interface Anchor {
   card: CSSProperties
@@ -52,10 +53,10 @@ interface Anchor {
 
 /** Static, screen-relative anchors: each card sits beside its subject, never on top of it. */
 function anchorFor(step: number, w: number, h: number, panelW: number): Anchor {
-  const mapH = h - HEADER
+  const mapH = h - HEADER_H
   // the map the reader can actually see — a panel may be covering the right edge
   const cx = NAV_RAIL_WIDTH + (w - NAV_RAIL_WIDTH - panelW) / 2
-  const cy = HEADER + mapH / 2
+  const cy = HEADER_H + mapH / 2
 
   // keep every target clear of the card that points at it, and inside the visible map
   const clear = (x: number, cardLeft: number, pad: number) =>
@@ -86,11 +87,15 @@ function anchorFor(step: number, w: number, h: number, panelW: number): Anchor {
     }
   }
 
-  // The header search control is centered between the breadcrumb and presence cluster.
+  // Anchor to the real Commands ⌘K button in the header (top-right).
+  // Measure it once per step change; fall back to a sensible estimate.
   const left = Math.max(NAV_RAIL_WIDTH + 24, w - 24 - CARD_W)
-  const top = HEADER + 36
-  const searchW = Math.min(430, Math.max(280, w - NAV_RAIL_WIDTH - 700))
-  const box = { x: NAV_RAIL_WIDTH + (w - NAV_RAIL_WIDTH - searchW) / 2, y: 7, w: searchW, h: 42 }
+  const top = HEADER_H + 36
+  const btn = document.querySelector('button[aria-label="Open command palette"]')
+  const r = btn?.getBoundingClientRect()
+  const box = r
+    ? { x: r.x, y: r.y, w: r.width, h: r.height }
+    : { x: w - 220, y: 8, w: 160, h: 26 }
   return {
     card: { left, top },
     leader: { x1: left + CARD_W - 180, y1: top - 8, x2: box.x + box.w / 2, y2: box.y + box.h + 2 },

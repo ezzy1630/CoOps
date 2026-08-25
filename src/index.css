@@ -19,14 +19,14 @@
   --color-linebright: #cfccc1;
   --color-ink: #1d1c17;
   --color-mut: #6d6a60;
-  --color-dim: #837f74;
+  --color-dim: #6f6b61;
 
   --color-task: #2557d6;
   --color-artifact: #1e7a3d;
   --color-permission: #a16207;
   --color-escalation: #c03221;
   --color-guard: #6d28d9;
-  --color-human: #a16207;
+  --color-human: #b8700f;
   --color-ok: #1e7a3d;
 
   /* map surfaces are deliberately separate from app chrome. The map keeps
@@ -49,7 +49,7 @@
   --color-map-permission: #a16207;
   --color-map-escalation: #c03221;
   --color-map-guard: #6d28d9;
-  --color-map-human: #a16207;
+  --color-map-human: #b8700f;
 }
 
 /* ── dark theme: same tokens, warm charcoal — swap, don't redesign ── */
@@ -64,14 +64,14 @@ html.dark {
   --color-linebright: #3c4041;
   --color-ink: #e5e7e4;
   --color-mut: #a1a6a2;
-  --color-dim: #7d8380;
+  --color-dim: #8a908c;
 
   --color-task: #91a9dc;
   --color-artifact: #63bd82;
   --color-permission: #d19a3f;
   --color-escalation: #e86a55;
   --color-guard: #ab8df2;
-  --color-human: #d19a3f;
+  --color-human: #dbad4f;
   --color-ok: #63bd82;
 
   /* Neutral charcoal on the map gives the warm product chrome a clear
@@ -93,7 +93,7 @@ html.dark {
   --color-map-permission: #be9858;
   --color-map-escalation: #c87565;
   --color-map-guard: #9a8ab8;
-  --color-map-human: #bf955c;
+  --color-map-human: #d4a84e;
 }
 
 :root {
@@ -103,9 +103,9 @@ html.dark {
 }
 
 html.dark {
-  --map-label-alpha: 0.7;
+  --map-label-alpha: 0.85;
   --map-label-spacing: 0.16em;
-  --map-inscription-alpha: 0.58;
+  --map-inscription-alpha: 0.62;
 }
 
 html,
@@ -222,7 +222,21 @@ html.dark .coops-map .map-gateway-ring {
     animation: none;
     opacity: 0;
   }
+  .thinking-dot {
+    animation: none;
+  }
 }
+
+/* ── thinking dots ── */
+@keyframes think {
+  0%, 60%, 100% { opacity: 0.25 }
+  30% { opacity: 1 }
+}
+.thinking-dot {
+  animation: think 1.2s ease-in-out infinite;
+}
+.thinking-dot:nth-child(2) { animation-delay: 0.15s }
+.thinking-dot:nth-child(3) { animation-delay: 0.3s }
 
 svg text {
   user-select: none;

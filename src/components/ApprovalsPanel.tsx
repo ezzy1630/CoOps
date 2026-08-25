@@ -1,11 +1,10 @@
 import { Check, X } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { backendUrl } from '../live'
 import { deptById, personById, getTools } from '../data/company'
 import { cx, timeAgo } from '../utils'
-import { Chip, Pill } from './ui'
+import { Chip, Modal, Pill } from './ui'
 import type { PendingApproval, Ref, WorldEvent } from '../types'
 
 /**
@@ -119,13 +118,30 @@ export default function ApprovalsPanel() {
 const RESOLVED_TYPES = new Set(['AccountConnected', 'ApprovalGranted', 'BlueprintApproved', 'TaskFailed'])
 
 function DenyButton({ approval }: { approval: PendingApproval }) {
+  const [confirming, setConfirming] = useState(false)
+
+  const handleClick = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (!confirming) {
+      setConfirming(true)
+      setTimeout(() => setConfirming(false), 3000)
+      return
+    }
+    useStore.getState().deny(approval)
+  }
+
   return (
     <button
-      className="btn h-7 px-2.5 text-[12px] text-mut"
-      title="Deny this request; the task is closed as failed"
-      onClick={(event) => { event.stopPropagation(); useStore.getState().deny(approval) }}
+      className={cx(
+        'btn h-7 px-2.5 text-[12px] transition-colors',
+        confirming
+          ? 'border-escalation/50 bg-escalation/10 text-escalation'
+          : 'text-escalation hover:border-escalation/50 hover:bg-escalation/10',
+      )}
+      title={confirming ? 'Click again to confirm — the task will be closed as failed' : 'Deny this request; the task is closed as failed'}
+      onClick={handleClick}
     >
-      {approval.kind === 'blueprint' ? 'Reject' : 'Deny'}
+      {confirming ? `Confirm ${approval.kind === 'blueprint' ? 'reject' : 'deny'} ↵` : approval.kind === 'blueprint' ? 'Reject' : 'Deny'}
     </button>
   )
 }
@@ -500,22 +516,9 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        requestClose()
-      }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/25">
-      <div className="panel anim-fadeup w-[420px] overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+  return (
+    <Modal onClose={requestClose} width={420} ariaLabel="Connect account">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
           {mode === 'redirect' && <GoogleGlyph />}
           <span className="text-[13px] font-medium">
             {mode === 'sandbox' ? 'Simulated connection: sandbox' : mode === 'redirect' ? 'Sign in with Google' : 'Connect account'}
@@ -619,9 +622,7 @@ function OAuthModal({ approval, onClose }: { approval: PendingApproval; onClose:
             <CapabilityDiagram approval={approval} />
           </div>
         )}
-      </div>
-    </div>,
-    document.body,
+    </Modal>
   )
 }
 

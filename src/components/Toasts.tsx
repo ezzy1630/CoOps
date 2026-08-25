@@ -13,7 +13,7 @@ export default function Toasts() {
     <div
       className={cx(
         'absolute z-40 flex w-80 flex-col gap-2 transition-all',
-        mapDock ? 'bottom-[70px]' : 'top-3',
+        mapDock ? 'bottom-[70px]' : 'bottom-3',
       )}
       style={{ right: mapDock && panel ? PANEL_WIDTH[panel.kind] + 12 : 12 }}
       aria-live="polite"

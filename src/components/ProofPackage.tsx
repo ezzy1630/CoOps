@@ -1,11 +1,10 @@
 import { X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { readRunEvidence } from '../evidence/runEvidence'
 import { formatProofPackage, readProofPackage } from '../evidence/proofPackage'
 import type { ChainOfCustody, ProofSection, ProofStatus } from '../evidence/proofPackage'
-import { Pill } from './ui'
+import { Modal, Pill } from './ui'
 
 const STATUS_COLOR: Record<ProofStatus, string> = {
   verified: 'var(--color-ok)',
@@ -41,17 +40,6 @@ export default function ProofPackage({ onClose }: { onClose: () => void }) {
   }, [log, world, executionMode, liveConnection, runtimeInfo])
 
   useEffect(() => {
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') {
-        ev.stopPropagation()
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [onClose])
-
-  useEffect(() => {
     if (!copied) return
     const timer = window.setTimeout(() => setCopied(false), 1600)
     return () => window.clearTimeout(timer)
@@ -59,9 +47,9 @@ export default function ProofPackage({ onClose }: { onClose: () => void }) {
 
   const json = formatProofPackage(pkg)
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/25 p-6" onClick={onClose}>
-      <div className="panel anim-fadeup flex max-h-[86vh] w-[720px] flex-col overflow-hidden" onClick={(ev) => ev.stopPropagation()}>
+  return (
+    <Modal onClose={onClose} width={720} ariaLabel="Proof package">
+      <div className="flex max-h-[86vh] flex-col">
         <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
           <span className="font-mono text-[10px] tracking-wider text-dim uppercase">Proof package</span>
           <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
@@ -103,8 +91,7 @@ export default function ProofPackage({ onClose }: { onClose: () => void }) {
           Folded from the event log · a field with no recorded value is shown as a gap, never filled in
         </div>
       </div>
-    </div>,
-    document.body,
+    </Modal>
   )
 }
 

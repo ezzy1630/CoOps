@@ -1,10 +1,9 @@
 import { X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { getDepartments, deptById } from '../data/company'
 import { cx, fmtClock, fmtDay, fmtDuration, fmtUsd } from '../utils'
-import { Chip, Pill, typeLabel } from './ui'
+import { Chip, Modal, Pill, typeLabel } from './ui'
 import type { EventType, Task, WorldEvent } from '../types'
 import { readRunEvidence } from '../evidence/runEvidence'
 import { readProofPackage } from '../evidence/proofPackage'
@@ -435,17 +434,6 @@ function TraceModal({ taskId, onClose }: { taskId: string; onClose: () => void }
   const world = useStore((s) => s.world)
   const task = world.tasks.get(taskId)
 
-  useEffect(() => {
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') {
-        ev.stopPropagation()
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [onClose])
-
   const events = log.filter((e) => e.taskId === taskId && e.type !== 'Chat').sort((a, b) => a.ts - b.ts)
   const t0 = events.length > 0 ? events[0].ts : task?.createdAt ?? Date.now()
   const t1 = Math.max(task?.endedAt ?? 0, events.length > 0 ? events[events.length - 1].ts : t0)
@@ -459,58 +447,55 @@ function TraceModal({ taskId, onClose }: { taskId: string; onClose: () => void }
     return { e, left, width }
   })
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/25" onClick={onClose}>
-      <div className="panel anim-fadeup w-[560px] overflow-hidden" onClick={(ev) => ev.stopPropagation()}>
-        <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-dim">Trace</span>
-          <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{task?.title ?? taskId}</span>
-          <Pill className={cx(META, 'text-mut')}>{fmtDuration(range)}</Pill>
-          <button
-            className="rounded-sm px-1 py-0.5 text-dim hover:bg-hover hover:text-ink"
-            title="Close"
-            onClick={onClose}
-          >
-            <X size={14} />
-          </button>
-        </div>
-
-        <div className="max-h-[60vh] overflow-y-auto px-3 py-2.5">
-          {spans.map(({ e, left, width }) => {
-            const c = typeColor(e.type)
-            return (
-              <div key={e.id} className="flex items-center gap-2 py-[3px]">
-                <span
-                  className="w-[188px] shrink-0 truncate font-mono text-[10px] text-mut"
-                  title={`${typeLabel(e.type)} · ${e.title}`}
-                >
-                  <span style={{ color: c }}>{typeLabel(e.type)}</span> · {e.title}
-                </span>
-                <span className="relative h-3 min-w-0 flex-1 rounded-sm bg-ink/20">
-                  <span
-                    className="absolute top-0 h-3 rounded-sm"
-                    style={{
-                      left: `${left}%`,
-                      width: `${width}%`,
-                      background: `color-mix(in srgb, ${c} 55%, transparent)`,
-                      borderLeft: `2px solid ${c}`,
-                    }}
-                  />
-                </span>
-                <span className="w-[42px] shrink-0 text-right font-mono text-[10px] text-dim tabular-nums">
-                  +{fmtDuration(e.ts - t0)}
-                </span>
-              </div>
-            )
-          })}
-          {spans.length === 0 && <div className="py-6 text-center text-[11.5px] text-dim">No spans recorded for this task.</div>}
-        </div>
-
-        <div className="border-t border-line px-3 py-2 font-mono text-[10.5px] text-dim">
-          Event-log trace · durations use measured latency or declared travel time
-        </div>
+  return (
+    <Modal onClose={onClose} width={560} ariaLabel="Task trace">
+      <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-dim">Trace</span>
+        <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{task?.title ?? taskId}</span>
+        <Pill className={cx(META, 'text-mut')}>{fmtDuration(range)}</Pill>
+        <button
+          className="rounded-sm px-1 py-0.5 text-dim hover:bg-hover hover:text-ink"
+          title="Close"
+          onClick={onClose}
+        >
+          <X size={14} />
+        </button>
       </div>
-    </div>,
-    document.body,
+
+      <div className="max-h-[60vh] overflow-y-auto px-3 py-2.5">
+        {spans.map(({ e, left, width }) => {
+          const c = typeColor(e.type)
+          return (
+            <div key={e.id} className="flex items-center gap-2 py-[3px]">
+              <span
+                className="w-[188px] shrink-0 truncate font-mono text-[10px] text-mut"
+                title={`${typeLabel(e.type)} · ${e.title}`}
+              >
+                <span style={{ color: c }}>{typeLabel(e.type)}</span> · {e.title}
+              </span>
+              <span className="relative h-3 min-w-0 flex-1 rounded-sm bg-ink/20">
+                <span
+                  className="absolute top-0 h-3 rounded-sm"
+                  style={{
+                    left: `${left}%`,
+                    width: `${width}%`,
+                    background: `color-mix(in srgb, ${c} 55%, transparent)`,
+                    borderLeft: `2px solid ${c}`,
+                  }}
+                />
+              </span>
+              <span className="w-[42px] shrink-0 text-right font-mono text-[10px] text-dim tabular-nums">
+                +{fmtDuration(e.ts - t0)}
+              </span>
+            </div>
+          )
+        })}
+        {spans.length === 0 && <div className="py-6 text-center text-[11.5px] text-dim">No spans recorded for this task.</div>}
+      </div>
+
+      <div className="border-t border-line px-3 py-2 font-mono text-[10.5px] text-dim">
+        Event-log trace · durations use measured latency or declared travel time
+      </div>
+    </Modal>
   )
 }

@@ -1,10 +1,9 @@
 import { X } from '@phosphor-icons/react'
-import { useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { fetchGateReport } from '../live'
 import type { GateId, GateResult, GateStatus, GateVerdict } from '../types'
 import { cx, fmtClock } from '../utils'
+import { Modal } from './ui'
 
 const GATE_LABEL: Record<GateId, string> = {
   'local-file': 'Local file discovery',
@@ -50,20 +49,9 @@ export default function PreflightPanel({ onClose }: { onClose: () => void }) {
   const report = useStore((s) => s.preflightReport)
   const executionMode = useStore((s) => s.executionMode)
 
-  useEffect(() => {
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') {
-        ev.stopPropagation()
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [onClose])
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/25 p-6" onClick={onClose}>
-      <div className="panel anim-fadeup flex max-h-[86vh] w-[600px] flex-col overflow-hidden" onClick={(ev) => ev.stopPropagation()}>
+  return (
+    <Modal onClose={onClose} width={600} ariaLabel="Go/No-Go gates">
+      <div className="flex max-h-[86vh] flex-col">
         <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
           <span className="font-mono text-[10px] tracking-wider text-dim uppercase">Go / No-Go gates</span>
           <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
@@ -71,7 +59,7 @@ export default function PreflightPanel({ onClose }: { onClose: () => void }) {
           </span>
           <button
             type="button"
-            className="cursor-pointer rounded-sm px-1.5 py-0.5 text-[10.5px] text-dim hover:bg-hover hover:text-ink"
+            className="btn h-7 px-2 text-[11px]"
             onClick={() => {
               if (executionMode === 'live') void fetchGateReport().then((r) => {
                 if (r) useStore.setState({ preflightReport: r })
@@ -104,8 +92,7 @@ export default function PreflightPanel({ onClose }: { onClose: () => void }) {
           </>
         )}
       </div>
-    </div>,
-    document.body,
+    </Modal>
   )
 }
 
