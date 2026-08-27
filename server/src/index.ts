@@ -103,6 +103,7 @@ const brainCtx: BrainCtx = {
 }
 
 const RESOLUTION_TYPES = new Set(['AccountConnected', 'ApprovalGranted', 'BlueprintApproved'])
+const continuedPublicationRequests = new Set<string>()
 
 /** The live routing roster: every agent this server can address, seeded plus spawned. */
 const DEPT_OF_AGENT: Record<string, string> = { ...AGENT_DEPT }
@@ -159,10 +160,37 @@ function restoreSpawnedAgents(events: readonly WorldEvent[]): void {
 function onAppended(e: WorldEvent): void {
   bus.publish(e)
   spawnFromBlueprintResolution(e)
+  continueApprovedPublication(e)
   if (e.type === 'Chat' && e.from?.kind === 'person' && e.to?.kind === 'agent') {
     const text = typeof e.payload?.text === 'string' ? e.payload.text : ''
     if (text) brain.handle(brainCtx, e.to.id, DEPT_OF_AGENT[e.to.id] ?? org.deptOfAgent(e.to.id), text, e.from.id)
   }
+}
+
+/** A publication continuation begins only from the durable resolution event.
+ * The YouTube adapter then reads that authority from the same event log. */
+function continueApprovedPublication(approval: WorldEvent): void {
+  if (approval.type !== 'ApprovalGranted' || approval.from?.kind !== 'person') return
+  const authority = approval.payload?.receipt
+  const requestId = approval.payload?.reason
+  if (authority?.kind !== 'authority' || !authority.live || !authority.ok || !requestId) return
+  if (continuedPublicationRequests.has(requestId)) return
+
+  const request = store.get(requestId)
+  const proposal = request?.payload?.receipt
+  if (
+    request?.type !== 'PermissionRequest'
+    || request.blockedOn?.kind !== 'approval'
+    || request.from?.kind !== 'agent'
+    || proposal?.kind !== 'authority'
+    || proposal.fields.checksum !== authority.fields.checksum
+    || !brain.continuePublication
+  ) return
+
+  continuedPublicationRequests.add(requestId)
+  void brain.continuePublication(brainCtx, request, approval).catch(err => {
+    console.error(`[publication] continuation failed for ${requestId}:`, err)
+  })
 }
 
 const store = await EventStore.open(cfg.dataDir, onAppended)

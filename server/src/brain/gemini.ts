@@ -166,6 +166,71 @@ export function createGeminiBrain(opts: {
         })
       }
     },
+    async continuePublication(ctx, request, approval) {
+      const authority = approval.payload?.receipt
+      const proposal = request.payload?.receipt
+      const agentId = request.from?.kind === 'agent' ? request.from.id : null
+      const approver = approval.from?.kind === 'person' ? approval.from : null
+      const deptId = request.deptFrom ?? request.deptTo
+      if (
+        request.type !== 'PermissionRequest'
+        || request.blockedOn?.kind !== 'approval'
+        || proposal?.kind !== 'authority'
+        || authority?.kind !== 'authority'
+        || !authority.live
+        || !authority.ok
+        || proposal.fields.checksum !== authority.fields.checksum
+        || !agentId
+        || !approver
+        || !deptId
+      ) return
+
+      const startedAt = performance.now()
+      // The adapter reads the approved authority back from the event log. The
+      // event passed here identifies the continuation; it is not an alternate
+      // source of publication authority.
+      const result = await workspaceTools.call(
+        'youtube',
+        `Approved publication of ${authority.fields.title ?? proposal.fields.title ?? 'the staged asset'}.`,
+      )
+      const latencyMs = Math.round(performance.now() - startedAt)
+      const publication = result.receipt?.kind === 'publication' ? result.receipt : null
+      const videoId = publication?.fields.videoId?.trim()
+      const published = result.ok && publication?.live === true && publication.ok && Boolean(videoId)
+
+      ctx.emit({
+        type: 'ToolCall',
+        taskId: request.taskId,
+        from: { kind: 'agent', id: agentId },
+        deptFrom: deptId,
+        title: published
+          ? `youtube: published ${authority.fields.title ?? proposal.fields.title ?? 'approved asset'}`
+          : 'youtube: approved publication not completed',
+        detail: result.detail,
+        payload: {
+          tool: 'youtube',
+          action: `continue after approval ${approval.id}`,
+          latencyMs,
+          ...(publication ? { receipt: publication } : {}),
+        },
+      })
+      const resultText = published
+        ? `Published "${authority.fields.title ?? proposal.fields.title ?? 'the approved asset'}" to YouTube as ${videoId}. The live receipt is in the proof package.`
+        : `Publication did not reach YouTube. ${result.detail}`
+      ctx.schedule([{
+        at: 300,
+        e: {
+          type: 'Chat',
+          from: { kind: 'agent', id: agentId },
+          to: approver,
+          deptFrom: deptId,
+          deptTo: request.deptTo ?? request.deptFrom,
+          taskId: request.taskId,
+          title: resultText,
+          payload: { text: resultText },
+        },
+      }])
+    },
   }
 }
 

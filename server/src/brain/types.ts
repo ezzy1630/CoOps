@@ -10,4 +10,7 @@ export interface BrainCtx {
 
 export interface BrainAdapter {
   handle(ctx: BrainCtx, agentId: string, deptId: string, text: string, personId: string): Promise<void>
+  /** Continue a publication from durable request and approval events, without
+   * manufacturing another human-authored chat turn. */
+  continuePublication?(ctx: BrainCtx, request: WorldEvent, approval: WorldEvent): Promise<void>
 }
