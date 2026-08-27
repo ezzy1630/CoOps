@@ -85,7 +85,7 @@ function provenanceDetail(provenance: ArtifactProvenance, source: string | undef
         ? `Content attached by ${source.trim()}.`
         : 'Content attached by the live backend.'
     case 'rehearsal-template':
-      return 'Sample document from the local demo scenario.'
+      return 'Sample document from a labeled local rehearsal.'
     case 'metadata-only':
       return 'The live event announced a delivery but attached no readable content.'
   }

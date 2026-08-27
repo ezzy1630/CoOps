@@ -34,9 +34,26 @@ export default function ProofPackage({ onClose }: { onClose: () => void }) {
   const [copied, setCopied] = useState(false)
 
   const pkg = useMemo(() => {
-    const tasks = [...world.tasks.values()]
-    const evidence = readRunEvidence({ events: log, tasks, executionMode, liveConnection, runtimeInfo })
-    return readProofPackage({ events: log, evidence, runtimeInfo })
+    const rehearsalId = executionMode === 'rehearsal'
+      ? log.reduce<{ id: string; ts: number } | null>((latest, event) => {
+          const id = event.payload?.rehearsalId
+          if (!id || (latest && event.ts < latest.ts)) return latest
+          return { id, ts: event.ts }
+        }, null)?.id
+      : null
+
+    const events = executionMode === 'rehearsal'
+      ? rehearsalId
+        ? log.filter((event) => event.payload?.rehearsalId === rehearsalId)
+        : []
+      : log
+    const taskIds = new Set(events.flatMap((event) => event.taskId ? [event.taskId] : []))
+    const tasks = executionMode === 'rehearsal'
+      ? [...world.tasks].filter(([taskId]) => taskIds.has(taskId)).map(([, task]) => task)
+      : [...world.tasks.values()]
+
+    const evidence = readRunEvidence({ events, tasks, executionMode, liveConnection, runtimeInfo })
+    return readProofPackage({ events, evidence, runtimeInfo })
   }, [log, world, executionMode, liveConnection, runtimeInfo])
 
   useEffect(() => {
