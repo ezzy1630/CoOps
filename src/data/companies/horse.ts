@@ -118,11 +118,6 @@ const BASE_AGENTS: AgentDef[] = [
     toolIds: ['bamboohr'], ownerId: 'leo',
   },
   {
-    id: 'w-horse', name: 'Horse Launch Agent', deptId: 'marketing', kind: 'worker',
-    purpose: 'Carries the launch video from a developer laptop to YouTube end to end.',
-    skills: ['Media handoff', 'Provenance tracking'], toolIds: ['gdrive', 'youtube'], ownerId: 'maya',
-  },
-  {
     id: 'w-connector', name: 'Developer Machine Connector', deptId: 'engineering', kind: 'worker',
     purpose: 'Scans the allow-listed export directory and verifies file checksums.',
     skills: ['Allow-listed scan', 'Checksum verification'], toolIds: ['devlaptop'], ownerId: 'alex',

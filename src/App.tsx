@@ -9,6 +9,7 @@ import ReplayScrubber from './components/ReplayScrubber'
 import Toasts from './components/Toasts'
 import PersonaGate from './components/PersonaGate'
 import { getRehearsal } from './engine/rehearsals'
+import { getCompany } from './data/company'
 
 const PixelMap = lazy(() => import('./map/pixel/PixelMap'))
 const AgentRoom = lazy(() => import('./components/AgentRoom'))
@@ -93,7 +94,7 @@ export default function App() {
         <Wordmark />
         <p className="max-w-sm text-[14px] leading-relaxed text-mut">
           CoOps is a live map of a whole company, so it needs a desktop screen.
-          Open it on a laptop or larger to explore Everpeak Outfitters.
+          Open it on a laptop or larger to explore {getCompany().name}.
         </p>
       </div>
     )
@@ -199,7 +200,7 @@ function LoadingSurface({ compact = false }: { compact?: boolean }) {
 export function Wordmark({ size = 22 }: { size?: number }) {
   return (
     <div className="flex items-center gap-2 select-none">
-      <div className="relative flex items-center justify-center rounded-lg bg-ink p-1 text-bg shadow-xs">
+      <div className="relative flex items-center justify-center rounded-lg p-1 text-ink">
         <svg width={size} height={size} viewBox="0 0 32 32">
           <circle cx="16" cy="16" r="10.5" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3.4 3.1" />
           <circle cx="16" cy="6" r="3.2" fill="var(--color-task)" />

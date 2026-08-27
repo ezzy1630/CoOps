@@ -75,21 +75,22 @@ export function blueprintEvent(personId: string) {
   }))
 }
 
-/** Act A: Maya and the Marketing Agent run the interview on stage or automated. */
+/** Act A: the automated route starts from a complete brief; chat can still run the interview. */
 export function horseInterviewAuto(api: EngineApi, personId: string) {
   const s = new Script()
   const op = 'op-marketing'
   s.then(600, chat(op, 'person', personId, "Find Alex's latest horse dating app walkthrough and get it onto our YouTube channel before launch."))
-  for (let i = 0; i < HORSE_INTERVIEW_QUESTIONS.length; i++) {
-    s.then(1900, chat(op, 'agent', personId, HORSE_INTERVIEW_QUESTIONS[i]))
-    s.then(2400, chat(op, 'person', personId, HORSE_AUTO_ANSWERS[i]))
-  }
-  s.then(1800, chat(op, 'agent', personId, 'That’s everything I need. Here’s the blueprint. Review the inherited config and approve when ready.'))
+  s.then(1000, chat(
+    op,
+    'agent',
+    personId,
+    "Marketing cannot access Alex's laptop, and Engineering cannot access the YouTube channel. I prepared a scoped launch agent to coordinate that handoff.",
+  ))
   const bp = blueprintEvent(personId)
-  s.then(900, bp)
+  s.then(800, bp)
   api.schedule(s.steps)
   api.onResolve(bp.id, () => horseActB(api, personId, bp.id))
-  api.autoResolve(bp.id, s.length + 14_000, personId)
+  api.autoResolve(bp.id, s.length + 2500, personId)
   return bp.id
 }
 
@@ -256,7 +257,7 @@ export function horseActB(api: EngineApi, personId: string, blueprintEventId: st
   return taskId
 }
 
-/** Act C: checkpoint resume — publish to YouTube, complete with the trace. */
+/** Act C: checkpoint resume, record the simulated YouTube result, and complete the trace. */
 export function horseActC(api: EngineApi, personId: string, taskId: string) {
   const w = HORSE_AGENT_ID
   const s = new Script()
@@ -264,8 +265,8 @@ export function horseActC(api: EngineApi, personId: string, taskId: string) {
   s.then(1400, sim(ev({
     type: 'ToolCall', taskId,
     from: agentRef(w), deptFrom: 'marketing', deptTo: 'marketing',
-    title: 'YouTube: videos.insert published',
-    detail: `Uploaded privately to the launch channel · processing processed · video id ${VIDEO_ID} · checksum matches staging receipt.`,
+    title: 'Rehearsal result: YouTube videos.insert recorded',
+    detail: `Simulated private status · fixture video id ${VIDEO_ID} · checksum matches the staging receipt · no external request was sent.`,
     payload: {
       tool: 'YouTube', action: 'videos.insert', latencyMs: 3120,
       receipt: HORSE_YOUTUBE_RECEIPT,
@@ -275,15 +276,15 @@ export function horseActC(api: EngineApi, personId: string, taskId: string) {
         resourceId: VIDEO_ID,
         url: `https://youtu.be/${VIDEO_ID}`,
         status: 'private',
-        details: 'Uploaded privately to launch channel · Processing complete',
+        details: 'Rehearsal fixture only · No YouTube request was sent',
       },
     },
   })))
   s.then(2200, sim(ev({
     type: 'ArtifactDelivered', taskId, edge: 'artifact', travelMs: 2200,
     from: agentRef(w), to: personRef(personId), deptFrom: 'marketing', deptTo: 'marketing',
-    title: 'Delivered: Publication receipt',
-    detail: 'Private by API policy until audit — ready for release. Full provenance chain attached.',
+    title: 'Recorded: Rehearsal publication receipt',
+    detail: 'Simulated private publication result. Full rehearsal provenance chain attached; no external upload occurred.',
     payload: {
       artifact: { name: 'horse-walkthrough-v3 publication receipt', type: 'Receipt', template: HORSE_YOUTUBE_TEMPLATE },
       receipt: HORSE_YOUTUBE_RECEIPT,
@@ -299,8 +300,8 @@ export function horseActC(api: EngineApi, personId: string, taskId: string) {
   s.then(1800, sim(ev({
     type: 'TaskCompleted', taskId,
     from: agentRef(w), deptFrom: 'marketing', deptTo: 'marketing',
-    title: 'Launch video is live (private-ready)',
-    detail: 'Discovered on Engineering · staged verified · approved by Maya · published to YouTube.',
+    title: 'Rehearsal complete: publication result recorded',
+    detail: 'Fixture discovery recorded · staging recorded · Maya approval recorded · simulated YouTube result recorded.',
     payload: { receipt: HORSE_YOUTUBE_RECEIPT },
   })))
   cameraCue(api, s.length + 800, { type: 'fit' })
@@ -308,19 +309,19 @@ export function horseActC(api: EngineApi, personId: string, taskId: string) {
     type: 'Chat',
     from: agentRef('op-marketing'),
     to: personRef(personId),
-    title: "Done — the walkthrough is on our channel, private until you flip it public. Every hop has a receipt: laptop, bucket, approval, video id.",
+    title: 'Rehearsal complete. The fixture recorded discovery, staging, approval, and a simulated private YouTube result. No external upload occurred.',
     payload: {
-      text: "Done — the walkthrough is on our channel, private until you flip it public. Every hop has a receipt: laptop, bucket, approval, video id.",
+      text: 'Rehearsal complete. The fixture recorded discovery, staging, approval, and a simulated private YouTube result. No external upload occurred.',
       cloudStatus: {
         provider: 'youtube',
         serviceName: 'YouTube Data API v3',
         resourceId: VIDEO_ID,
         url: `https://youtu.be/${VIDEO_ID}`,
         status: 'private',
-        details: 'Official Walkthrough v3 · Ready for release',
+        details: 'Rehearsal fixture · No external upload occurred',
       },
     },
   })))
   api.schedule(s.steps)
-  api.toast('Checkpoint resumed', 'Publication approved. The Horse Launch Agent is finishing the YouTube delivery.')
+  api.toast('Checkpoint resumed', 'Approval recorded. The Horse Launch Agent is recording the simulated YouTube result.')
 }

@@ -42,8 +42,8 @@ export default function NavRail() {
       {/* Brand Header */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-3.5">
         <div className="flex items-center gap-2.5">
-          <div className="relative flex size-6 items-center justify-center rounded-lg bg-ink text-bg shadow-xs">
-            <svg width="14" height="14" viewBox="0 0 32 32" className="text-bg">
+          <div className="relative flex size-6 items-center justify-center rounded-lg text-ink">
+            <svg width="14" height="14" viewBox="0 0 32 32" className="text-ink">
               <circle cx="16" cy="16" r="10.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeDasharray="4 3.5" />
               <circle cx="16" cy="6" r="3.2" fill="var(--color-task)" />
               <circle cx="25" cy="21" r="3.2" fill="var(--color-artifact)" />

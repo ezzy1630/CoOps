@@ -4,11 +4,11 @@ CoOps moves a launch video off a developer's laptop and onto the company's YouTu
 
 Marketing cannot read the laptop. Engineering cannot reach the channel. One agent holding both permissions would be the easy answer and the wrong one, so CoOps coordinates the handoff instead. Marketing's agent sends typed work to Engineering, an Engineering connector finds and hashes the file inside an allow-listed folder, the bytes cross into Cloud Storage, publication stops for a named human, and the Marketing-owned publisher uploads the object that person approved.
 
-Every one of those steps leaves a receipt: the checksum of the file on the laptop, the stored object and its generation, the approver with the exact title and privacy setting they saw, the YouTube video id, and the revision that ran. Read them in Activity → **Proof package**. Its chain-of-custody verdict says `verified` only when the discovered, stored and approved bytes carry one checksum, so an unfinished run cannot read as a finished one.
+Every one of those steps leaves a receipt: the checksum of the file on the laptop, the stored object and its generation, the approver with the exact title and privacy setting they saw, the YouTube video id, and the revision that ran. Read them in Activity → **Audit Package**. Its chain-of-custody verdict says `verified` only when the discovered, stored and approved bytes carry one checksum, so an unfinished run cannot read as a finished one.
 
 **Every department gets its own agent team.** CoOps (Company Operations) is the visual organizational layer for a company's agent fleet: every department has a persistent department agent that runs local worker agents, trades typed tasks with peer departments, and, when blocked, knows exactly **which named human** can unblock it. There is deliberately no company-wide root agent: the empty center of the map is the point.
 
-The repository contains a React frontend and a TypeScript event server. Live mode streams real server events and names the providers behind them in the UI. Rehearsal mode is an explicit, labeled local dataset for walking through the full product-launch scenario without credentials.
+The repository contains a React frontend and a TypeScript event server. Live mode streams real server events and names the providers behind them in the UI. Rehearsal mode is an explicit, labeled local dataset that records the product-launch path without making external calls.
 
 ## Run it
 
@@ -21,15 +21,17 @@ npm run server
 
 Open http://localhost:5173 in **Chrome on a desktop** (voice input uses the Web Speech API).
 
+The zero-configuration frontend mounts Horse Launch Co so **Run rehearsal** uses one consistent Marketing-to-Engineering story. Set `VITE_COMPANY=everpeak` before starting Vite to load the general sample company instead.
+
 ## What to try
 
 1. Open the runtime inspector in the top bar. It reports the exact model, storage, guardrail, workspace adapter, A2A posture, Cloud Run revision, and run ID behind the events you are watching.
-2. Pick a persona on the landing screen. The app adapts to Marketing Manager, COO, or Finance Ops Lead authority.
+2. Pick a persona on the landing screen. The app adapts to GTM Lead, COO, or Finance Ops Lead authority.
 3. Scroll to zoom the company map: departments → agents → task envelopes on the edges.
 4. Choose **Run rehearsal** on the landing screen for the deterministic scripted path. Choosing a persona enters Live mode; press **Start demo** to switch the mounted app into that same guided rehearsal.
 5. Click any finished task and press **↺ Replay** to replay asynchronous work in seconds.
 6. Open **Activity** to inspect the runtime, event log, tool actions, human gates, artifact provenance, guardrail blocks, and per-task traces.
-7. Open **Proof package** in the Activity evidence strip for the receipt behind every external claim, and the chain-of-custody verdict tying them together.
+7. Open **Audit Package** in Activity for the receipts behind the run and the chain-of-custody verdict tying them together. Rehearsal receipts say `recorded only`; only a live receipt can say `verified`.
 8. **⌘K** jumps to any agent, task, person, department, or approval.
 
 ## Stack
