@@ -1,7 +1,7 @@
 import { ArrowClockwise, ArrowRight, Broadcast, Flask, Play, Warning } from '@phosphor-icons/react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store'
-import { getPersonas, personById } from '../data/company'
+import { getCompany, getPersonas, personById } from '../data/company'
 import { rehearsals } from '../engine/rehearsals'
 import { Wordmark } from '../App'
 import RuntimeStatus from './RuntimeStatus'
@@ -33,6 +33,8 @@ const APPROVER_PERSONA = 'dana'
  * paper veil above it. Pick who you are, and the veil lifts.
  */
 export default function PersonaGate() {
+  const horseLaunch = getCompany().name === 'Horse Launch Co'
+
   return (
     <motion.div
       initial={false}
@@ -52,14 +54,18 @@ export default function PersonaGate() {
         <div className="w-full max-w-[640px] shrink-0 py-10 pl-[8vw] pr-6">
           <motion.div {...rise(0.06)} className="inline-flex items-center gap-2 rounded-full border border-line bg-surface/70 px-3 py-1 text-[11px] font-medium text-mut shadow-xs mb-3">
             <span className="size-1.5 rounded-full bg-task animate-pulse" />
-            <span>Interactive Company Model</span>
+            <span>{horseLaunch ? 'Horse Launch Co · Launch day' : 'Interactive Company Model'}</span>
           </motion.div>
           
           <motion.h1 {...rise(0.08)} className="text-[34px] md:text-[38px] leading-[1.08] font-bold tracking-tight text-ink">
-            Every department gets an autonomous agent team.
+            {horseLaunch
+              ? "The horse dating app launches today. Its video is stuck on Alex's laptop."
+              : 'Every department gets an autonomous agent team.'}
           </motion.h1>
           <motion.p {...rise(0.12)} className="mt-3.5 max-w-[48ch] text-[14px] leading-relaxed text-mut font-normal">
-            Choose a perspective to explore how agents collaborate across departments, handle real business tasks, and pause for human approval.
+            {horseLaunch
+              ? 'Marketing cannot access the laptop. Engineering cannot access the company YouTube channel. CoOps coordinates the handoff without combining those permissions.'
+              : 'Choose a perspective to explore how agents collaborate across departments, handle real business tasks, and pause for human approval.'}
           </motion.p>
 
           <motion.div {...rise(0.16)} className="mt-5 max-w-[520px]">

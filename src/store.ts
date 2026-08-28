@@ -816,7 +816,15 @@ export const useStore = create<Store>()((set, get) => {
     },
     toggleReplayPlay() {
       const r = get().replay
-      if (r) set({ replay: { ...r, playing: !r.playing, wallMs: r.wallMs >= r.durationMs ? 0 : r.wallMs } })
+      if (r) {
+        set({
+          replay: {
+            ...r,
+            playing: !r.playing,
+            wallMs: !r.playing && r.wallMs >= r.durationMs ? 0 : r.wallMs,
+          },
+        })
+      }
     },
     exitReplay() {
       set({ replay: null })

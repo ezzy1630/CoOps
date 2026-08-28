@@ -140,7 +140,7 @@ export function readProofPackage({ events, evidence, runtimeInfo }: ProofPackage
     chainOfCustody: readChainOfCustody(receipts),
     recorded,
     required,
-    complete: recorded === required,
+    complete: sections.every((section) => section.status === 'verified'),
   }
 }
 
@@ -192,7 +192,7 @@ function readSection(spec: SectionSpec, receipt: Receipt | null): ProofSection {
   return {
     id: spec.id,
     title: spec.title,
-    claim: spec.claim,
+    claim: proofClaim(spec.claim, recorded, live),
     status: statusOf(recorded, fields.length, live),
     live,
     recordedAt: nonEmpty(receipt?.at),
@@ -210,6 +210,7 @@ function readCoOpsSection(
   const envelopes = events.filter((event) => event.type === 'TaskRequest').length
   const approval = lastOf(events, 'ApprovalGranted')
   const completion = lastOf(events, 'TaskCompleted')
+  const revision = nonEmpty(runtimeInfo?.revision)
   const values: Record<string, string | null> = {
     execution: nonEmpty(evidence.runtime),
     runId: nonEmpty(runtimeInfo?.runId),
@@ -217,17 +218,19 @@ function readCoOpsSection(
     toolEvents: evidence.tools > 0 ? `${evidence.tools} recorded` : null,
     approvalEvent: approval ? `${approval.id} · ${approval.title}` : null,
     completionEvent: completion ? `${completion.id} · ${completion.title}` : null,
-    revision: nonEmpty(runtimeInfo?.revision),
+    revision,
   }
 
   const fields = COOPS_FIELDS.map((field) => ({ ...field, value: values[field.key] ?? null }))
   const recorded = fields.filter((field) => field.value !== null).length
-  const live = runtimeInfo?.execution === 'live'
+  const live = runtimeInfo?.execution === 'live' && revision !== null && revision.toLowerCase() !== 'local'
 
   return {
     id: 'coops',
     title: 'CoOps run',
-    claim: 'The run itself is inspectable: one typed log, one run id, one revision.',
+    claim: live
+      ? 'The run itself is inspectable: one typed log, one run id, one Cloud Run revision.'
+      : 'A local or simulated CoOps run was recorded; Cloud Run execution is not verified.',
     status: statusOf(recorded, fields.length, live),
     live,
     recordedAt: nonEmpty(runtimeInfo?.startedAt),
@@ -274,6 +277,12 @@ function isLive(receipt: Receipt | undefined): boolean {
 function statusOf(recorded: number, required: number, live: boolean): ProofStatus {
   if (recorded === 0) return 'missing'
   return recorded === required && live ? 'verified' : 'recorded'
+}
+
+function proofClaim(claim: string, recorded: number, live: boolean): string {
+  if (live) return claim
+  if (recorded > 0) return 'This step was recorded or simulated; no external action is verified.'
+  return `Required proof: ${claim}`
 }
 
 function lastOf(events: WorldEvent[], type: WorldEvent['type']): WorldEvent | null {
