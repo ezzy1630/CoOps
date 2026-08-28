@@ -24,7 +24,7 @@ Writable:
 
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\src\evidence\proofPackage.ts`
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\src\artifacts\model.ts`
-- `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-proof-honesty-fixes\state.md`
+- `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-proof-honesty-fixes\state.md`
 
 Read-only dependencies:
 

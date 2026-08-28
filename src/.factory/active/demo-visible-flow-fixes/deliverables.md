@@ -30,7 +30,7 @@ Writable:
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\src\components\NavRail.tsx`
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\.env.example`
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\README.md`
-- `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-visible-flow-fixes\state.md`
+- `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-visible-flow-fixes\state.md`
 
 Read-only dependencies:
 

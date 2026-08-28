@@ -21,7 +21,7 @@ Exercise the horse-launch demonstration through the user-facing application and 
 
 Writable:
 
-- `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-ui-rehearsal\state.md`
+- `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-ui-rehearsal\state.md`
 
 Read-only dependencies:
 

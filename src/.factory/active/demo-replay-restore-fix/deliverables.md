@@ -27,7 +27,7 @@ Writable:
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\src\map\CompanyMap.tsx`
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\src\map\pixel\PixelMap.tsx`
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\src\components\MapOverlays.tsx`
-- `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-replay-restore-fix\state.md`
+- `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-replay-restore-fix\state.md`
 
 Read-only dependencies:
 

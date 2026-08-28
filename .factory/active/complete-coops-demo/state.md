@@ -47,14 +47,14 @@ Review and merge pull request #85 independently. To complete the live production
 ## Related packets
 
 - Worker, native subagent `/root/demo_issue_triage`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-issue-triage`
-- Worker, native subagent `/root/demo_ui_rehearsal`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-ui-rehearsal`
+- Worker, native subagent `/root/demo_ui_rehearsal`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-ui-rehearsal`
 - Worker, native subagent `/root/demo_runtime_evidence`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-runtime-evidence`
-- Worker, native subagent `/root/demo_issue_triage`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-proof-honesty-fixes`
-- Worker, native subagent `/root/demo_runtime_evidence`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-approval-resume`
-- Worker, native subagent `/root/demo_ui_rehearsal`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-visible-flow-fixes`
-- Worker, native subagent `/root/demo_ui_rehearsal`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-audit-scope-qa`
-- Worker, native subagent `/root/demo_issue_triage`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-agent-identity-fix`
-- Worker, native subagent `/root/demo_runtime_evidence`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-replay-restore-fix`
+- Worker, native subagent `/root/demo_issue_triage`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-proof-honesty-fixes`
+- Worker, native subagent `/root/demo_runtime_evidence`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\server\.factory\active\demo-approval-resume`
+- Worker, native subagent `/root/demo_ui_rehearsal`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-visible-flow-fixes`
+- Worker, native subagent `/root/demo_ui_rehearsal`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-audit-scope-qa`
+- Worker, native subagent `/root/demo_issue_triage`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-agent-identity-fix`
+- Worker, native subagent `/root/demo_runtime_evidence`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-replay-restore-fix`
 - Coordinator, separate Codex thread when unblocked, blocked: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-live-production`
 - Worker, Luna subagent `/root/git_branch_review`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-git-branch-review`
 - Worker, Luna subagent `/root/git_commit_review`, done: `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-git-commit-review`

@@ -25,7 +25,7 @@ Writable:
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\server\src\index.ts`
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\server\src\brain\types.ts`
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\server\src\brain\gemini.ts`
-- `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-approval-resume\state.md`
+- `C:\Users\heroi\Code\Workspace\Src\CoOps\server\.factory\active\demo-approval-resume\state.md`
 
 Read-only dependencies:
 

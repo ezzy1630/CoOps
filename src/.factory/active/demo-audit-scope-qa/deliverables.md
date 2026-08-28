@@ -23,7 +23,7 @@ Keep the rehearsal Audit Package internally consistent by folding only the curre
 Writable:
 
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\src\components\ProofPackage.tsx`
-- `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-audit-scope-qa\state.md`
+- `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-audit-scope-qa\state.md`
 
 Read-only dependencies:
 

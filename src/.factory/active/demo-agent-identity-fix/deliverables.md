@@ -22,7 +22,7 @@ Ensure the Horse Launch Agent has one identity in the default rehearsal instead 
 Writable:
 
 - `C:\Users\heroi\Code\Workspace\Src\CoOps\src\data\companies\horse.ts`
-- `C:\Users\heroi\Code\Workspace\Src\CoOps\.factory\active\demo-agent-identity-fix\state.md`
+- `C:\Users\heroi\Code\Workspace\Src\CoOps\src\.factory\active\demo-agent-identity-fix\state.md`
 
 Read-only dependencies:
 
